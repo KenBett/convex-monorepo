@@ -1,0 +1,9 @@
+{
+  "name": "@repo/backend",
+  "version": "0.0.1",
+  "dependencies": {
+    "convex": "1.41.0",
+    "@convex-dev/auth": "0.0.94",
+    "@repo/types": "workspace:*"
+  }
+}

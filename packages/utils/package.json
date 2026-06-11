@@ -1,0 +1,8 @@
+{
+  "name": "@repo/utils",
+  "version": "0.0.1",
+  "main": "src/index.ts",
+  "dependencies": {
+    "@repo/types": "workspace:*"
+  }
+}

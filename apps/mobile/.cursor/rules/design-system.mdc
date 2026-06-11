@@ -1,0 +1,146 @@
+---
+description: Premium monochrome design system — tokens, primitives, composition, and anti-patterns
+alwaysApply: true
+---
+
+# Design system — Hero UI Native template
+
+Canonical visual and composition rules for this Expo + HeroUI Native starter. On reclone, change tokens in `global.css` and identity in `src/constants/app-config.ts` — keep shared primitives unchanged.
+
+## Design principles
+
+1. **Monochrome luxury** — Black/white accent inverts between light and dark. No random brand colors outside `global.css`.
+2. **Layered surfaces** — Screen canvas is `bg-background`. Content sits on `bg-surface` via `SurfaceCard`, not flat gray fills.
+3. **Restrained depth** — Light mode: `shadow-elevated` on cards and header controls. Dark mode: flat (token-driven via `--surface-shadow`).
+4. **Icon-first tabs** — `PremiumTabBar` shows Lucide icons only (no visible text labels).
+5. **Semibold hierarchy** — Headings use `font-semibold`. Supporting copy uses `text-caption`.
+6. **Compact CTAs** — Inline triggers use `PremiumCtaButton` or `Button size="sm"`, not default `md`.
+
+## Theme tokens (`global.css`)
+
+### Colors (semantic classes)
+
+| Token | Class | Role |
+|-------|-------|------|
+| `background` | `bg-background` | Screen canvas |
+| `surface` | `bg-surface` | Cards, icon circles, controls |
+| `foreground` | `text-foreground` | Primary text |
+| `muted` | `text-muted` | Secondary text, icons |
+| `accent` | `bg-accent` | Chips, focused tab icons |
+| `overlay-dim` | `bg-overlay-dim` | Dialog dim layer |
+| `backdrop` | `bg-backdrop` | Modal fallback |
+
+Cards use **default surface only** — see `.cursor/rules/default-surfaces-only.mdc`.
+
+### Typography utilities
+
+| Class | Use for |
+|-------|---------|
+| `text-page-title` | Screen header title, page hero |
+| `text-section-title` | Section headings (`SectionTitle` component) |
+| `text-emphasis` | Price, highlight lines |
+| `text-caption` | Supporting copy, meta rows |
+| `text-cta-label` | Primary button labels |
+
+### Spacing utilities
+
+| Class | Value | Use for |
+|-------|-------|---------|
+| `px-screen-x` | 16px | Screen horizontal padding |
+| `pt-screen-top` | 16px | Content top padding |
+| `pb-screen-bottom` | 32px | Scroll content bottom |
+| `gap-section` | 16px | Between major screen blocks |
+| `gap-section-title` | 8px | Section title wrapper |
+| `p-card` | 16px | Card internal padding |
+| `p-card-lg` | 24px | Large card padding |
+| `min-h-touch` / `min-w-touch` | 44px | Minimum touch targets |
+
+### Surface utilities
+
+| Class | Use for |
+|-------|---------|
+| `rounded-card` | All cards (`SurfaceCard`) |
+| `rounded-control` | Header avatar, theme toggle circles |
+| `shadow-elevated` | Light-mode elevation on surfaces |
+| `input-flat` | Borderless form inputs |
+
+## Required building blocks
+
+| Component | Path |
+|-----------|------|
+| `ScreenShell` | `src/components/screen-shell.tsx` |
+| `SurfaceCard` | `src/components/surface-card.tsx` |
+| `SectionTitle` | `src/components/section-title.tsx` |
+| `AppHeader` | `src/components/app-header.tsx` |
+| `PremiumCtaButton` | `src/components/premium-cta-button.tsx` |
+| `PremiumTabBar` | `src/components/premium-tab-bar.tsx` |
+| `DialogBlurOverlay` | `src/components/dialog-blur-overlay.tsx` |
+| `BlurTargetProvider` | `src/contexts/blur-target-context.tsx` (root layout) |
+
+## Screen composition recipe
+
+```tsx
+<ScreenShell title="Screen name">
+  <View className="gap-1">
+    <Text className="text-page-title">Page hero</Text>
+    <Text className="text-caption">Subtitle</Text>
+  </View>
+
+  <View className="gap-section-title">
+    <SectionTitle>Section</SectionTitle>
+    <SurfaceCard className="gap-2 p-card">
+      {/* grouped content */}
+    </SurfaceCard>
+  </View>
+</ScreenShell>
+```
+
+- List screens: `ScreenShell scrollable={false}` + `FlashList`; bottom padding uses `--tab-bar-clearance`.
+- Do not co-locate components inside `src/app/`.
+
+## Dialog pattern
+
+```tsx
+<Dialog.Portal>
+  <DialogBlurOverlay />
+  <Dialog.Content>
+    <Dialog.Close variant="ghost" />
+    {/* content */}
+  </Dialog.Content>
+</Dialog.Portal>
+```
+
+Reference: `src/components/examples/example-dialog.tsx`.
+
+## Tabs
+
+Wire `PremiumTabBar` in `src/app/(tabs)/_layout.tsx`. When adding a tab, update `TAB_ICONS` in `premium-tab-bar.tsx`.
+
+## Anti-patterns
+
+- No hex/rgb colors in components — use semantic tokens only.
+- No `Button` default `md` for inline/dialog triggers.
+- No stock Expo tab bar with text labels.
+- No `Dialog.Overlay` without `DialogBlurOverlay`.
+- No `surface-secondary` / `surface-tertiary` on cards (see `default-surfaces-only.mdc`).
+- No heavy borders — use surfaces and `shadow-elevated` instead.
+- Do not call `Uniwind.setTheme` outside theme context.
+
+## Customization on reclone
+
+| What | Where |
+|------|--------|
+| Colors, type scale, spacing | `global.css` |
+| App name, storage keys, avatar | `src/constants/app-config.ts` |
+| Slug, scheme, icons | `app.json` + `assets/images/` |
+| Tab icons | `src/components/premium-tab-bar.tsx` |
+
+## Pre-ship checklist
+
+- [ ] Screen uses `ScreenShell` (or `scrollable={false}` for `FlashList`)
+- [ ] Grouped blocks use `SurfaceCard` with `p-card` where appropriate
+- [ ] Headings use typography utilities or `SectionTitle`
+- [ ] Inline CTAs use `PremiumCtaButton` or `Button size="sm"`
+- [ ] New dialogs include `DialogBlurOverlay`
+- [ ] New tabs update `TAB_ICONS` and `(tabs)/_layout.tsx`
+- [ ] No hardcoded hex colors in components

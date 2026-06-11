@@ -1,0 +1,145 @@
+/* styles/globals.css */
+@import "tailwindcss";
+@import "@heroui/styles";
+
+/* =========================
+   LIGHT MODE
+========================= */
+:root,
+.light,
+.default,
+[data-theme="light"],
+[data-theme="default"] {
+  /* Theme Colors (Light Mode) - Custom Black & White Theme */
+  --accent: oklch(0% 0 0);
+  --accent-foreground: oklch(100% 0 0);
+  --background: oklch(100% 0 0);
+  --border: oklch(90% 0.0015 253.83);
+  --danger: oklch(65.32% 0.2335 25.74);
+  --danger-foreground: oklch(99.11% 0 0);
+  --default: oklch(94% 0.0015 253.83);
+  --default-foreground: oklch(21.03% 0.0059 253.83);
+  --field-background: oklch(100% 0 0);
+  --field-foreground: oklch(0% 0 0);
+  --field-placeholder: oklch(55.17% 0.003 253.83);
+  --focus: oklch(0% 0 0);
+  --foreground: oklch(0% 0 0);
+  --muted: oklch(45% 0 0);
+  --overlay: oklch(100% 0 0);
+  --overlay-foreground: oklch(0% 0 0);
+  --scrollbar: oklch(87.1% 0.0015 253.83);
+  --segment: oklch(100% 0 0);
+  --segment-foreground: oklch(0% 0 0);
+  --separator: oklch(92% 0.0015 253.83);
+  --success: oklch(73.29% 0.1941 150.81);
+  --success-foreground: oklch(21.03% 0.0059 150.81);
+  --warning: oklch(78.19% 0.159 72.33);
+  --warning-foreground: oklch(21.03% 0.0059 72.33);
+
+  /* Legacy/backward compatibility variables */
+  --color-primary: oklch(0% 0 0);
+  --color-primary-foreground: oklch(100% 0 0);
+  --secondary: oklch(95% 0 0);
+  --secondary-foreground: oklch(0% 0 0);
+
+  /* Surface — white canvas + shadow-sm elevation in light mode */
+  --surface: oklch(100% 0 0);
+  --surface-foreground: var(--foreground);
+  --surface-shadow: var(--shadow-sm);
+  --overlay-shadow: var(--shadow-sm);
+}
+
+/* =========================
+   DARK MODE
+========================= */
+.dark,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Theme Colors (Dark Mode) - Custom Black & White Theme */
+  --accent: oklch(100% 0 0);
+  --accent-foreground: oklch(0% 0 0);
+  --background: oklch(0.2 0 0);
+  --border: oklch(28% 0.0015 253.83);
+  --danger: oklch(59.4% 0.1973 24.63);
+  --danger-foreground: oklch(99.11% 0 0);
+  --default: oklch(0.26 0 0);
+  --default-foreground: oklch(99.11% 0 0);
+  --field-background: oklch(0.26 0 0);
+  --field-foreground: oklch(100% 0 0);
+  --field-placeholder: oklch(70.5% 0.003 253.83);
+  --focus: oklch(100% 0 0);
+  --foreground: oklch(100% 0 0);
+  --muted: oklch(70.5% 0.003 253.83);
+  --overlay: oklch(0.26 0 0);
+  --overlay-foreground: oklch(100% 0 0);
+  --scrollbar: oklch(70.5% 0.0015 253.83);
+  --segment: oklch(0.23 0 0);
+  --segment-foreground: oklch(100% 0 0);
+  --separator: oklch(25% 0.0015 253.83);
+  --success: oklch(73.29% 0.1941 150.81);
+  --success-foreground: oklch(21.03% 0.0059 150.81);
+  --warning: oklch(82.03% 0.1392 76.34);
+  --warning-foreground: oklch(21.03% 0.0059 76.34);
+
+  /* Legacy/backward compatibility variables */
+  --color-primary: oklch(0% 0 0);
+  --color-primary-foreground: oklch(100% 0 0);
+  --muted-foreground: oklch(75% 0 0);
+
+  /* Surface — 10% darker than avatar/default pill */
+  --surface: oklch(0.23 0 0);
+  --surface-foreground: var(--foreground);
+  --overlay: oklch(0.234 0 0);
+  --overlay-foreground: var(--foreground);
+  --surface-shadow: 0 0 0 0 transparent;
+  --overlay-shadow: 0 0 0 0 transparent;
+}
+
+/* =========================
+   THEME MAPPING (Tailwind)
+========================= */
+@theme inline {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+
+  --text-xs: 13px;
+  --text-sm: 15px;
+  --text-base: 17px;
+  --text-lg: 18px;
+  --text-xl: 20px;
+
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-secondary: var(--surface-secondary);
+  --color-surface-tertiary: var(--surface-tertiary);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-primary: var(--color-primary);
+  --color-primary-foreground: var(--color-primary-foreground);
+
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted);
+
+  --color-border: var(--border);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-overlay: var(--overlay);
+  --color-overlay-foreground: var(--overlay-foreground);
+  --color-field-background: var(--field-background);
+  --color-field-foreground: var(--field-foreground);
+  --color-field-placeholder: var(--field-placeholder);
+}
+
+/* =========================
+   GLOBAL BASE STYLES
+========================= */
+body {
+  color: var(--foreground);
+  background-color: var(--background);
+}

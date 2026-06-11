@@ -1,0 +1,34 @@
+---
+description: Do not run production builds after routine code changes
+alwaysApply: true
+---
+
+# Skip Routine Builds
+
+Production builds are slow. Do **not** run `bun run build`, `next build`, or similar full build commands after routine code changes unless the user explicitly asks or the task truly requires it.
+
+## Default after edits
+
+- Rely on the editor/linter for quick feedback (`read_lints` on changed files).
+- Do not run a build to "verify" styling, layout, copy, or small refactors.
+
+## When a build is appropriate
+
+Run a build only if:
+
+- The user asks to build, deploy, or confirm the production bundle.
+- You changed build tooling (`next.config`, `tsconfig`, bundler plugins, env used at build time).
+- A prior change clearly broke compilation and lighter checks are insufficient.
+
+## Faster alternatives (prefer these)
+
+| Need | Use instead of build |
+|------|----------------------|
+| Type errors | `bunx tsc --noEmit` (only if types are in question) |
+| Lint/format | linter on touched files |
+| Runtime behavior | dev server if already running; otherwise describe what to check |
+
+## Do not
+
+- Run `bun run build` at the end of every task as a habit.
+- Claim "build passed" without having run one when verification was skipped — say what was checked instead.

@@ -1,0 +1,50 @@
+---
+description: Use default surface only — never secondary or tertiary surfaces
+alwaysApply: true
+---
+
+# Default Surface Only
+
+When styling elevated content (cards, panels, sections, grouped UI), always use the **default surface** token. Do not use secondary or tertiary surface levels.
+
+## Surface hierarchy
+
+| Layer | Token | Tailwind | Use for |
+|-------|-------|----------|---------|
+| Canvas | `background` | `bg-background` | Page/shell background only |
+| Content | `surface` | `bg-surface` | Cards, panels, sidebars, modals, any elevated UI |
+| ~~Nested~~ | ~~`surface-secondary`~~ | ~~`bg-surface-secondary`~~ | **Do not use** |
+| ~~Nested~~ | ~~`surface-tertiary`~~ | ~~`bg-surface-tertiary`~~ | **Do not use** |
+
+## Rules
+
+- Use `bg-surface` and `text-surface-foreground` for all elevated surfaces.
+- Use `bg-background` only for the page canvas behind content.
+- Never use `bg-surface-secondary`, `bg-surface-tertiary`, or their foreground variants.
+- Never pass `secondary` or `tertiary` as a surface variant on components.
+- Prefer `border border-separator` or spacing (`gap`, `p-*`) to separate nested content instead of a darker surface layer.
+
+## Examples
+
+```tsx
+// ❌ BAD — secondary/tertiary surfaces
+<div className="bg-surface-secondary rounded-lg p-4">...</div>
+<div className="bg-surface-tertiary">...</div>
+<Card variant="secondary">...</Card>
+
+// ✅ GOOD — default surface only
+<div className="bg-surface text-surface-foreground rounded-lg p-4">...</div>
+<Card>...</Card>
+```
+
+```tsx
+// ❌ BAD — stacking surface levels for nesting
+<div className="bg-surface p-4">
+  <div className="bg-surface-secondary rounded-md p-3">...</div>
+</div>
+
+// ✅ GOOD — same surface, use border or spacing for grouping
+<div className="bg-surface p-4">
+  <div className="rounded-md border border-separator p-3">...</div>
+</div>
+```

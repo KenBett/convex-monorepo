@@ -1,0 +1,10 @@
+node_modules
+.env
+.env.local
+dist
+.next
+.turbo
+.expo
+convex/_generated
+*.tsbuildinfo
+.DS_Store

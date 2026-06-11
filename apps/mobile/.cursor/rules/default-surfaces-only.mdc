@@ -1,0 +1,32 @@
+---
+description: Use only the default surface variant for cards and surfaces
+globs: src/**/*.{tsx,ts}
+alwaysApply: false
+---
+
+# Default surfaces only
+
+Cards and surfaces in this app use the **default** surface variant only. Do not use `secondary` or `tertiary` for layout panels, cards, or surface backgrounds.
+
+## Do
+
+- Group content with `SurfaceCard` from `@/components/surface-card` (always default).
+- Use `bg-surface` for small surface-like elements (icon circles, toggle buttons).
+- Use `Surface` from `heroui-native` with `variant="default"` if needed directly.
+
+## Don't
+
+- Pass `variant="secondary"` or `variant="tertiary"` to `SurfaceCard`, `Surface`, or `ListGroup`.
+- Use `bg-surface-secondary`, `bg-surface-tertiary`, or related foreground tokens for cards/panels.
+
+```tsx
+// ❌ BAD
+<SurfaceCard variant="secondary" className="p-4">...</SurfaceCard>
+<View className="bg-surface-secondary rounded-2xl p-4">...</View>
+
+// ✅ GOOD
+<SurfaceCard className="p-4">...</SurfaceCard>
+<View className="bg-surface rounded-full p-4">...</View>
+```
+
+Button, Chip, and Dialog variants are separate from surface cards and are not restricted by this rule.
