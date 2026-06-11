@@ -12,7 +12,8 @@
       "@/*": ["./src/*"],
       "@/assets/*": ["./assets/*"],
       "@repo/types": ["../../packages/types/src"],
-      "@repo/utils": ["../../packages/utils/src"]
+      "@repo/utils": ["../../packages/utils/src"],
+      "@repo/backend/convex/*": ["../../packages/backend/convex/*"]
     }
   },
   "include": [

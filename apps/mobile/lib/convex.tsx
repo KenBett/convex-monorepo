@@ -1,9 +1,23 @@
-import { ConvexProvider, ConvexReactClient } from "convex/react";
+import { ConvexAuthProvider } from "@convex-dev/auth/react";
+import type { TokenStorage } from "@convex-dev/auth/react";
+import { ConvexReactClient } from "convex/react";
+import * as SecureStore from "expo-secure-store";
 import { ReactNode } from "react";
 
-const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!);
+const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!, {
+  unsavedChangesWarning: false,
+});
 
-// TODO: Wrap with Convex Auth session provider after configuring auth
+const secureStorage: TokenStorage = {
+  getItem: (key) => SecureStore.getItemAsync(key),
+  setItem: (key, value) => SecureStore.setItemAsync(key, value),
+  removeItem: (key) => SecureStore.deleteItemAsync(key),
+};
+
 export function ConvexClientProvider({ children }: { children: ReactNode }) {
-  return <ConvexProvider client={convex}>{children}</ConvexProvider>;
+  return (
+    <ConvexAuthProvider client={convex} storage={secureStorage}>
+      {children}
+    </ConvexAuthProvider>
+  );
 }

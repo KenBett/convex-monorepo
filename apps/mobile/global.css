@@ -29,9 +29,15 @@
       --tab-bar-clearance: 72px;
 
       --radius: 0.5rem;
-      --field-radius: calc(var(--radius) * 1.5);
-      --radius-card: calc(var(--radius) * 3);
       --radius-control: 9999px;
+      --field-radius: var(--radius-control);
+      --radius-card: 20px;
+      --radius-avatar: 9999px;
+      --radius-lg: 20px;
+      --radius-xl: 20px;
+      --radius-2xl: var(--radius-control);
+      --radius-3xl: var(--radius-control);
+      --radius-4xl: var(--radius-control);
 
       --blur-intensity: 40;
       --overlay-dim: oklch(0% 0 0 / 15%);
@@ -102,9 +108,15 @@
       --tab-bar-clearance: 72px;
 
       --radius: 0.5rem;
-      --field-radius: calc(var(--radius) * 1.5);
-      --radius-card: calc(var(--radius) * 3);
       --radius-control: 9999px;
+      --field-radius: var(--radius-control);
+      --radius-card: 20px;
+      --radius-avatar: 9999px;
+      --radius-lg: 20px;
+      --radius-xl: 20px;
+      --radius-2xl: var(--radius-control);
+      --radius-3xl: var(--radius-control);
+      --radius-4xl: var(--radius-control);
 
       --blur-intensity: 40;
       --overlay-dim: oklch(0% 0 0 / 15%);
@@ -192,6 +204,11 @@
 
   .rounded-control {
     border-radius: var(--radius-control);
+  }
+
+  .rounded-avatar {
+    border-radius: var(--radius-avatar);
+    @apply overflow-hidden;
   }
 
   .shadow-elevated {

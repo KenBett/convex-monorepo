@@ -1,9 +1,10 @@
 import { Fragment } from "react";
 import type { JSX } from "react";
-import { ListGroup, Radio, Separator, useThemeColor } from "heroui-native";
+import { ListGroup, Radio, Separator, Surface, useThemeColor } from "heroui-native";
 import { Moon, Smartphone, Sun } from "lucide-react-native";
 import { Text, View } from "react-native";
 
+import { ProfileAccountSection } from "@/components/profile-account-section";
 import { ScreenShell } from "@/components/screen-shell";
 import type { ThemePreference } from "@/hooks/use-app-theme";
 import { useAppTheme } from "@/hooks/use-app-theme";
@@ -46,11 +47,11 @@ export default function ProfileScreen(): JSX.Element {
 
   return (
     <ScreenShell title="Profile">
+      <ProfileAccountSection />
       <View className="gap-section-title">
         <Text className="text-section-title">Appearance</Text>
-        <Text className="text-caption">Choose how the app looks on your device</Text>
-
-        <ListGroup className="rounded-card shadow-elevated shadow-none">
+        <Surface variant="default" className="overflow-hidden rounded-card shadow-elevated">
+          <ListGroup>
           {THEME_OPTIONS.map((option, index) => {
             const Icon = option.icon;
             const isSelected = preference === option.value;
@@ -71,23 +72,26 @@ export default function ProfileScreen(): JSX.Element {
                   </ListGroup.ItemPrefix>
                   <ListGroup.ItemContent className="gap-1">
                     <ListGroup.ItemTitle>{option.label}</ListGroup.ItemTitle>
-                    <ListGroup.ItemDescription>
-                      {option.description}
-                    </ListGroup.ItemDescription>
                   </ListGroup.ItemContent>
-                  <ListGroup.ItemSuffix className="pl-1">
+                  <ListGroup.ItemSuffix className="min-h-touch min-w-touch items-center justify-center">
                     <Radio
+                      hitSlop={10}
                       isSelected={isSelected}
                       onSelectedChange={() => selectTheme(option.value)}
+                      variant="secondary"
                     >
                       {({ isSelected: selected }) => (
                         <Radio.Indicator
                           className={
                             selected
-                              ? undefined
-                              : "border-border bg-default border"
+                              ? "size-3 border-2 border-accent bg-accent"
+                              : "size-3 border-2 border-foreground/35 bg-background"
                           }
-                        />
+                        >
+                          {selected ? (
+                            <Radio.IndicatorThumb className="size-3 bg-accent-foreground" />
+                          ) : null}
+                        </Radio.Indicator>
                       )}
                     </Radio>
                   </ListGroup.ItemSuffix>
@@ -95,7 +99,8 @@ export default function ProfileScreen(): JSX.Element {
               </Fragment>
             );
           })}
-        </ListGroup>
+          </ListGroup>
+        </Surface>
       </View>
     </ScreenShell>
   );

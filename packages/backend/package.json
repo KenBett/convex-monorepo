@@ -1,9 +1,14 @@
 {
   "name": "@repo/backend",
   "version": "0.0.1",
+  "exports": {
+    "./convex/_generated/api": "./convex/_generated/api.js",
+    "./convex/_generated/dataModel": "./convex/_generated/dataModel.d.ts"
+  },
   "dependencies": {
-    "convex": "1.41.0",
+    "@auth/core": "0.37.0",
     "@convex-dev/auth": "0.0.94",
-    "@repo/types": "workspace:*"
+    "@repo/types": "workspace:*",
+    "convex": "1.41.0"
   }
 }

@@ -1,12 +1,8 @@
-// TODO: Add CONVEX_SITE_URL to Convex dashboard env vars before running convex dev
-import { convexAuth } from "@convex-dev/auth/server";
-import Google from "@auth/core/providers/google";
-
-export const { auth, signIn, signOut, store } = convexAuth({
+export default {
   providers: [
-    Google({
-      clientId: process.env.AUTH_GOOGLE_ID,
-      clientSecret: process.env.AUTH_GOOGLE_SECRET,
-    }),
+    {
+      domain: process.env.CONVEX_SITE_URL,
+      applicationID: "convex",
+    },
   ],
-});
+};

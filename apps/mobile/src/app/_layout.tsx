@@ -13,18 +13,21 @@ import {
 } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { HeroUINativeProvider, useThemeColor } from "heroui-native";
+import { useThemeColor } from "heroui-native";
 import { useEffect, useMemo, type JSX } from "react";
 import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useUniwind } from "uniwind";
 
+import { AppHeroUIProvider } from "@/components/app-hero-ui-provider";
+import { AuthGate } from "@/components/auth-gate";
 import {
   ThemePreferenceProvider,
   useThemePreference,
 } from "@/contexts/theme-preference-context";
 
+import { ConvexClientProvider } from "../../lib/convex";
 import "../../global.css";
 
 SplashScreen.preventAutoHideAsync();
@@ -54,6 +57,7 @@ function RootNavigation(): JSX.Element {
             contentStyle: { backgroundColor },
           }}
         >
+          <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
         </Stack>
       </View>
@@ -75,9 +79,15 @@ function AppBootstrap(): JSX.Element | null {
   }
 
   return (
-    <HeroUINativeProvider>
-      <RootNavigation />
-    </HeroUINativeProvider>
+    <ConvexClientProvider>
+      <AppHeroUIProvider
+        config={{ devInfo: { stylingPrinciples: false } }}
+      >
+        <AuthGate>
+          <RootNavigation />
+        </AuthGate>
+      </AppHeroUIProvider>
+    </ConvexClientProvider>
   );
 }
 

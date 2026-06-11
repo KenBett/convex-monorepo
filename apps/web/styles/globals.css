@@ -3,6 +3,24 @@
 @import "@heroui/styles";
 
 /* =========================
+   RADIUS TOKENS
+   Pill controls, generous cards, full-circle avatars
+========================= */
+:root,
+.light,
+.default,
+[data-theme="light"],
+[data-theme="default"],
+.dark,
+[data-theme="dark"] {
+  --radius: 0.5rem;
+  --field-radius: 9999px;
+  --radius-control: 9999px;
+  --radius-card: min(32px, calc(var(--radius) * 3));
+  --radius-avatar: 9999px;
+}
+
+/* =========================
    LIGHT MODE
 ========================= */
 :root,
@@ -134,6 +152,13 @@
   --color-field-background: var(--field-background);
   --color-field-foreground: var(--field-foreground);
   --color-field-placeholder: var(--field-placeholder);
+
+  --radius-field: var(--field-radius);
+  --radius-lg: var(--radius-card);
+  --radius-xl: var(--radius-card);
+  --radius-2xl: var(--radius-control);
+  --radius-3xl: var(--radius-control);
+  --radius-4xl: var(--radius-control);
 }
 
 /* =========================
@@ -142,4 +167,35 @@
 body {
   color: var(--foreground);
   background-color: var(--background);
+}
+
+/* =========================
+   RADIUS UTILITIES
+========================= */
+.rounded-card {
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.rounded-control {
+  border-radius: var(--radius-control);
+}
+
+.rounded-avatar {
+  border-radius: var(--radius-avatar);
+  overflow: hidden;
+}
+
+/* HeroUI components — pill controls, card surfaces */
+.button {
+  border-radius: var(--radius-control);
+}
+
+.card,
+.alert,
+.modal__dialog,
+.popover,
+.dropdown__popover,
+.toast {
+  border-radius: var(--radius-card);
 }

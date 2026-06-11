@@ -10,7 +10,8 @@
 		"lint": "eslint --fix"
 	},
 	"dependencies": {
-		"@convex-dev/auth": "latest",
+		"@convex-dev/auth": "0.0.94",
+		"@repo/backend": "workspace:*",
 		"@gravity-ui/icons": "^2.18.0",
 		"@repo/types": "workspace:*",
 		"@repo/utils": "workspace:*",

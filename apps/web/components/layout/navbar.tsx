@@ -1,10 +1,12 @@
 "use client";
 
-import NextLink from "next/link";
-import { usePathname } from "next/navigation";
+import { api } from "@repo/backend/convex/_generated/api";
 import { Avatar } from "@heroui/react";
+import { useQuery } from "convex/react";
 import clsx from "clsx";
 import { Search } from "lucide-react";
+import NextLink from "next/link";
+import { usePathname } from "next/navigation";
 
 import { getPageTitle } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
@@ -16,9 +18,29 @@ import {
 
 const avatarInitials = siteConfig.name.slice(0, 2).toUpperCase();
 
+function getInitials(name: string | undefined, email: string | undefined) {
+  if (name) {
+    return name
+      .split(" ")
+      .map((part) => part[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
+  }
+  if (email) {
+    return email.slice(0, 2).toUpperCase();
+  }
+  return avatarInitials;
+}
+
 export const Navbar = () => {
   const pathname = usePathname();
   const pageTitle = getPageTitle(pathname);
+  const viewer = useQuery(api.users.viewer);
+  const displayName = viewer?.name ?? viewer?.email ?? "Account";
+  const initials = viewer
+    ? getInitials(viewer.name, viewer.email)
+    : avatarInitials;
 
   return (
     <nav
@@ -42,7 +64,14 @@ export const Navbar = () => {
             href="/profile"
           >
             <Avatar size="md">
-              <Avatar.Fallback>{avatarInitials}</Avatar.Fallback>
+              {viewer?.image ? (
+                <Avatar.Image
+                  alt={displayName}
+                  referrerPolicy="no-referrer"
+                  src={viewer.image}
+                />
+              ) : null}
+              <Avatar.Fallback>{initials}</Avatar.Fallback>
             </Avatar>
           </NextLink>
           <div
