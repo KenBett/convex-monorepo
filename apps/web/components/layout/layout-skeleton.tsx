@@ -12,7 +12,7 @@ import {
 export const LayoutSkeleton = () => (
   <>
     <div
-      className={`fixed left-0 top-0 z-30 hidden h-screen border-r border-separator bg-background md:block ${SIDEBAR_WIDTH_CLASSES.collapsed}`}
+      className={`fixed left-0 top-0 z-30 hidden h-screen bg-background shadow-[2px_0_10px_-4px_rgba(0,0,0,0.08)] dark:shadow-[3px_0_18px_-6px_rgba(0,0,0,0.45)] md:block ${SIDEBAR_WIDTH_CLASSES.collapsed}`}
     />
     <div
       className={`fixed top-0 right-0 z-40 ${NAVBAR_HEIGHT_CLASSES} ${NAVBAR_LEFT_CLASSES.collapsed} bg-background/70`}

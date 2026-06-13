@@ -12,9 +12,11 @@ import { getPageTitle } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
 import {
   CONTENT_CONTAINER_CLASSES,
+  getSidebarLayoutClasses,
   NAVBAR_HEIGHT_CLASSES,
-  NAVBAR_LEFT_CLASSES,
 } from "@/constants/layout";
+
+import { useSidebar } from "./sidebar-context";
 
 const avatarInitials = siteConfig.name.slice(0, 2).toUpperCase();
 
@@ -36,6 +38,8 @@ function getInitials(name: string | undefined, email: string | undefined) {
 export const Navbar = () => {
   const pathname = usePathname();
   const pageTitle = getPageTitle(pathname);
+  const { isExpanded } = useSidebar();
+  const { navbarLeft } = getSidebarLayoutClasses(isExpanded);
   const viewer = useQuery(api.users.viewer);
   const displayName = viewer?.name ?? viewer?.email ?? "Account";
   const initials = viewer
@@ -46,9 +50,9 @@ export const Navbar = () => {
     <nav
       suppressHydrationWarning
       className={clsx(
-        "fixed top-0 right-0 z-30 bg-background",
+        "fixed top-0 right-0 z-30 bg-background transition-[left] duration-200 ease-in-out",
         NAVBAR_HEIGHT_CLASSES,
-        NAVBAR_LEFT_CLASSES.collapsed,
+        navbarLeft,
       )}
     >
       <header
