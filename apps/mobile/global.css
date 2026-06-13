@@ -2,7 +2,8 @@
 @import "uniwind";
 @import "heroui-native/styles";
 
-@source './node_modules/heroui-native/lib';
+@source '../../node_modules/heroui-native/lib';
+@source './src/**/*.{tsx,ts}';
 
 @layer theme {
   :root {
@@ -190,10 +191,6 @@
 
   .text-caption {
     @apply text-muted text-sm;
-  }
-
-  .text-cta-label {
-    @apply text-accent-foreground text-sm font-semibold tracking-tight;
   }
 
   /* Surfaces */

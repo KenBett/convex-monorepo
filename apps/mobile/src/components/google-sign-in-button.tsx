@@ -48,9 +48,7 @@ export function GoogleSignInButton({
       >
         <View className="flex-row items-center justify-center gap-2.5">
           {!isLoading ? <GoogleIcon size={18} /> : null}
-          <Button.Label className="text-cta-label">
-            {isLoading ? "Signing in…" : label}
-          </Button.Label>
+          <Button.Label>{isLoading ? "Signing in…" : label}</Button.Label>
         </View>
       </Button>
       {error ? (

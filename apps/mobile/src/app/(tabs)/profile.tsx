@@ -34,7 +34,6 @@ export default function ProfileScreen(): JSX.Element {
       <ProfileAccountSection />
       <View className="gap-section-title">
         <Text className="text-section-title">Appearance</Text>
-        <Surface variant="default" className="overflow-hidden rounded-card shadow-elevated">
           <ListGroup>
           {THEME_OPTIONS.map((option, index) => {
             const Icon = option.icon;
@@ -84,7 +83,6 @@ export default function ProfileScreen(): JSX.Element {
             );
           })}
           </ListGroup>
-        </Surface>
       </View>
     </ScreenShell>
   );
