@@ -11,7 +11,7 @@ export default function HomeScreen(): JSX.Element {
   return (
     <ScreenShell scrollable={false} title="Home">
       <View className="flex-1 items-center justify-center">
-        <Surface variant="default" className="shadow-elevated items-center gap-4 rounded-card p-card-lg">
+        <Surface variant="default" className="shadow-elevated items-center gap-4 rounded-card p-card-lg w-full">
           <House color={foregroundColor} size={40} strokeWidth={1.75} />
           <Text className="text-foreground text-xl font-bold">Home</Text>
         </Surface>

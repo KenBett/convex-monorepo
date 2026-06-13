@@ -11,7 +11,7 @@ export default function ExploreScreen(): JSX.Element {
   return (
     <ScreenShell scrollable={false} title="Explore">
       <View className="flex-1 items-center justify-center">
-        <Surface variant="default" className="shadow-elevated items-center gap-4 rounded-card p-card-lg">
+        <Surface variant="default" className="shadow-elevated items-center gap-4 rounded-card p-card-lg w-full">
           <Compass color={foregroundColor} size={40} strokeWidth={1.75} />
           <Text className="text-foreground text-xl font-bold">Explore</Text>
         </Surface>
