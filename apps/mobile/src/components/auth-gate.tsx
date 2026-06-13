@@ -1,5 +1,6 @@
 import { useConvexAuth } from "convex/react";
 import { useRouter, useSegments } from "expo-router";
+import { useThemeColor } from "heroui-native";
 import { useEffect, type JSX, type ReactNode } from "react";
 import { ActivityIndicator, View } from "react-native";
 
@@ -11,6 +12,7 @@ export function AuthGate({ children }: AuthGateProps): JSX.Element {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const segments = useSegments();
   const router = useRouter();
+  const foregroundColor = useThemeColor("foreground");
   const inAuthGroup = segments[0] === "(auth)";
 
   useEffect(() => {
@@ -31,7 +33,7 @@ export function AuthGate({ children }: AuthGateProps): JSX.Element {
   if (isLoading) {
     return (
       <View className="bg-background flex-1 items-center justify-center">
-        <ActivityIndicator size="large" />
+        <ActivityIndicator color={foregroundColor} size="large" />
       </View>
     );
   }

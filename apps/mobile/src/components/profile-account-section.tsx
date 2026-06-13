@@ -40,15 +40,13 @@ export function ProfileAccountSection(): JSX.Element {
         </View>
       </View>
       <Button
-        className="self-start mx-auto rounded-full bg-accent p-4"
+        className="rounded-full font-semibold mx-auto p-2"
         isDisabled={isSigningOut}
         onPress={() => void handleSignOut()}
         size="lg"
         variant="primary"
       >
-        <Button.Label className="text-cta-label">
           {isSigningOut ? "Signing out…" : "Sign out"}
-        </Button.Label>
       </Button>
     </Surface>
   );

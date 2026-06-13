@@ -40,10 +40,10 @@ export function GoogleSignInButton({
   return (
     <View className="gap-3">
       <Button
-        className="w-full rounded-full bg-accent py-2"
+        className="w-full rounded-full font-semibold mx-auto p-2"
         isDisabled={isLoading}
         onPress={() => void signInWithGoogle()}
-        size="sm"
+        size="lg"
         variant="primary"
       >
         <View className="flex-row items-center justify-center gap-2.5">

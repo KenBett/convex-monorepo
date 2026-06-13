@@ -11,30 +11,14 @@ import { useAppTheme } from "@/hooks/use-app-theme";
 
 type ThemeOption = {
   label: string;
-  description: string;
   value: ThemePreference;
   icon: typeof Sun;
 };
 
 const THEME_OPTIONS: ThemeOption[] = [
-  {
-    label: "System",
-    description: "Match device settings",
-    value: "system",
-    icon: Smartphone,
-  },
-  {
-    label: "Light",
-    description: "Always use light mode",
-    value: "light",
-    icon: Sun,
-  },
-  {
-    label: "Dark",
-    description: "Always use dark mode",
-    value: "dark",
-    icon: Moon,
-  },
+  { label: "System", value: "system", icon: Smartphone },
+  { label: "Light", value: "light", icon: Sun },
+  { label: "Dark", value: "dark", icon: Moon },
 ];
 
 export default function ProfileScreen(): JSX.Element {
