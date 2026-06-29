@@ -8,7 +8,10 @@
     "scheme": "heroui-native-app",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to record voice questions during knowledge calls."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -30,7 +33,8 @@
             "backgroundColor": "#242424"
           }
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,

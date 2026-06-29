@@ -10,3 +10,14 @@ export function formatDate(date: Date): string {
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+export { VoiceClientTelemetry } from "./voice-telemetry";
+export {
+  convexSiteUrlFromCloudUrl,
+  createVoiceStreamClient,
+} from "./voice-stream-client";
+export type {
+  VoiceStreamCallbacks,
+  VoiceStreamClient,
+  VoiceTurnRequest,
+} from "./voice-stream-client";

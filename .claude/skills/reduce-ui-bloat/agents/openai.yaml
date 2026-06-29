@@ -1,0 +1,14 @@
+interface:
+  display_name: "Reduce UI Bloat"
+  short_description:
+    "Split screens into lean HeroUI components and trim redundant copy."
+  icon_small: "./assets/icon.svg"
+  icon_large: "./assets/icon.svg"
+  brand_color: "#18181B"
+  default_prompt:
+    "Refactor this screen to reduce UI bloat: extract presentational components
+    under ui/, replace custom markup with HeroUI, trim explainer text, and keep
+    data logic in a thin container. Follow the Knowledge Explore pattern."
+
+policy:
+  allow_implicit_invocation: true

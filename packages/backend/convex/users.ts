@@ -2,8 +2,11 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
 import type { Doc } from "./_generated/dataModel";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { requireAuthUserId } from "./lib/auth";
+import { normalizeRole } from "./lib/roles";
+
+const roleValidator = v.union(v.literal("admin"), v.literal("member"));
 
 const viewerValidator = v.union(
   v.object({
@@ -16,6 +19,7 @@ const viewerValidator = v.union(
     phone: v.optional(v.string()),
     phoneVerificationTime: v.optional(v.number()),
     isAnonymous: v.optional(v.boolean()),
+    role: roleValidator,
   }),
   v.null(),
 );
@@ -23,12 +27,16 @@ const viewerValidator = v.union(
 export const viewer = query({
   args: {},
   returns: viewerValidator,
-  handler: async (ctx): Promise<Doc<"users"> | null> => {
+  handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       return null;
     }
-    return await ctx.db.get("users", userId);
+    const user = await ctx.db.get("users", userId);
+    if (!user) {
+      return null;
+    }
+    return withNormalizedRole(user);
   },
 });
 
@@ -53,3 +61,24 @@ export const updateProfile = mutation({
     return null;
   },
 });
+
+export const setUserRole = internalMutation({
+  args: {
+    role: roleValidator,
+    userId: v.id("users"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch("users", args.userId, { role: args.role });
+    return null;
+  },
+});
+
+function withNormalizedRole(user: Doc<"users">): Doc<"users"> & {
+  role: "admin" | "member";
+} {
+  return {
+    ...user,
+    role: normalizeRole(user),
+  };
+}

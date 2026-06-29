@@ -10,7 +10,13 @@
 
 import type * as auth from "../auth.js";
 import type * as http from "../http.js";
+import type * as knowledge from "../knowledge.js";
+import type * as knowledgeSpeech from "../knowledgeSpeech.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_rag from "../lib/rag.js";
+import type * as lib_roles from "../lib/roles.js";
+import type * as lib_voicePipeline from "../lib/voicePipeline.js";
+import type * as lib_voiceQueryCache from "../lib/voiceQueryCache.js";
 import type * as users from "../users.js";
 
 import type {
@@ -22,7 +28,13 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   http: typeof http;
+  knowledge: typeof knowledge;
+  knowledgeSpeech: typeof knowledgeSpeech;
   "lib/auth": typeof lib_auth;
+  "lib/rag": typeof lib_rag;
+  "lib/roles": typeof lib_roles;
+  "lib/voicePipeline": typeof lib_voicePipeline;
+  "lib/voiceQueryCache": typeof lib_voiceQueryCache;
   users: typeof users;
 }>;
 
@@ -52,4 +64,6 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  rag: import("@convex-dev/rag/_generated/component.js").ComponentApi<"rag">;
+};

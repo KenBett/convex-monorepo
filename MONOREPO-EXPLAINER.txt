@@ -1,0 +1,702 @@
+================================================================================
+  CONVEX-MONOREPO — HOW EVERYTHING WORKS
+  A practical cheat sheet for future-you
+================================================================================
+
+
+=== 1. WHAT THIS REPO IS ===
+
+This is a monorepo (one git repo that holds many related projects in one
+place). It contains:
+
+  - One shared backend brain  ->  packages/backend/convex/
+  - One web app (browser UI)  ->  apps/web/
+  - One mobile app (phone UI) ->  apps/mobile/
+  - Shared code packages      ->  packages/types/, packages/utils/
+
+Both the web and mobile apps talk to the SAME Convex (a backend-as-a-service
+platform — you write TypeScript functions and get a database + real-time API
+without running your own server) deployment. Sign-in uses Google OAuth. The main
+feature beyond auth is a knowledge base powered by RAG (Retrieval-Augmented
+Generation — documents are stored as vector embeddings so the app can search
+by meaning and answer questions with cited sources).
+
+Stack at a glance:
+  - Bun          = package manager (like npm; required for this repo)
+  - Turborepo    = task runner that starts/builds all apps from the root
+  - Convex       = backend + database (lives in packages/backend/convex/)
+  - Next.js 16   = web framework (apps/web)
+  - Expo 56      = mobile framework (apps/mobile)
+  - HeroUI       = UI component library (web uses @heroui/react, mobile uses
+                   heroui-native)
+
+
+=== 2. BIG PICTURE — HOW THE PIECES CONNECT ===
+
+When you use the app, data flows like this:
+
+  You (browser or phone)
+      |
+      v
+  apps/web  OR  apps/mobile          <- UI only (React components, pages)
+      |
+      |  Convex React hooks (useQuery, useMutation, useAction)
+      |  import { api } from "@repo/backend/convex/_generated/api"
+      v
+  Convex cloud deployment            <- your backend runs here (not locally)
+      |
+      +-- packages/backend/convex/     <- source code Convex watches + deploys
+      |     users.ts, knowledge.ts, schema.ts, auth.ts, ...
+      |
+      +-- Google OAuth                 <- sign-in (via @convex-dev/auth)
+      |
+      +-- OpenAI (via @convex-dev/rag) <- embeddings + chat for knowledge feature
+
+Important mental model:
+  - You do NOT run a separate Express/Node API server.
+  - The "server" is Convex functions in packages/backend/convex/.
+  - Both apps import the SAME generated API types from @repo/backend.
+  - Changes to backend code auto-sync when `bun run convex:dev` is running.
+
+Local dev setup (two terminals):
+
+  Terminal 1:  bun run convex:dev     <- watches backend, pushes to Convex cloud
+  Terminal 2:  bun run dev            <- starts web (port 3000) + mobile (Expo)
+
+
+=== 3. FOLDER MAP — WHERE THINGS LIVE AND WHAT NOT TO TOUCH ===
+
+convex-monorepo/
+|
+|-- apps/
+|   |-- web/                         [EDIT] Next.js web app
+|   |   |-- app/                     Routes (App Router file-based routing)
+|   |   |-- components/              UI components
+|   |   |-- config/                  Site name, navigation items
+|   |   |-- lib/convex.ts            Re-exports Convex provider
+|   |   |-- src/lib/convex.tsx       ConvexAuthProvider setup
+|   |   |-- styles/globals.css       Design tokens (colors, spacing, shadows)
+|   |   '-- package.json
+|   |
+|   '-- mobile/                      [EDIT] Expo mobile app
+|       |-- src/app/                 Screens (Expo Router file-based routing)
+|       |-- src/components/          UI components (ScreenShell, etc.)
+|       |-- lib/convex.tsx           ConvexAuthProvider + SecureStore tokens
+|       |-- global.css               Design tokens
+|       |-- app.json                 App name, URL scheme, icons
+|       '-- package.json
+|
+|-- packages/
+|   |-- backend/                     [EDIT] Convex backend package
+|   |   '-- convex/                  *** THE REAL BACKEND — edit here ***
+|   |       |-- schema.ts            Database tables + indexes
+|   |       |-- users.ts             User profile queries/mutations
+|   |       |-- knowledge.ts         RAG knowledge base functions
+|   |       |-- auth.ts              Google OAuth config
+|   |       |-- auth.config.ts       JWT validation config
+|   |       |-- http.ts              HTTP routes for OAuth callbacks
+|   |       |-- convex.config.ts     Registers @convex-dev/rag component
+|   |       |-- lib/                 Helpers (auth, roles, rag config)
+|   |       '-- _generated/          Auto-generated — do NOT edit manually
+|   |
+|   |-- types/                       [EDIT] Shared TypeScript interfaces
+|   |   '-- src/index.ts             User, DocumentSummary, KnowledgeSearchResult, ...
+|   |
+|   '-- utils/                       [EDIT] Shared utility functions
+|       '-- src/index.ts             cn(), formatDate(), sleep()
+|
+|-- convex/                          [DO NOT EDIT] Generated stubs only
+|-- convex.json                      Points Convex CLI to packages/backend/convex
+|-- turbo.json                       Turborepo task config (dev, build, lint)
+|-- bunfig.toml                      Bun config (linker = "hoisted" — required)
+|-- package.json                     Root scripts + workspace definition
+|-- tsconfig.base.json               Shared TypeScript paths (@repo/types, etc.)
+|-- .env.example                     Template for environment variables
+'-- README.md                        Setup instructions (complements this file)
+
+WHAT TO EDIT vs WHAT TO LEAVE ALONE:
+
+  [YES — edit freely]
+    packages/backend/convex/       Backend logic, schema, auth
+    apps/web/                      Web UI
+    apps/mobile/src/               Mobile UI (components live outside src/app/)
+    packages/types/src/            Shared type definitions
+    packages/utils/src/            Shared helpers
+
+  [SET UP but never commit]
+    .env.local                     Root env (Convex CLI fills most values)
+    apps/web/.env.local            NEXT_PUBLIC_CONVEX_URL for web
+    apps/mobile/.env.local         EXPO_PUBLIC_CONVEX_URL for mobile
+
+  [NO — do not edit]
+    convex/ (root)                 Stubs only; real code is in packages/backend
+    packages/backend/convex/_generated/   Regenerated by Convex CLI
+    node_modules/
+    apps/web/.next/                Next.js build cache
+
+
+=== 4. HOW TO RUN IT ===
+
+Prerequisites:
+  - Bun (>= 1.x)          https://bun.sh
+  - Node.js (>= 20)       Required by Expo tooling
+  - Convex account        https://convex.dev
+  - Google Cloud project  OAuth credentials for sign-in
+
+First-time setup:
+
+  1. Clone and install
+       git clone <repo-url>
+       cd convex-monorepo
+       bun install
+
+  2. Create env files
+       cp .env.example .env.local
+       cp .env.example apps/web/.env.local
+       cp .env.example apps/mobile/.env.local
+
+  3. Start Convex (Terminal 1 — keep running)
+       bun run convex:dev
+     This will:
+       - Prompt login if needed (bunx convex login)
+       - Create or link a dev deployment
+       - Write CONVEX_DEPLOYMENT, CONVEX_URL into root .env.local
+       - Watch packages/backend/convex/ for changes
+
+  4. Copy Convex URL into app env files
+       apps/web/.env.local:
+         NEXT_PUBLIC_CONVEX_URL=https://<your-deployment>.convex.cloud
+       apps/mobile/.env.local:
+         EXPO_PUBLIC_CONVEX_URL=https://<your-deployment>.convex.cloud
+
+  5. Configure Google OAuth in Convex (server-side secrets)
+       bunx convex env set SITE_URL http://localhost:3000
+       bunx convex env set AUTH_GOOGLE_ID <your-google-client-id>
+       bunx convex env set AUTH_GOOGLE_SECRET <your-google-client-secret>
+
+     Google Cloud Console redirect URI must be:
+       https://<your-deployment>.convex.site/api/auth/callback/google
+
+  6. Start apps (Terminal 2)
+       bun run dev
+     Or individually:
+       cd apps/web && bun run dev          -> http://localhost:3000
+       cd apps/mobile && bunx expo start   -> Expo dev server
+
+Environment variables — two places:
+
+  LOCAL .env.local files (client-side, baked into apps at build time):
+    CONVEX_DEPLOYMENT          Used by Convex CLI
+    CONVEX_URL                 Convex cloud URL
+    CONVEX_SITE_URL            Used for auth callbacks
+    NEXT_PUBLIC_CONVEX_URL     Web app connects here
+    EXPO_PUBLIC_CONVEX_URL     Mobile app connects here
+    NEXT_PUBLIC_APP_URL        Web app URL (http://localhost:3000)
+
+  CONVEX env (server-side, set via `bunx convex env set`):
+    SITE_URL                   Auth redirect base (http://localhost:3000)
+    AUTH_GOOGLE_ID             Google OAuth client ID
+    AUTH_GOOGLE_SECRET         Google OAuth client secret
+
+  Rule of thumb:
+    - Secrets and auth config  -> Convex env (never in .env.local committed to git)
+    - Public URLs for clients  -> .env.local with NEXT_PUBLIC_ / EXPO_PUBLIC_ prefix
+
+
+=== 5. THE BACKEND (Convex) — SIMPLE BREAKDOWN ===
+
+Convex (backend-as-a-service) lets you write backend logic as TypeScript
+functions. There are three function types:
+
+  query     = read data (reactive — UI auto-updates when data changes)
+  mutation  = write data (insert, update, delete)
+  action    = call external APIs (OpenAI, file processing, etc.)
+
+The Convex CLI reads backend code from packages/backend/convex/ (configured
+in convex.json at the repo root). NOT from the root convex/ folder.
+
+Key backend files:
+
+  schema.ts
+    Defines database tables:
+      - authTables (from @convex-dev/auth — sessions, accounts, etc.)
+      - users      (email, name, image, role: "admin" | "member")
+      - documents  (knowledge base metadata: title, status, ragEntryId, ...)
+    Indexes:
+      - users:     email, phone
+      - documents: by_status, by_uploadedBy
+
+  users.ts
+    viewer          query     Returns current logged-in user (or null)
+    updateProfile   mutation  Update name/image for authenticated user
+    setUserRole     internal  Set role (backend-only, not callable from apps)
+
+  knowledge.ts
+    listDocuments       query     Last 100 documents (newest first)
+    addTextDocument     action    Admin: index plain text into RAG
+    addFileDocument     action    Admin: store file + index extracted text
+    deleteDocument      mutation  Admin: remove RAG entry + storage + DB row
+    search              action    Semantic vector search (any authed user)
+    ask                 action    RAG Q&A with gpt-4o-mini + cited sources
+    (plus internal helpers for document status tracking)
+
+  auth.ts
+    Google OAuth via @convex-dev/auth (convexAuth library)
+    Allowed redirect targets:
+      - SITE_URL / http://localhost:3000  (web)
+      - heroui-native-app://              (mobile custom scheme)
+      - exp://                            (Expo dev client)
+
+  auth.config.ts
+    JWT (JSON Web Token — a signed token proving who you are) validation.
+    Issuer domain = CONVEX_SITE_URL.
+
+  http.ts
+    Registers OAuth HTTP routes (callback URLs Google redirects to).
+
+  convex.config.ts
+    Registers the @convex-dev/rag component (vector search + embeddings).
+
+  lib/auth.ts
+    requireAuthUserId() — throws if not logged in
+
+  lib/roles.ts
+    getCurrentUser(), requireAdmin(), normalizeRole()
+    Default role when unset: "member"
+
+  lib/rag.ts
+    RAG client config:
+      - Namespace: "global" (shared knowledge base)
+      - Embeddings: OpenAI text-embedding-3-small
+      - Answers: gpt-4o-mini
+      - Search limit: 8 results, score threshold: 0.45
+
+How apps call the backend:
+
+  import { api } from "@repo/backend/convex/_generated/api";
+  import { useQuery, useMutation, useAction } from "convex/react";
+
+  const user = useQuery(api.users.viewer);
+  const search = useAction(api.knowledge.search);
+
+
+=== 6. AUTH — HOW SIGN-IN WORKS ===
+
+Auth stack: @convex-dev/auth (Convex Auth library) + Google OAuth provider.
+
+Sign-in flow (both platforms):
+
+  1. User taps "Sign in with Google"
+  2. App calls signIn("google") via useAuthActions()
+  3. Browser opens Google login page
+  4. Google redirects back to Convex HTTP route:
+       https://<deployment>.convex.site/api/auth/callback/google
+  5. Convex Auth creates a session and returns a token
+  6. ConvexAuthProvider stores the token on the client
+  7. All subsequent API calls include the token automatically
+  8. AuthGate components check auth state and redirect if needed
+
+Route protection:
+
+  Web (apps/web):
+    Protected routes:  /, /explore, /profile     (inside app/(app)/)
+    Public routes:       /sign-in, /sign-up        (inside app/(auth)/)
+    AuthGate             Redirects to /sign-in if not logged in
+    AuthRedirect         Redirects to / if already logged in (on auth pages)
+    Key files:
+      apps/web/components/auth/auth-gate.tsx
+      apps/web/components/auth/auth-redirect.tsx
+      apps/web/components/auth/google-sign-in-button.tsx
+      apps/web/src/lib/convex.tsx  (ConvexAuthProvider)
+
+  Mobile (apps/mobile):
+    Protected routes:  /(tabs)/*                   (Home, Explore, Profile)
+    Public routes:     /(auth)/sign-in, sign-up
+    AuthGate             Redirects to /(auth)/sign-in if not logged in
+    Key files:
+      apps/mobile/src/components/auth-gate.tsx
+      apps/mobile/lib/convex.tsx  (ConvexAuthProvider + SecureStore)
+
+Platform differences:
+
+  Web:
+    - Token stored in browser (default Convex Auth storage)
+    - Standard OAuth redirect flow
+    - GoogleSignInButton -> signIn("google")
+
+  Mobile:
+    - Token stored in expo-secure-store (encrypted device storage)
+    - Uses expo-web-browser to open Google login in a browser session
+    - Extracts OAuth code from redirect URL, calls signIn("google", { code })
+    - Custom URL scheme: heroui-native-app:// (defined in app.json)
+    - *** REQUIRES A DEV BUILD — Expo Go does NOT support custom URL schemes ***
+      Run: cd apps/mobile && bunx expo run:android  (or run:ios)
+
+User data after sign-in:
+
+  useQuery(api.users.viewer) returns:
+    _id, email, name, image, role ("admin" | "member")
+  Default role: "member" (admin must be set via internal setUserRole)
+
+
+=== 7. THE KNOWLEDGE / RAG FEATURE ===
+
+RAG (Retrieval-Augmented Generation):
+  1. Documents are split into chunks
+  2. Each chunk is converted to a vector embedding (numeric representation
+     of meaning) via OpenAI text-embedding-3-small
+  3. User searches or asks a question
+  4. System finds the most similar chunks by vector distance
+  5. Those chunks are sent to gpt-4o-mini as context
+  6. AI generates an answer citing the source chunks
+
+Document lifecycle:
+
+  Admin uploads text or file (web only)
+      |
+      v
+  documents row created (status: "processing")
+      |
+      v
+  rag.add() indexes content into vector store
+      |
+      v
+  onComplete callback fires -> status: "ready", ragEntryId saved
+      |
+      (on failure -> status: "error", error message saved)
+
+Backend functions (packages/backend/convex/knowledge.ts):
+
+  listDocuments       Anyone authed     List documents with status
+  search              Anyone authed     Semantic search, returns scored chunks
+  ask                 Anyone authed     Question -> AI answer + source citations
+  addTextDocument     Admin only        Paste text -> index into RAG
+  addFileDocument     Admin only        Upload file -> store blob + index text
+  deleteDocument      Admin only        Remove from RAG + storage + database
+
+Web UI (full admin + consumer):
+  apps/web/components/knowledge/knowledge-explore.tsx
+    - Search bar (semantic search)
+    - Ask bar (RAG Q&A with sources)
+    - Admin panel (when viewer.role === "admin"):
+        - Document list with status badges
+        - Add text document form
+        - Upload file (PDF text extracted client-side before upload)
+        - Delete document button
+  Route: /explore -> apps/web/app/(app)/explore/page.tsx
+
+Mobile UI (consumer only — search + ask):
+  apps/mobile/src/app/(tabs)/explore.tsx
+    - Semantic search
+    - Ask with sources
+    - NO upload, NO document list, NO delete
+
+Shared types (packages/types/src/index.ts):
+  DocumentSummary, KnowledgeSearchResult, KnowledgeSearchResponse,
+  KnowledgeAskResponse, DocumentStatus, DocumentSourceType
+
+
+=== 8. SHARED PACKAGES ===
+
+Workspace packages (defined in root package.json "workspaces": ["apps/*", "packages/*"]).
+Apps import them by name using Bun workspace protocol.
+
+  @repo/backend
+    Path:     packages/backend/
+    Exports:  ./convex/_generated/api
+              ./convex/_generated/dataModel
+    Purpose:  Lets web and mobile import the same typed Convex API
+    Usage:
+      import { api } from "@repo/backend/convex/_generated/api";
+      import type { Id } from "@repo/backend/convex/_generated/dataModel";
+
+  @repo/types
+    Path:     packages/types/src/
+    Purpose:  Shared TypeScript interfaces used by both apps
+    Exports:  User, UserRole, DocumentSummary, KnowledgeSearchResult,
+              KnowledgeSearchResponse, KnowledgeAskResponse, ApiResponse, ...
+    Usage:
+      import type { DocumentSummary } from "@repo/types";
+
+  @repo/utils
+    Path:     packages/utils/src/
+    Purpose:  Shared helper functions
+    Exports:  cn() (class name merger), formatDate(), sleep()
+    Note:     Wired in package.json/tsconfig but barely imported in app
+              source yet — available when you need shared utilities.
+
+TypeScript path aliases (tsconfig.base.json):
+  @repo/types  -> packages/types/src
+  @repo/utils  -> packages/utils/src
+  (Each app extends this and adds @repo/backend/convex/* paths)
+
+
+=== 9. WEB APP (apps/web) ===
+
+Framework: Next.js 16 (React framework with App Router — file-based routing
+where folders in app/ become URL paths).
+
+Tech: React 19, HeroUI v3 (@heroui/react), Tailwind CSS v4, next-themes
+
+Routes:
+
+  Protected (require sign-in — wrapped by AuthGate in app/(app)/layout.tsx):
+    /              app/(app)/page.tsx              Home (placeholder)
+    /explore       app/(app)/explore/page.tsx      Knowledge hub (full UI)
+    /profile       app/(app)/profile/page.tsx      Account + theme settings
+
+  Public (redirect to / if already signed in):
+    /sign-in       app/(auth)/sign-in/page.tsx     Google sign-in
+    /sign-up       app/(auth)/sign-up/page.tsx     Google sign-up (same flow)
+
+  Special:
+    app/layout.tsx           Root layout (Convex provider, theme provider)
+    app/error.tsx            Error boundary
+    app/not-found.tsx        404 page
+
+Navigation config: apps/web/config/navigation.ts
+  Home (/), Explore (/explore), Profile (/profile)
+
+Key architecture files:
+
+  apps/web/app/layout.tsx
+    Wraps entire app in ConvexClientProvider + theme Providers
+
+  apps/web/app/(app)/layout.tsx
+    AuthGate + LayoutShell (sidebar, navbar, mobile tab bar)
+
+  apps/web/components/layout/layout-shell.tsx
+    Desktop sidebar + top navbar + mobile bottom tab bar
+
+  apps/web/src/lib/convex.tsx
+    ConvexReactClient + ConvexAuthProvider (NEXT_PUBLIC_CONVEX_URL)
+
+  apps/web/config/site.ts
+    App name and metadata — change when cloning for a new project
+
+Design system (apps/web/styles/globals.css):
+  - Monochrome luxury palette (black/white accent inverts light/dark)
+  - bg-background = page canvas, bg-surface = cards/panels
+  - Surfaces + shadows for depth — NO borders or separator lines
+  - .field-inset utility for inputs nested on surfaces
+  - HeroUI components (@heroui/react) for buttons, cards, inputs, etc.
+
+
+=== 10. MOBILE APP (apps/mobile) ===
+
+Framework: Expo 56 with Expo Router (file-based routing like Next.js but
+for React Native mobile apps).
+
+Tech: React Native, HeroUI Native (heroui-native), Uniwind (Tailwind v4 for
+React Native), Lucide icons
+
+Routes:
+
+  Protected (require sign-in — AuthGate in src/app/_layout.tsx):
+    /(tabs)/           Tab navigator (PremiumTabBar — icons only, no labels)
+      index.tsx        Home tab (placeholder)
+      explore.tsx      Knowledge search + ask (read-only)
+      profile.tsx      Account info + theme preference + sign out
+
+  Public:
+    /(auth)/sign-in    Google sign-in (custom browser session flow)
+    /(auth)/sign-up    Google sign-up (same flow)
+
+Key architecture files:
+
+  apps/mobile/src/app/_layout.tsx
+    Root layout: fonts, theme, Convex provider, AuthGate, stack navigator
+
+  apps/mobile/src/app/(tabs)/_layout.tsx
+    PremiumTabBar (icon-only bottom tabs)
+
+  apps/mobile/lib/convex.tsx
+    ConvexReactClient + ConvexAuthProvider with SecureStore token storage
+    (EXPO_PUBLIC_CONVEX_URL)
+
+  apps/mobile/src/constants/app-config.ts
+    App name, storage keys, avatar initials — change for new projects
+
+  apps/mobile/app.json
+    App slug, URL scheme (heroui-native-app), icons, splash screen
+
+Required UI building blocks (do not skip when adding screens):
+  ScreenShell       src/components/screen-shell.tsx
+  SurfaceCard       src/components/surface-card.tsx
+  AppHeader         src/components/app-header.tsx
+  PremiumTabBar     src/components/premium-tab-bar.tsx
+  DialogBlurOverlay src/components/dialog-blur-overlay.tsx (for modals)
+
+Design system (apps/mobile/global.css):
+  - Same monochrome philosophy as web
+  - Typography: text-page-title, text-section-title, text-caption, text-emphasis
+  - Spacing: px-screen-x, gap-section, p-card, pb-screen-bottom
+  - Surfaces + shadow-elevated — NO borders
+  - .field-inset for inputs on surfaces
+
+Web vs Mobile feature gap:
+  Web Explore    = full knowledge hub (search, ask, admin upload/delete)
+  Mobile Explore = search + ask only (no admin features)
+
+
+=== 11. ADDING A NEW FEATURE — STEP-BY-STEP CHECKLIST ===
+
+Example: adding a "notes" feature shared across web and mobile.
+
+  1. Schema (packages/backend/convex/schema.ts)
+       - Add a notes table with fields + indexes
+       - Keep bun run convex:dev running — schema pushes automatically
+
+  2. Backend functions (packages/backend/convex/notes.ts)
+       - Write query/mutation/action functions
+       - Add auth checks (getCurrentUser, requireAdmin, etc.)
+       - Convex auto-regenerates _generated/api with api.notes.*
+
+  3. Shared types (packages/types/src/index.ts) — if needed
+       - Add interfaces both apps will use (e.g. NoteSummary)
+
+  4. Web UI (apps/web/)
+       - Add route: app/(app)/notes/page.tsx
+       - Add components: components/notes/
+       - Add nav item in config/navigation.ts
+       - Use hooks:
+           const notes = useQuery(api.notes.list);
+           const create = useMutation(api.notes.create);
+
+  5. Mobile UI (apps/mobile/src/)
+       - Add screen: src/app/(tabs)/notes.tsx (or a new tab)
+       - Add components in src/components/notes/
+       - Update TAB_ICONS in premium-tab-bar.tsx if adding a tab
+       - Same Convex hooks as web
+
+  6. Test
+       - Keep convex:dev running throughout
+       - Web: http://localhost:3000
+       - Mobile: dev build (not Expo Go if OAuth involved)
+
+General rules:
+  - Backend logic goes in packages/backend/convex/ (once, shared by both apps)
+  - UI is platform-specific (apps/web vs apps/mobile)
+  - Types/utils go in packages/ when shared
+  - Never duplicate backend logic in the apps
+
+
+=== 12. COMMON MISTAKES / DO-NOT-EDIT LIST ===
+
+DO NOT:
+  [ ] Edit the root convex/ folder
+        Real backend is packages/backend/convex/ (convex.json points there)
+
+  [ ] Edit packages/backend/convex/_generated/
+        Auto-regenerated by Convex CLI — your changes will be overwritten
+
+  [ ] Use npm or pnpm
+        This repo requires Bun with linker = "hoisted" in bunfig.toml
+
+  [ ] Commit .env.local files
+        Contains deployment URLs and potentially secrets — gitignore them
+
+  [ ] Run npx convex deploy during development
+        Use bun run convex:dev for dev; deploy is production only
+
+  [ ] Test Google sign-in on mobile in Expo Go
+        Custom URL scheme requires a dev build (expo run:android/ios)
+
+  [ ] Put AUTH_GOOGLE_SECRET in .env.local
+        Server secrets belong in Convex env (bunx convex env set)
+
+COMMON PITFALLS:
+  - Google sign-in fails on web
+      -> Check redirect URI matches https://<deployment>.convex.site/api/auth/callback/google
+      -> Check AUTH_GOOGLE_ID and AUTH_GOOGLE_SECRET in Convex env
+      -> Run: bunx convex env list
+
+  - Backend changes not appearing
+      -> Ensure bun run convex:dev is running and watching packages/backend/convex/
+
+  - TypeScript can't find @repo/backend
+      -> Run bun install from root
+      -> Run bun run typecheck to surface path issues
+
+  - Mobile app can't connect to Convex
+      -> Check EXPO_PUBLIC_CONVEX_URL in apps/mobile/.env.local
+
+  - bun install fails
+      -> Do not switch package managers; use Bun only
+
+
+=== 13. QUICK REFERENCE ===
+
+Commands (run from repo root unless noted):
+
+  bun install                    Install all dependencies
+  bun run convex:dev             Start Convex dev server + file watcher
+  bun run dev                    Start web + mobile via Turborepo
+  bun run build                  Build all apps
+  bun run lint                   Lint all packages
+  bun run typecheck              Type-check all packages
+
+  cd apps/web && bun run dev              Web only -> localhost:3000
+  cd apps/mobile && bunx expo start       Mobile only -> Expo dev server
+  cd apps/mobile && bunx expo run:android Dev build (required for OAuth)
+  cd apps/mobile && bunx expo run:ios     Dev build (required for OAuth)
+
+  bunx convex login              Log in to Convex
+  bunx convex env set KEY VALUE  Set server-side env var
+  bunx convex env list           List Convex env vars
+
+Environment variables:
+
+  Variable                  Where to set              Used by
+  ------------------------  ------------------------  -------------------------
+  CONVEX_DEPLOYMENT         Root .env.local           Convex CLI
+  CONVEX_URL                Root .env.local           Convex CLI
+  CONVEX_SITE_URL           Root .env.local           Auth callbacks
+  NEXT_PUBLIC_CONVEX_URL    Root + apps/web/.env.local Web client
+  EXPO_PUBLIC_CONVEX_URL    Root + apps/mobile/.env.local Mobile client
+  NEXT_PUBLIC_APP_URL       Root .env.local           Web app URL
+  SITE_URL                  Convex env                Auth redirects
+  AUTH_GOOGLE_ID            Convex env                Google OAuth
+  AUTH_GOOGLE_SECRET        Convex env                Google OAuth
+
+Backend API quick map:
+
+  api.users.viewer              query     Current user profile
+  api.users.updateProfile       mutation  Update name/image
+  api.knowledge.listDocuments   query     List knowledge documents
+  api.knowledge.search          action    Semantic search
+  api.knowledge.ask             action    RAG question answering
+  api.knowledge.addTextDocument action    Admin: add text to knowledge base
+  api.knowledge.addFileDocument action    Admin: upload file to knowledge base
+  api.knowledge.deleteDocument  mutation  Admin: delete document
+
+Web routes:
+
+  /           Home (protected)
+  /explore    Knowledge hub (protected)
+  /profile    Account settings (protected)
+  /sign-in    Google sign-in (public)
+  /sign-up    Google sign-up (public)
+
+Mobile routes:
+
+  /(tabs)/            Home tab (protected)
+  /(tabs)/explore     Knowledge search/ask (protected)
+  /(tabs)/profile     Account settings (protected)
+  /(auth)/sign-in     Google sign-in (public)
+  /(auth)/sign-up     Google sign-up (public)
+
+New project from this template:
+
+  1. Clone + bun install
+  2. bun run convex:dev (create a NEW deployment — don't reuse template's)
+  3. Set up Google OAuth with your deployment's callback URL
+  4. Update app names:
+       apps/web/config/site.ts
+       apps/mobile/src/constants/app-config.ts
+  5. Optionally change mobile URL scheme in app.json + packages/backend/convex/auth.ts
+  6. Commit .env.example only — never .env.local
+
+================================================================================
+  END — For setup steps and troubleshooting, also see README.md
+================================================================================

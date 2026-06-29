@@ -6,9 +6,13 @@
     "./convex/_generated/dataModel": "./convex/_generated/dataModel.d.ts"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.74",
     "@auth/core": "0.37.0",
     "@convex-dev/auth": "0.0.94",
+    "@convex-dev/rag": "^0.7.5",
     "@repo/types": "workspace:*",
-    "convex": "1.41.0"
+    "ai": "^6.0.208",
+    "convex": "1.41.0",
+    "convex-helpers": "^0.1.119"
   }
 }

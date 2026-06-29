@@ -1,14 +1,11 @@
 import type { Metadata } from "next";
 
-import { PageSurface } from "@/components/page-surface";
-import { getNavItem } from "@/config/navigation";
-
-const { href, icon } = getNavItem("/explore");
+import { KnowledgeExplore } from "@/components/knowledge/knowledge-explore";
 
 export const metadata: Metadata = {
-  title: "Explore",
+  title: "Knowledge",
 };
 
 export default function ExplorePage() {
-  return <PageSurface icon={icon} route={href} />;
+  return <KnowledgeExplore />;
 }
