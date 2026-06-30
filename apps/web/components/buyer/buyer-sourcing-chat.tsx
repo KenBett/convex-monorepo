@@ -1,13 +1,23 @@
 "use client";
 
+import type {
+  BuyerSourcingListingResult,
+  BuyerSourcingStreamData,
+} from "@repo/types";
+
 import { useAuthToken } from "@convex-dev/auth/react";
 import { api } from "@repo/backend/convex/_generated/api";
-import type { BuyerSourcingListingResult, BuyerSourcingStreamData } from "@repo/types";
 import { useChat } from "@ai-sdk/react";
 import { useQuery } from "convex/react";
 import { Button, Card } from "@heroui/react";
 import { DefaultChatTransport, isDataUIPart, type UIMessage } from "ai";
-import { Bot, MessageSquarePlus, Send, ShoppingBag, UserRound } from "lucide-react";
+import {
+  Bot,
+  MessageSquarePlus,
+  Send,
+  ShoppingBag,
+  UserRound,
+} from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { BuyerListingCard } from "@/components/buyer/buyer-listing-card";
@@ -41,7 +51,9 @@ function getMessageText(message: BuyerChatMessage): string {
     .join("");
 }
 
-function getSourcingData(message: BuyerChatMessage): BuyerSourcingStreamData | null {
+function getSourcingData(
+  message: BuyerChatMessage,
+): BuyerSourcingStreamData | null {
   for (const part of message.parts) {
     if (isDataUIPart(part) && part.type === "data-sourcing") {
       return part.data;
@@ -59,9 +71,12 @@ function ChatMessage({
   onOrder: (listing: BuyerSourcingListingResult) => void;
 }) {
   const text = getMessageText(message);
-  const sourcing = message.role === "assistant" ? getSourcingData(message) : null;
+  const sourcing =
+    message.role === "assistant" ? getSourcingData(message) : null;
   const isUser = message.role === "user";
-  const assistantIntro = sourcing ? getBuyerSourcingIntroMessage(sourcing) : text;
+  const assistantIntro = sourcing
+    ? getBuyerSourcingIntroMessage(sourcing)
+    : text;
 
   return (
     <div className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
@@ -92,7 +107,7 @@ function ChatMessage({
           <ol className="grid w-full grid-cols-[repeat(auto-fill,minmax(12.5rem,1fr))] gap-3">
             {sourcing.listings.map((listing) => (
               <li key={listing.listingId}>
-                <BuyerListingCard onOrder={onOrder} result={listing} />
+                <BuyerListingCard result={listing} onOrder={onOrder} />
               </li>
             ))}
           </ol>
@@ -141,6 +156,7 @@ export function BuyerSourcingChat() {
   const authToken = useAuthToken();
   const viewer = useQuery(api.users.viewer);
   const tokenRef = useRef<string | null>(null);
+
   tokenRef.current = authToken;
 
   const chatStorageKey = viewer?._id ?? null;
@@ -152,20 +168,29 @@ export function BuyerSourcingChat() {
         api: BUYER_SOURCING_CHAT_API,
         headers: (): Record<string, string> => {
           const token = tokenRef.current;
+
           if (!token) {
             return {};
           }
+
           return { Authorization: `Bearer ${token}` };
         },
       }),
     [],
   );
 
-  const { clearError, error, messages, sendMessage, setMessages, status, stop } =
-    useChat<BuyerChatMessage>({
-      id: chatStorageKey ?? undefined,
-      transport,
-    });
+  const {
+    clearError,
+    error,
+    messages,
+    sendMessage,
+    setMessages,
+    status,
+    stop,
+  } = useChat<BuyerChatMessage>({
+    id: chatStorageKey ?? undefined,
+    transport,
+  });
 
   useEffect(() => {
     if (!chatStorageKey || hasHydratedRef.current) {
@@ -173,7 +198,9 @@ export function BuyerSourcingChat() {
     }
 
     hasHydratedRef.current = true;
-    const persistedMessages = loadBuyerSourcingMessages<BuyerChatMessage>(chatStorageKey);
+    const persistedMessages =
+      loadBuyerSourcingMessages<BuyerChatMessage>(chatStorageKey);
+
     if (persistedMessages.length > 0) {
       setMessages(persistedMessages);
     }
@@ -191,9 +218,9 @@ export function BuyerSourcingChat() {
   const [checkoutListing, setCheckoutListing] =
     useState<BuyerSourcingListingResult | null>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [checkoutDefaultQty, setCheckoutDefaultQty] = useState<number | undefined>(
-    undefined,
-  );
+  const [checkoutDefaultQty, setCheckoutDefaultQty] = useState<
+    number | undefined
+  >(undefined);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const isBusy = status === "submitted" || status === "streaming";
   const isAuthReady = authToken !== null;
@@ -208,6 +235,7 @@ export function BuyerSourcingChat() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmed = input.trim();
+
     if (!trimmed || isBusy || !isAuthReady) {
       return;
     }
@@ -220,7 +248,10 @@ export function BuyerSourcingChat() {
     const lastAssistant = [...messages]
       .reverse()
       .find((message) => message.role === "assistant");
-    const intent = lastAssistant ? getSourcingData(lastAssistant)?.intent : null;
+    const intent = lastAssistant
+      ? getSourcingData(lastAssistant)?.intent
+      : null;
+
     setCheckoutDefaultQty(intent?.minQuantityKg);
     setCheckoutListing(listing);
     setCheckoutOpen(true);
@@ -246,10 +277,9 @@ export function BuyerSourcingChat() {
         <div className="flex items-center gap-3">
           <ShoppingBag className="h-8 w-8 text-muted" strokeWidth={1.75} />
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Find produce</h1>
-            <p className="text-sm text-muted">
-              Ask in plain language — results are verified against live stock.
-            </p>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Find produce
+            </h1>
           </div>
         </div>
 
@@ -286,20 +316,27 @@ export function BuyerSourcingChat() {
                     Start a sourcing request
                   </p>
                   <p className="max-w-sm text-xs leading-relaxed text-muted">
-                    Try &quot;50kg maize in Nakuru under 50 shillings per kg&quot;
+                    Try &quot;50kg maize in Nakuru under 50 shillings per
+                    kg&quot;
                   </p>
                 </div>
               </div>
             ) : (
               messages.map((message) => (
-                <ChatMessage key={message.id} message={message} onOrder={handleOrder} />
+                <ChatMessage
+                  key={message.id}
+                  message={message}
+                  onOrder={handleOrder}
+                />
               ))
             )}
 
             {isBusy ? <ChatLoadingIndicator /> : null}
           </div>
 
-          {error ? <p className="text-sm text-danger">{error.message}</p> : null}
+          {error ? (
+            <p className="text-sm text-danger">{error.message}</p>
+          ) : null}
           {!isAuthReady ? (
             <p className="text-sm text-muted">Signing you in…</p>
           ) : null}
@@ -308,10 +345,10 @@ export function BuyerSourcingChat() {
             <textarea
               aria-label="Sourcing request"
               className={`min-h-24 w-full resize-none px-4 py-3 text-sm leading-6 transition-shadow duration-200 ${INPUT_SURFACE}`}
-              onChange={(event) => setInput(event.target.value)}
               placeholder="e.g. 50kg maize in Nakuru under 50 shillings per kg"
               rows={3}
               value={input}
+              onChange={(event) => setInput(event.target.value)}
             />
             <div className="flex items-center gap-2">
               <Button
@@ -325,7 +362,12 @@ export function BuyerSourcingChat() {
                 {isBusy ? "Searching…" : "Send"}
               </Button>
               {isBusy ? (
-                <Button size="sm" type="button" variant="secondary" onPress={() => stop()}>
+                <Button
+                  size="sm"
+                  type="button"
+                  variant="secondary"
+                  onPress={() => stop()}
+                >
                   Stop
                 </Button>
               ) : null}

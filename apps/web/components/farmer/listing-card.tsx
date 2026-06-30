@@ -2,6 +2,7 @@
 
 import type { Id } from "@repo/backend/convex/_generated/dataModel";
 import type { ListingStatus } from "@repo/types";
+
 import {
   formatListingStatus,
   getCropTheme,
@@ -70,7 +71,10 @@ function ListingCardNoiseOverlay() {
   );
 }
 
-export function FarmerListingCard({ listing, listingId }: FarmerListingCardProps) {
+export function FarmerListingCard({
+  listing,
+  listingId,
+}: FarmerListingCardProps) {
   const router = useRouter();
   const theme = getCropTheme(listing.crop);
   const bgClass = getListingCardBgClass(listing.crop);
@@ -104,12 +108,12 @@ export function FarmerListingCard({ listing, listingId }: FarmerListingCardProps
       <div className="relative min-h-0 w-full overflow-hidden">
         {listing.imageUrl ? (
           <Image
+            fill
+            unoptimized
             alt={`${theme.label} listing photo`}
             className="object-cover"
-            fill
             sizes="(max-width: 768px) 50vw, 240px"
             src={listing.imageUrl}
-            unoptimized
           />
         ) : (
           <div className="flex h-full items-center justify-center bg-black/4 dark:bg-black/20">

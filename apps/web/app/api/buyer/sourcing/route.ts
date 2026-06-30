@@ -12,16 +12,19 @@ export const maxDuration = 60;
 
 function getBearerToken(request: Request): string | null {
   const authorization = request.headers.get("Authorization");
+
   if (!authorization?.startsWith("Bearer ")) {
     return null;
   }
 
   const token = authorization.slice("Bearer ".length).trim();
+
   return token.length > 0 ? token : null;
 }
 
 function toChatContextPayload(messages: UIMessage[]) {
   const context = buildBuyerChatRequestContext(messages);
+
   if (!context.previousSourcing) {
     return {
       conversationTranscript: context.conversationTranscript,
@@ -30,7 +33,9 @@ function toChatContextPayload(messages: UIMessage[]) {
   }
 
   const crops = [
-    ...new Set(context.previousSourcing.listings.map((listing) => listing.crop)),
+    ...new Set(
+      context.previousSourcing.listings.map((listing) => listing.crop),
+    ),
   ];
 
   return {
@@ -85,19 +90,23 @@ function toStreamListings(
 
 export async function POST(request: Request) {
   const token = getBearerToken(request);
+
   if (!token) {
     return new Response("Unauthorized", { status: 401 });
   }
 
   let messages: UIMessage[];
+
   try {
     const body = (await request.json()) as { messages?: UIMessage[] };
+
     messages = body.messages ?? [];
   } catch {
     return new Response("Invalid request body", { status: 400 });
   }
 
   const chatContext = toChatContextPayload(messages);
+
   if (chatContext.latestUserMessage.length === 0) {
     return new Response("Missing user message", { status: 400 });
   }
@@ -127,6 +136,7 @@ export async function POST(request: Request) {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Buyer sourcing search failed";
+
     console.error("buyer sourcing route failed", { error: message });
 
     return new Response(JSON.stringify({ error: message }), {

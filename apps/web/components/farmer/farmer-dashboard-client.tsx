@@ -28,7 +28,9 @@ function ListingStatCard({ label, value, icon: Icon }: ListingStat) {
         <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
         <span className="text-xs font-medium">{label}</span>
       </div>
-      <p className="text-xl font-semibold tracking-tight text-foreground">{value}</p>
+      <p className="text-xl font-semibold tracking-tight text-foreground">
+        {value}
+      </p>
     </div>
   );
 }
@@ -41,8 +43,12 @@ export function FarmerDashboardClient() {
       return null;
     }
 
-    const activeListings = listings.filter((listing) => listing.status === "active");
-    const soldOutListings = listings.filter((listing) => listing.status === "sold_out");
+    const activeListings = listings.filter(
+      (listing) => listing.status === "active",
+    );
+    const soldOutListings = listings.filter(
+      (listing) => listing.status === "sold_out",
+    );
     const totalKgAvailable = activeListings.reduce(
       (total, listing) => total + listing.quantityKg,
       0,
@@ -97,7 +103,9 @@ export function FarmerDashboardClient() {
 
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold text-foreground">Active listings</h2>
+          <h2 className="text-sm font-semibold text-foreground">
+            Active listings
+          </h2>
           <Link
             className="text-sm font-medium text-accent hover:underline"
             href="/farmer/my-products"
@@ -123,7 +131,8 @@ export function FarmerDashboardClient() {
             )}
           >
             <p className="text-sm text-muted">
-              No active listings yet. Add your first crop so buyers can find you.
+              No active listings yet. Add your first crop so buyers can find
+              you.
             </p>
             <Link
               className="inline-flex items-center justify-center rounded-full bg-accent px-5 py-2 text-sm font-medium text-accent-foreground"

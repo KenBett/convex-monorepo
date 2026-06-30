@@ -52,15 +52,20 @@ export async function blobToRecordingPayload(
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
+
     reader.onloadend = () => {
       const result = reader.result;
+
       if (typeof result !== "string") {
         reject(new Error("Failed to read recording"));
+
         return;
       }
       const base64 = result.split(",")[1];
+
       if (!base64) {
         reject(new Error("Failed to encode recording"));
+
         return;
       }
       resolve(base64);

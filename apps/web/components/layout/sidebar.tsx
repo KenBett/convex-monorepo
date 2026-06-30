@@ -53,7 +53,11 @@ export const Sidebar = () => {
         )}
       >
         <div className="flex h-14 shrink-0 items-center justify-center border-b border-separator px-2">
-          <NextLink aria-label="Home" className="flex items-center" href={homePath}>
+          <NextLink
+            aria-label="Home"
+            className="flex items-center"
+            href={homePath}
+          >
             <Logo size={28} />
           </NextLink>
         </div>

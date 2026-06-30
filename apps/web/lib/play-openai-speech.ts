@@ -27,8 +27,10 @@ let drainPromise: Promise<void> | null = null;
 function sortedInsert(chunk: QueuedChunk): void {
   let lo = 0;
   let hi = chunkQueue.length;
+
   while (lo < hi) {
     const mid = (lo + hi) >>> 1;
+
     if ((chunkQueue[mid]?.index ?? 0) < chunk.index) lo = mid + 1;
     else hi = mid;
   }
@@ -37,6 +39,7 @@ function sortedInsert(chunk: QueuedChunk): void {
 
 async function playChunk(base64: string): Promise<void> {
   const audio = new Audio(`data:audio/mp3;base64,${base64}`);
+
   activeAudio = audio;
   await new Promise<void>((resolve, reject) => {
     audio.onended = () => resolve();
@@ -52,6 +55,7 @@ async function drainQueue(): Promise<void> {
 
   while (chunkQueue.length > 0 && chunkQueue[0]?.index === nextPlayIndex) {
     const chunk = chunkQueue.shift()!;
+
     nextPlayIndex++;
     try {
       await playChunk(chunk.audioBase64);
@@ -87,6 +91,7 @@ export function enqueueSpeechChunk(
   }
 
   void drainQueue();
+
   return drainPromise;
 }
 
@@ -108,6 +113,7 @@ export function finalizeSpeechQueue(): void {
  */
 export function waitForSpeechQueueDrain(): Promise<void> {
   if (!drainPromise) return Promise.resolve();
+
   return drainPromise;
 }
 
@@ -127,6 +133,7 @@ export async function stopOpenAiSpeech(): Promise<void> {
 
   if (!activeAudio) return;
   const audio = activeAudio;
+
   activeAudio = null;
   audio.pause();
   audio.src = "";
@@ -139,6 +146,7 @@ export async function stopOpenAiSpeech(): Promise<void> {
 export async function playOpenAiSpeech(audioBase64: string): Promise<void> {
   await stopOpenAiSpeech();
   const audio = new Audio(`data:audio/mp3;base64,${audioBase64}`);
+
   activeAudio = audio;
   await new Promise<void>((resolve, reject) => {
     audio.onended = () => resolve();

@@ -4,10 +4,7 @@ import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect } from "react";
 
 import { LayoutSkeleton } from "@/components/layout/layout-skeleton";
-import {
-  type RoutePolicy,
-  useViewerRouting,
-} from "@/hooks/use-viewer-routing";
+import { type RoutePolicy, useViewerRouting } from "@/hooks/use-viewer-routing";
 
 type RouteGuardProps = RoutePolicy & {
   children?: ReactNode;

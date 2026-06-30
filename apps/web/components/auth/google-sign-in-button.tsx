@@ -56,8 +56,8 @@ export function GoogleSignInButton({
     <Button
       className="w-full rounded-full bg-accent text-accent-foreground py-2"
       isDisabled={isLoading}
-      onPress={() => void handleSignIn()}
       variant="primary"
+      onPress={() => void handleSignIn()}
     >
       <span className="flex items-center justify-center gap-2.5">
         {!isLoading ? <GoogleIcon size={18} /> : null}

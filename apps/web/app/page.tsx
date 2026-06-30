@@ -9,5 +9,5 @@ function RoutingSpinner() {
 }
 
 export default function IndexPage() {
-  return <RouteGuard mode="index" fallback={<RoutingSpinner />} />;
+  return <RouteGuard fallback={<RoutingSpinner />} mode="index" />;
 }

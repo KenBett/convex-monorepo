@@ -14,7 +14,7 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <RouteGuard mode="guest" fallback={<AuthSpinner />}>
+    <RouteGuard fallback={<AuthSpinner />} mode="guest">
       <div className="flex min-h-dvh items-center justify-center bg-background px-4 py-12">
         <div className="w-full max-w-sm">{children}</div>
       </div>

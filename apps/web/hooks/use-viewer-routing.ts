@@ -1,7 +1,8 @@
 "use client";
 
-import { api } from "@repo/backend/convex/_generated/api";
 import type { MarketplaceRole } from "@repo/types";
+
+import { api } from "@repo/backend/convex/_generated/api";
 import { useConvexAuth, useQuery } from "convex/react";
 import { useMemo } from "react";
 
@@ -57,6 +58,7 @@ export function useViewerRouting(policy: RoutePolicy): ViewerRouting {
       if (policy.mode === "guest") {
         return { phase: "ready", redirectTo: null };
       }
+
       return { phase: "redirect", redirectTo: SIGN_IN_PATH };
     }
 
@@ -78,6 +80,7 @@ export function useViewerRouting(policy: RoutePolicy): ViewerRouting {
         if (onboardingRequired) {
           return { phase: "ready", redirectTo: null };
         }
+
         return { phase: "redirect", redirectTo: home };
       case "role":
         if (onboardingRequired) {
@@ -86,6 +89,7 @@ export function useViewerRouting(policy: RoutePolicy): ViewerRouting {
         if (viewer.role !== policy.requiredRole) {
           return { phase: "redirect", redirectTo: home };
         }
+
         return { phase: "ready", redirectTo: null };
     }
   }, [authLoading, isAuthenticated, policy, viewer, viewerLoading]);

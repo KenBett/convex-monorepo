@@ -106,8 +106,8 @@ export const Navbar = () => {
               "disabled:cursor-not-allowed disabled:opacity-60",
             )}
             disabled={isSigningOut}
-            onClick={() => void handleSignOut()}
             type="button"
+            onClick={() => void handleSignOut()}
           >
             <LogOut className="h-3.5 w-3.5" />
           </button>

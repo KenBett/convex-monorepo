@@ -1,6 +1,7 @@
 "use client";
 
 import type { BuyerSourcingListingResult } from "@repo/types";
+
 import {
   getCropTheme,
   getListingCardBgClass,
@@ -48,12 +49,12 @@ export function BuyerListingCard({ onOrder, result }: BuyerListingCardProps) {
       <div className="relative min-h-0 w-full overflow-hidden">
         {result.imageUrl ? (
           <Image
+            fill
+            unoptimized
             alt={`${theme.label} listing photo`}
             className="object-cover"
-            fill
             sizes="(max-width: 768px) 50vw, 240px"
             src={result.imageUrl}
-            unoptimized
           />
         ) : (
           <div className="flex h-full items-center justify-center bg-black/4 dark:bg-black/20">

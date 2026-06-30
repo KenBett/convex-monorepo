@@ -34,6 +34,7 @@ export function getBuyerSourcingIntroMessage(
   if (meta.excludedSoldOutCount > 0) {
     const excludedLabel =
       meta.excludedSoldOutCount === 1 ? "listing was" : "listings were";
+
     message += ` ${meta.excludedSoldOutCount} sold-out ${excludedLabel} excluded from these results.`;
   }
 

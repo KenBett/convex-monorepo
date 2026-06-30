@@ -1,7 +1,8 @@
 "use client";
 
-import { api } from "@repo/backend/convex/_generated/api";
 import type { Id } from "@repo/backend/convex/_generated/dataModel";
+
+import { api } from "@repo/backend/convex/_generated/api";
 import {
   COUNTIES,
   CROP_TYPES,
@@ -13,13 +14,7 @@ import {
 } from "@repo/types";
 import { useMutation } from "convex/react";
 import clsx from "clsx";
-import {
-  Button,
-  Input,
-  ListBox,
-  Select,
-  useOverlayState,
-} from "@heroui/react";
+import { Button, Input, ListBox, Select, useOverlayState } from "@heroui/react";
 import { Modal } from "@heroui/react/modal";
 import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -110,7 +105,9 @@ function DetailFieldCard({
         className,
       )}
     >
-      <p className="text-xs font-medium uppercase tracking-wide text-muted">{label}</p>
+      <p className="text-xs font-medium uppercase tracking-wide text-muted">
+        {label}
+      </p>
       <div className="min-w-0 flex-1">{children}</div>
     </div>
   );
@@ -190,7 +187,9 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const [priceDraft, setPriceDraft] = useState(String(listing.pricePerKg));
-  const [quantityDraft, setQuantityDraft] = useState(String(listing.quantityKg));
+  const [quantityDraft, setQuantityDraft] = useState(
+    String(listing.quantityKg),
+  );
   const [gradeDraft, setGradeDraft] = useState(listing.grade ?? "");
   const [descriptionDraft, setDescriptionDraft] = useState(listing.description);
 
@@ -238,11 +237,14 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
     rawValue: string,
   ) => {
     const parsed = Number(rawValue);
+
     if (!Number.isFinite(parsed) || parsed <= 0) {
       return;
     }
 
-    const current = field === "pricePerKg" ? listing.pricePerKg : listing.quantityKg;
+    const current =
+      field === "pricePerKg" ? listing.pricePerKg : listing.quantityKg;
+
     if (parsed === current) {
       return;
     }
@@ -260,7 +262,9 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
       await updateListingStatus({ listingId: listing._id, soldOut: checked });
     } catch (error) {
       setSaveError(
-        error instanceof Error ? error.message : "Could not update listing status.",
+        error instanceof Error
+          ? error.message
+          : "Could not update listing status.",
       );
     } finally {
       setIsSavingStatus(false);
@@ -285,9 +289,12 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
 
   const isSoldOut = listing.status === "sold_out";
   const isExpired = listing.status === "expired";
-  const createdAt = new Date(listing._creationTime).toLocaleDateString(undefined, {
-    dateStyle: "medium",
-  });
+  const createdAt = new Date(listing._creationTime).toLocaleDateString(
+    undefined,
+    {
+      dateStyle: "medium",
+    },
+  );
 
   return (
     <>
@@ -300,8 +307,9 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
                   Delete listing?
                 </Modal.Heading>
                 <p className="text-sm text-muted">
-                  Are you sure you want to delete this {getCropTheme(listing.crop).label}{" "}
-                  listing? This cannot be undone.
+                  Are you sure you want to delete this{" "}
+                  {getCropTheme(listing.crop).label} listing? This cannot be
+                  undone.
                 </p>
               </Modal.Header>
               <Modal.Body className="gap-0 p-0">
@@ -344,20 +352,20 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
           <DetailFieldCard editable label="Photo">
             <div className={clsx("inline-flex", EDITABLE_SURFACE_CLASS)}>
               <ListingImagePicker
-              hideLabel
-              initialPreviewUrl={listing.imageUrl}
-              value={listing.imageStorageId}
-              variant="compact"
-              onChange={(storageId) => {
-                if (!storageId) {
-                  return;
-                }
-                void saveListingField({
-                  listingId: listing._id,
-                  imageStorageId: storageId,
-                });
-              }}
-            />
+                hideLabel
+                initialPreviewUrl={listing.imageUrl}
+                value={listing.imageStorageId}
+                variant="compact"
+                onChange={(storageId) => {
+                  if (!storageId) {
+                    return;
+                  }
+                  void saveListingField({
+                    listingId: listing._id,
+                    imageStorageId: storageId,
+                  });
+                }}
+              />
             </div>
           </DetailFieldCard>
 
@@ -375,6 +383,7 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
                   onSelectionChange={(key) => {
                     if (!key || key === listing.crop) {
                       setActiveField(null);
+
                       return;
                     }
                     void saveListingField(
@@ -394,8 +403,8 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
                     <ListBox>
                       {CROP_TYPES.map((crop) => (
                         <ListBox.Item
-                          id={crop}
                           key={crop}
+                          id={crop}
                           textValue={getCropTheme(crop).label}
                         >
                           <CropLabel crop={crop} />
@@ -420,9 +429,9 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
               input={
                 <Input
                   autoFocus
+                  fullWidth
                   aria-label="Price per kg"
                   className={EDIT_FIELD_CLASS}
-                  fullWidth
                   inputMode="decimal"
                   type="number"
                   value={priceDraft}
@@ -432,6 +441,7 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
                   }}
                   onChange={(event) => {
                     const next = event.target.value;
+
                     setPriceDraft(next);
                     debouncedSave(() => {
                       saveNumberField("pricePerKg", next);
@@ -477,6 +487,7 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
                     }}
                     onChange={(event) => {
                       const next = event.target.value;
+
                       setQuantityDraft(next);
                       debouncedSave(() => {
                         saveNumberField("quantityKg", next);
@@ -517,6 +528,7 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
                   onSelectionChange={(key) => {
                     if (!key || key === listing.county) {
                       setActiveField(null);
+
                       return;
                     }
                     void saveListingField(
@@ -535,7 +547,11 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
                   <Select.Popover>
                     <ListBox>
                       {COUNTIES.map((county) => (
-                        <ListBox.Item id={county} key={county} textValue={county}>
+                        <ListBox.Item
+                          key={county}
+                          id={county}
+                          textValue={county}
+                        >
                           {county}
                           <ListBox.ItemIndicator />
                         </ListBox.Item>
@@ -546,7 +562,9 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
               }
               onStartEdit={() => setActiveField("county")}
             >
-              <p className="text-base font-medium text-foreground">{listing.county}</p>
+              <p className="text-base font-medium text-foreground">
+                {listing.county}
+              </p>
             </ClickToEdit>
           </DetailFieldCard>
 
@@ -558,9 +576,9 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
               input={
                 <Input
                   autoFocus
+                  fullWidth
                   aria-label="Grade"
                   className={EDIT_FIELD_CLASS}
-                  fullWidth
                   placeholder="Optional grade"
                   value={gradeDraft}
                   onBlur={() => {
@@ -574,6 +592,7 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
                   }}
                   onChange={(event) => {
                     const next = event.target.value;
+
                     setGradeDraft(next);
                     debouncedSave(() => {
                       void saveListingField({
@@ -602,7 +621,9 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
           </DetailFieldCard>
 
           <DetailFieldCard editable label="Status">
-            <div className={clsx("flex flex-col gap-3", EDITABLE_SURFACE_CLASS)}>
+            <div
+              className={clsx("flex flex-col gap-3", EDITABLE_SURFACE_CLASS)}
+            >
               <p className="text-base font-medium text-foreground">
                 {formatListingStatus(listing.status)}
               </p>
@@ -622,10 +643,12 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
           </DetailFieldCard>
 
           <DetailFieldCard label="Listed">
-            <p className="flex h-full items-center text-base text-foreground">{createdAt}</p>
+            <p className="flex h-full items-center text-base text-foreground">
+              {createdAt}
+            </p>
           </DetailFieldCard>
 
-          <DetailFieldCard colSpan={4} editable label="Description">
+          <DetailFieldCard editable colSpan={4} label="Description">
             <ClickToEdit
               ariaLabel="description"
               className="w-full px-1"
@@ -650,6 +673,7 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
                   }}
                   onChange={(event) => {
                     const next = event.target.value;
+
                     setDescriptionDraft(next);
                     debouncedSave(() => {
                       if (next.trim().length === 0) {

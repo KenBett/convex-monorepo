@@ -14,12 +14,16 @@ export function loadBuyerSourcingMessages<UI_MESSAGE extends UIMessage>(
   }
 
   try {
-    const raw = window.localStorage.getItem(getBuyerSourcingChatStorageKey(userId));
+    const raw = window.localStorage.getItem(
+      getBuyerSourcingChatStorageKey(userId),
+    );
+
     if (!raw) {
       return [];
     }
 
     const parsed = JSON.parse(raw) as unknown;
+
     if (!Array.isArray(parsed)) {
       return [];
     }

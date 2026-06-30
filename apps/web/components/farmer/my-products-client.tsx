@@ -29,7 +29,9 @@ function ListingStatCard({ label, value, icon: Icon }: ListingStat) {
         <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
         <span className="text-xs font-medium">{label}</span>
       </div>
-      <p className="text-xl font-semibold tracking-tight text-foreground">{value}</p>
+      <p className="text-xl font-semibold tracking-tight text-foreground">
+        {value}
+      </p>
     </div>
   );
 }
@@ -46,17 +48,19 @@ function ListingsEmptyState({ onAddListing }: { onAddListing: () => void }) {
         <Package className="h-5 w-5 text-muted" strokeWidth={1.75} />
       </div>
       <div className="flex max-w-sm flex-col gap-1.5">
-        <h2 className="text-base font-semibold text-foreground">No listings yet</h2>
+        <h2 className="text-base font-semibold text-foreground">
+          No listings yet
+        </h2>
         <p className="text-sm leading-relaxed text-muted">
-          Add your first crop listing so buyers can discover your produce across web
-          and mobile.
+          Add your first crop listing so buyers can discover your produce across
+          web and mobile.
         </p>
       </div>
       <Button
         className="rounded-full bg-accent px-5 font-medium text-accent-foreground"
-        onPress={onAddListing}
         size="sm"
         variant="primary"
+        onPress={onAddListing}
       >
         <Plus className="h-4 w-4" strokeWidth={1.75} />
         Add listing
@@ -75,8 +79,12 @@ export function MyProductsClient() {
       return null;
     }
 
-    const activeListings = listings.filter((listing) => listing.status === "active");
-    const soldOutListings = listings.filter((listing) => listing.status === "sold_out");
+    const activeListings = listings.filter(
+      (listing) => listing.status === "active",
+    );
+    const soldOutListings = listings.filter(
+      (listing) => listing.status === "sold_out",
+    );
     const totalKgAvailable = activeListings.reduce(
       (total, listing) => total + listing.quantityKg,
       0,
@@ -105,8 +113,8 @@ export function MyProductsClient() {
             <Modal.Dialog className="flex max-h-[min(90dvh,720px)] flex-col p-6">
               <Modal.Body className="flex min-h-0 flex-1 flex-col gap-0 overflow-hidden p-0">
                 <ListingForm
-                  embedded
                   key={createFormKey}
+                  embedded
                   onCancel={createModalState.close}
                   onSubmitted={() => {
                     createModalState.close();
@@ -127,9 +135,9 @@ export function MyProductsClient() {
         </div>
         <Button
           className="shrink-0 rounded-full bg-accent px-4 font-medium text-accent-foreground sm:mt-0.5"
-          onPress={createModalState.open}
           size="sm"
           variant="primary"
+          onPress={createModalState.open}
         >
           <Plus className="h-4 w-4" strokeWidth={1.75} />
           Add listing

@@ -2,19 +2,9 @@
 
 import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "@repo/backend/convex/_generated/api";
-import {
-  BUSINESS_TYPES,
-  COUNTIES,
-  type BusinessType,
-} from "@repo/types";
+import { BUSINESS_TYPES, COUNTIES, type BusinessType } from "@repo/types";
 import { getInitials } from "@repo/utils";
-import {
-  Avatar,
-  Button,
-  Input,
-  ListBox,
-  Select,
-} from "@heroui/react";
+import { Avatar, Button, Input, ListBox, Select } from "@heroui/react";
 import { useMutation, useQuery } from "convex/react";
 import { FormEvent, useEffect, useState } from "react";
 
@@ -153,9 +143,9 @@ export function ProfileContent() {
         <Button
           className="rounded-full bg-accent text-accent-foreground"
           isDisabled={isSigningOut}
-          onPress={() => void handleSignOut()}
           size="sm"
           variant="primary"
+          onPress={() => void handleSignOut()}
         >
           <span className="text-sm font-semibold tracking-tight">
             {isSigningOut ? "Signing out…" : "Sign out"}
@@ -175,40 +165,40 @@ export function ProfileContent() {
         </div>
 
         <Input
-          aria-label="Display name"
           fullWidth
-          onChange={(event) => setName(event.target.value)}
+          aria-label="Display name"
           placeholder="Display name"
           value={name}
+          onChange={(event) => setName(event.target.value)}
         />
 
         {viewer?.role === "farmer" ? (
           <>
             <Input
-              aria-label="Cooperative name"
               fullWidth
-              onChange={(event) => setCooperativeName(event.target.value)}
-              placeholder="Cooperative or farm name"
               required
+              aria-label="Cooperative name"
+              placeholder="Cooperative or farm name"
               value={cooperativeName}
+              onChange={(event) => setCooperativeName(event.target.value)}
             />
             <Input
-              aria-label="Phone number"
               fullWidth
-              onChange={(event) => setPhoneNumber(event.target.value)}
-              placeholder="Phone number"
               required
+              aria-label="Phone number"
+              placeholder="Phone number"
               type="tel"
               value={phoneNumber}
+              onChange={(event) => setPhoneNumber(event.target.value)}
             />
             <Input
-              aria-label="M-Pesa number"
               fullWidth
-              onChange={(event) => setMpesaNumber(event.target.value)}
-              placeholder="M-Pesa number"
               required
+              aria-label="M-Pesa number"
+              placeholder="M-Pesa number"
               type="tel"
               value={mpesaNumber}
+              onChange={(event) => setMpesaNumber(event.target.value)}
             />
           </>
         ) : null}
@@ -216,22 +206,22 @@ export function ProfileContent() {
         {viewer?.role === "buyer" ? (
           <>
             <Input
-              aria-label="Business name"
               fullWidth
-              onChange={(event) => setBusinessName(event.target.value)}
-              placeholder="Business name"
               required
+              aria-label="Business name"
+              placeholder="Business name"
               value={businessName}
+              onChange={(event) => setBusinessName(event.target.value)}
             />
             <Select
               aria-label="Business type"
+              placeholder="Business type"
+              selectedKey={businessType}
               onSelectionChange={(key) => {
                 if (key) {
                   setBusinessType(String(key) as BusinessType);
                 }
               }}
-              placeholder="Business type"
-              selectedKey={businessType}
             >
               <Select.Trigger>
                 <Select.Value />
@@ -240,7 +230,7 @@ export function ProfileContent() {
               <Select.Popover>
                 <ListBox>
                   {BUSINESS_TYPES.map((type) => (
-                    <ListBox.Item id={type} key={type} textValue={type}>
+                    <ListBox.Item key={type} id={type} textValue={type}>
                       {type.charAt(0).toUpperCase() + type.slice(1)}
                       <ListBox.ItemIndicator />
                     </ListBox.Item>
@@ -249,13 +239,13 @@ export function ProfileContent() {
               </Select.Popover>
             </Select>
             <Input
-              aria-label="Phone number"
               fullWidth
-              onChange={(event) => setPhoneNumber(event.target.value)}
-              placeholder="Phone number"
               required
+              aria-label="Phone number"
+              placeholder="Phone number"
               type="tel"
               value={phoneNumber}
+              onChange={(event) => setPhoneNumber(event.target.value)}
             />
           </>
         ) : null}
@@ -263,13 +253,13 @@ export function ProfileContent() {
         {viewer?.role ? (
           <Select
             aria-label="County"
+            placeholder="County"
+            selectedKey={county}
             onSelectionChange={(key) => {
               if (key) {
                 setCounty(String(key));
               }
             }}
-            placeholder="County"
-            selectedKey={county}
           >
             <Select.Trigger>
               <Select.Value />
@@ -278,7 +268,7 @@ export function ProfileContent() {
             <Select.Popover>
               <ListBox>
                 {COUNTIES.map((item) => (
-                  <ListBox.Item id={item} key={item} textValue={item}>
+                  <ListBox.Item key={item} id={item} textValue={item}>
                     {item}
                     <ListBox.ItemIndicator />
                   </ListBox.Item>

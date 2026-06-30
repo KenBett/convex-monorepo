@@ -58,8 +58,8 @@ export function CropBadge({ crop, size = "md" }: CropBadgeProps) {
       className={`inline-flex shrink-0 items-center justify-center rounded-[0.65rem] ${BADGE_SIZE_CLASS[size]} ${theme.iconBadgeClass}`}
     >
       <CropIcon
-        crop={crop}
         className={`${ICON_SIZE_CLASS[size]} ${theme.iconColorClass}`}
+        crop={crop}
       />
     </span>
   );

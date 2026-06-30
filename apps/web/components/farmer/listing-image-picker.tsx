@@ -1,7 +1,8 @@
 "use client";
 
-import { api } from "@repo/backend/convex/_generated/api";
 import type { Id } from "@repo/backend/convex/_generated/dataModel";
+
+import { api } from "@repo/backend/convex/_generated/api";
 import { LISTING_IMAGE_ACCEPT, uploadListingImageToStorage } from "@repo/utils";
 import { Button, Label } from "@heroui/react";
 import clsx from "clsx";
@@ -14,7 +15,10 @@ type ListingImagePickerProps = {
   error?: string;
   hideLabel?: boolean;
   initialPreviewUrl?: string | null;
-  onChange: (storageId: Id<"_storage"> | null, previewUrl: string | null) => void;
+  onChange: (
+    storageId: Id<"_storage"> | null,
+    previewUrl: string | null,
+  ) => void;
   value: Id<"_storage"> | null;
   variant?: "default" | "compact";
 };
@@ -27,9 +31,13 @@ export function ListingImagePicker({
   value,
   variant = "default",
 }: ListingImagePickerProps) {
-  const generateUploadUrl = useMutation(api.listings.generateListingImageUploadUrl);
+  const generateUploadUrl = useMutation(
+    api.listings.generateListingImageUploadUrl,
+  );
   const inputRef = useRef<HTMLInputElement>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(initialPreviewUrl);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(
+    initialPreviewUrl,
+  );
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
@@ -44,6 +52,7 @@ export function ListingImagePicker({
         file.type || "image/jpeg",
       );
       const nextPreviewUrl = URL.createObjectURL(file);
+
       setPreviewUrl(nextPreviewUrl);
       onChange(storageId as Id<"_storage">, nextPreviewUrl);
     } catch (uploadFailure) {
@@ -70,6 +79,7 @@ export function ListingImagePicker({
         type="file"
         onChange={(event) => {
           const file = event.target.files?.[0];
+
           if (file) {
             void handleFile(file);
           }
@@ -87,12 +97,12 @@ export function ListingImagePicker({
             onClick={() => inputRef.current?.click()}
           >
             <Image
+              fill
+              unoptimized
               alt="Listing preview"
               className="object-cover"
-              fill
               sizes="64px"
               src={previewUrl}
-              unoptimized
             />
             <span className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
               <Camera className="h-4 w-4 text-white" strokeWidth={1.75} />
@@ -107,12 +117,12 @@ export function ListingImagePicker({
           <div className="relative overflow-hidden rounded-xl border border-separator">
             <div className="relative h-40 w-full">
               <Image
+                fill
+                unoptimized
                 alt="Listing preview"
                 className="object-cover"
-                fill
                 sizes="(max-width: 768px) 100vw, 480px"
                 src={previewUrl}
-                unoptimized
               />
             </div>
             <div className="flex gap-2 border-t border-separator bg-surface p-3">
@@ -170,7 +180,9 @@ export function ListingImagePicker({
               <span className="text-sm font-medium text-foreground">
                 {isUploading ? "Uploading photo..." : "Add a crop photo"}
               </span>
-              <span className="text-xs text-muted">JPEG, PNG, or WebP up to 5 MB</span>
+              <span className="text-xs text-muted">
+                JPEG, PNG, or WebP up to 5 MB
+              </span>
             </div>
           ) : (
             <span className="text-xs text-muted">
@@ -180,7 +192,9 @@ export function ListingImagePicker({
         </button>
       )}
 
-      {displayError ? <p className="text-sm text-danger">{displayError}</p> : null}
+      {displayError ? (
+        <p className="text-sm text-danger">{displayError}</p>
+      ) : null}
     </div>
   );
 }

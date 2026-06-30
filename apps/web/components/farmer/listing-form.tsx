@@ -1,7 +1,8 @@
 "use client";
 
-import { api } from "@repo/backend/convex/_generated/api";
 import type { Id } from "@repo/backend/convex/_generated/dataModel";
+
+import { api } from "@repo/backend/convex/_generated/api";
 import {
   COUNTIES,
   getCropTheme,
@@ -17,12 +18,13 @@ import {
   type ListingFormInput,
   type ListingFormStep,
 } from "@repo/types";
-import { CropBadge, CropPickerGrid } from "@/components/farmer/crop-display";
-import { ListingImagePicker } from "@/components/farmer/listing-image-picker";
 import { Button, Input, Label, ListBox, Select } from "@heroui/react";
 import clsx from "clsx";
 import { useMutation } from "convex/react";
 import { FormEvent, useState } from "react";
+
+import { ListingImagePicker } from "@/components/farmer/listing-image-picker";
+import { CropBadge, CropPickerGrid } from "@/components/farmer/crop-display";
 
 type ListingFormProps = {
   embedded?: boolean;
@@ -37,15 +39,16 @@ function StepIndicator({ step }: { step: ListingFormStep }) {
   return (
     <div
       aria-label={`Step ${step} of ${LISTING_FORM_STEP_COUNT}`}
+      aria-valuemax={LISTING_FORM_STEP_COUNT}
+      aria-valuemin={1}
+      aria-valuenow={step}
       className="flex flex-col gap-2"
       role="progressbar"
-      aria-valuenow={step}
-      aria-valuemin={1}
-      aria-valuemax={LISTING_FORM_STEP_COUNT}
     >
       <div className="flex gap-1.5">
         {Array.from({ length: LISTING_FORM_STEP_COUNT }, (_, index) => {
           const stepNumber = (index + 1) as ListingFormStep;
+
           return (
             <div
               key={stepNumber}
@@ -58,7 +61,8 @@ function StepIndicator({ step }: { step: ListingFormStep }) {
         })}
       </div>
       <p className="text-xs text-muted">
-        Step {step} of {LISTING_FORM_STEP_COUNT} · {LISTING_FORM_STEP_LABELS[step - 1]}
+        Step {step} of {LISTING_FORM_STEP_COUNT} ·{" "}
+        {LISTING_FORM_STEP_LABELS[step - 1]}
       </p>
     </div>
   );
@@ -110,43 +114,43 @@ function ListingReviewSummary({
         ) : null}
 
         <div className="flex flex-col gap-3 p-4 pt-0">
-        <div className="flex items-center gap-2.5">
-          <CropBadge crop={crop} size="md" />
-          <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">
-            {theme.label}
-          </span>
-        </div>
-
-        <div className="flex flex-col gap-0.5">
-          <p className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
-            {Number.isFinite(parsedPrice) && parsedPrice > 0
-              ? `KES ${parsedPrice}`
-              : "—"}
-            <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
-              /kg
+          <div className="flex items-center gap-2.5">
+            <CropBadge crop={crop} size="md" />
+            <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">
+              {theme.label}
             </span>
-          </p>
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
-            {Number.isFinite(parsedQuantity) && parsedQuantity > 0
-              ? `${parsedQuantity} kg`
-              : "—"}
-          </p>
-        </div>
+          </div>
 
-        <p className="text-xs text-neutral-600 dark:text-neutral-400">
-          {county}
-          {grade.trim() ? ` · ${grade.trim()}` : ""}
-        </p>
+          <div className="flex flex-col gap-0.5">
+            <p className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
+              {Number.isFinite(parsedPrice) && parsedPrice > 0
+                ? `KES ${parsedPrice}`
+                : "—"}
+              <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
+                /kg
+              </span>
+            </p>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">
+              {Number.isFinite(parsedQuantity) && parsedQuantity > 0
+                ? `${parsedQuantity} kg`
+                : "—"}
+            </p>
+          </div>
 
-        {trimmedDescription.length > 0 ? (
-          <p className="border-l-2 border-neutral-300/60 pl-2.5 text-xs italic leading-relaxed text-neutral-600 dark:border-neutral-600/50 dark:text-neutral-400">
-            &ldquo;{trimmedDescription}&rdquo;
+          <p className="text-xs text-neutral-600 dark:text-neutral-400">
+            {county}
+            {grade.trim() ? ` · ${grade.trim()}` : ""}
           </p>
-        ) : (
-          <p className="text-xs italic text-neutral-500 dark:text-neutral-500">
-            No description yet
-          </p>
-        )}
+
+          {trimmedDescription.length > 0 ? (
+            <p className="border-l-2 border-neutral-300/60 pl-2.5 text-xs italic leading-relaxed text-neutral-600 dark:border-neutral-600/50 dark:text-neutral-400">
+              &ldquo;{trimmedDescription}&rdquo;
+            </p>
+          ) : (
+            <p className="text-xs italic text-neutral-500 dark:text-neutral-500">
+              No description yet
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -165,7 +169,10 @@ type FormFieldsProps = {
   onCropChange: (crop: CropType) => void;
   onDescriptionChange: (value: string) => void;
   onGradeChange: (value: string) => void;
-  onImageChange: (storageId: Id<"_storage"> | null, previewUrl: string | null) => void;
+  onImageChange: (
+    storageId: Id<"_storage"> | null,
+    previewUrl: string | null,
+  ) => void;
   onPriceChange: (value: string) => void;
   onQuantityChange: (value: string) => void;
   pricePerKg: string;
@@ -198,9 +205,9 @@ function ListingFormFields({
     <>
       <CropPickerGrid
         error={fieldErrors.crop}
-        onChange={onCropChange}
         value={crop}
         variant={cropPickerVariant}
+        onChange={onCropChange}
       />
 
       <ListingImagePicker
@@ -213,13 +220,13 @@ function ListingFormFields({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
           <Input
-            aria-label="Quantity in kg"
             fullWidth
-            onChange={(event) => onQuantityChange(event.target.value)}
-            placeholder="Quantity (kg)"
             required
+            aria-label="Quantity in kg"
+            placeholder="Quantity (kg)"
             type="number"
             value={quantityKg}
+            onChange={(event) => onQuantityChange(event.target.value)}
           />
           {fieldErrors.quantityKg ? (
             <p className="text-sm text-danger">{fieldErrors.quantityKg}</p>
@@ -228,13 +235,13 @@ function ListingFormFields({
 
         <div className="flex flex-col gap-1">
           <Input
-            aria-label="Price per kg"
             fullWidth
-            onChange={(event) => onPriceChange(event.target.value)}
-            placeholder="Price per kg (KES)"
             required
+            aria-label="Price per kg"
+            placeholder="Price per kg (KES)"
             type="number"
             value={pricePerKg}
+            onChange={(event) => onPriceChange(event.target.value)}
           />
           {fieldErrors.pricePerKg ? (
             <p className="text-sm text-danger">{fieldErrors.pricePerKg}</p>
@@ -246,12 +253,12 @@ function ListingFormFields({
         <Select
           aria-label="County"
           placeholder="Select county"
+          selectedKey={county}
           onSelectionChange={(key) => {
             if (key) {
               onCountyChange(String(key) as County);
             }
           }}
-          selectedKey={county}
         >
           <Label>County</Label>
           <Select.Trigger>
@@ -261,7 +268,7 @@ function ListingFormFields({
           <Select.Popover>
             <ListBox>
               {COUNTIES.map((item) => (
-                <ListBox.Item id={item} key={item} textValue={item}>
+                <ListBox.Item key={item} id={item} textValue={item}>
                   {item}
                   <ListBox.ItemIndicator />
                 </ListBox.Item>
@@ -276,11 +283,11 @@ function ListingFormFields({
 
       <div className="flex flex-col gap-1">
         <Input
-          aria-label="Grade"
           fullWidth
-          onChange={(event) => onGradeChange(event.target.value)}
+          aria-label="Grade"
           placeholder="Grade (optional, e.g. Grade 1)"
           value={grade}
+          onChange={(event) => onGradeChange(event.target.value)}
         />
         {fieldErrors.grade ? (
           <p className="text-sm text-danger">{fieldErrors.grade}</p>
@@ -289,12 +296,12 @@ function ListingFormFields({
 
       <div className="flex flex-col gap-1">
         <Input
-          aria-label="Description"
           fullWidth
-          onChange={(event) => onDescriptionChange(event.target.value)}
-          placeholder="Description"
           required
+          aria-label="Description"
+          placeholder="Description"
           value={description}
+          onChange={(event) => onDescriptionChange(event.target.value)}
         />
         {fieldErrors.description ? (
           <p className="text-sm text-danger">{fieldErrors.description}</p>
@@ -341,7 +348,9 @@ export function ListingForm({
   const [description, setDescription] = useState(defaults.description);
   const [grade, setGrade] = useState(defaults.grade ?? "");
   const [imageStorageId, setImageStorageId] = useState<Id<"_storage"> | null>(
-    defaults.imageStorageId ? (defaults.imageStorageId as Id<"_storage">) : null,
+    defaults.imageStorageId
+      ? (defaults.imageStorageId as Id<"_storage">)
+      : null,
   );
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(
     initialImageUrl,
@@ -376,6 +385,7 @@ export function ListingForm({
 
     if (!parsed.success) {
       setFieldErrors(parsed.errors);
+
       return;
     }
 
@@ -398,6 +408,7 @@ export function ListingForm({
       } else {
         if (!imageStorageId) {
           setFieldErrors({ imageStorageId: "Listing photo is required" });
+
           return;
         }
 
@@ -424,8 +435,10 @@ export function ListingForm({
   const handleNext = () => {
     setSubmitError(null);
     const result = validateListingFormStep(step, formValues);
+
     if (!result.success) {
       setFieldErrors(result.errors);
+
       return;
     }
 
@@ -467,6 +480,8 @@ export function ListingForm({
           grade={grade}
           imagePreviewUrl={imagePreviewUrl}
           imageStorageId={imageStorageId}
+          pricePerKg={pricePerKg}
+          quantityKg={quantityKg}
           onCountyChange={setCounty}
           onCropChange={setCrop}
           onDescriptionChange={setDescription}
@@ -474,11 +489,11 @@ export function ListingForm({
           onImageChange={handleImageChange}
           onPriceChange={setPricePerKg}
           onQuantityChange={setQuantityKg}
-          pricePerKg={pricePerKg}
-          quantityKg={quantityKg}
         />
 
-        {submitError ? <p className="text-sm text-danger">{submitError}</p> : null}
+        {submitError ? (
+          <p className="text-sm text-danger">{submitError}</p>
+        ) : null}
 
         <div className="flex flex-wrap gap-3">
           {onCancel ? (
@@ -487,7 +502,11 @@ export function ListingForm({
             </Button>
           ) : null}
           <Button isDisabled={isSubmitting} type="submit">
-            {isSubmitting ? "Saving..." : listingId ? "Save changes" : "Create listing"}
+            {isSubmitting
+              ? "Saving..."
+              : listingId
+                ? "Save changes"
+                : "Create listing"}
           </Button>
         </div>
       </form>
@@ -515,14 +534,15 @@ export function ListingForm({
                 What are you selling?
               </h3>
               <p className="text-sm text-muted">
-                Pick the crop for this listing. You can change it before submitting.
+                Pick the crop for this listing. You can change it before
+                submitting.
               </p>
             </div>
             <CropPickerGrid
               error={fieldErrors.crop}
-              onChange={setCrop}
               value={crop}
               variant="expanded"
+              onChange={setCrop}
             />
           </div>
         ) : null}
@@ -534,7 +554,8 @@ export function ListingForm({
                 Listing details
               </h3>
               <p className="text-sm text-muted">
-                Add a photo, then quantity, price, and county so buyers can find your produce.
+                Add a photo, then quantity, price, and county so buyers can find
+                your produce.
               </p>
             </div>
 
@@ -548,31 +569,35 @@ export function ListingForm({
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1">
                 <Input
-                  aria-label="Quantity in kg"
                   fullWidth
-                  onChange={(event) => setQuantityKg(event.target.value)}
-                  placeholder="Quantity (kg)"
                   required
+                  aria-label="Quantity in kg"
+                  placeholder="Quantity (kg)"
                   type="number"
                   value={quantityKg}
+                  onChange={(event) => setQuantityKg(event.target.value)}
                 />
                 {fieldErrors.quantityKg ? (
-                  <p className="text-sm text-danger">{fieldErrors.quantityKg}</p>
+                  <p className="text-sm text-danger">
+                    {fieldErrors.quantityKg}
+                  </p>
                 ) : null}
               </div>
 
               <div className="flex flex-col gap-1">
                 <Input
-                  aria-label="Price per kg"
                   fullWidth
-                  onChange={(event) => setPricePerKg(event.target.value)}
-                  placeholder="Price per kg (KES)"
                   required
+                  aria-label="Price per kg"
+                  placeholder="Price per kg (KES)"
                   type="number"
                   value={pricePerKg}
+                  onChange={(event) => setPricePerKg(event.target.value)}
                 />
                 {fieldErrors.pricePerKg ? (
-                  <p className="text-sm text-danger">{fieldErrors.pricePerKg}</p>
+                  <p className="text-sm text-danger">
+                    {fieldErrors.pricePerKg}
+                  </p>
                 ) : null}
               </div>
             </div>
@@ -581,12 +606,12 @@ export function ListingForm({
               <Select
                 aria-label="County"
                 placeholder="Select county"
+                selectedKey={county}
                 onSelectionChange={(key) => {
                   if (key) {
                     setCounty(String(key) as County);
                   }
                 }}
-                selectedKey={county}
               >
                 <Label>County</Label>
                 <Select.Trigger>
@@ -596,7 +621,7 @@ export function ListingForm({
                 <Select.Popover>
                   <ListBox>
                     {COUNTIES.map((item) => (
-                      <ListBox.Item id={item} key={item} textValue={item}>
+                      <ListBox.Item key={item} id={item} textValue={item}>
                         {item}
                         <ListBox.ItemIndicator />
                       </ListBox.Item>
@@ -618,17 +643,18 @@ export function ListingForm({
                 Final details
               </h3>
               <p className="text-sm text-muted">
-                Add optional grade info and a description, then review before posting.
+                Add optional grade info and a description, then review before
+                posting.
               </p>
             </div>
 
             <div className="flex flex-col gap-1">
               <Input
-                aria-label="Grade"
                 fullWidth
-                onChange={(event) => setGrade(event.target.value)}
+                aria-label="Grade"
                 placeholder="Grade (optional, e.g. Grade 1)"
                 value={grade}
+                onChange={(event) => setGrade(event.target.value)}
               />
               {fieldErrors.grade ? (
                 <p className="text-sm text-danger">{fieldErrors.grade}</p>
@@ -637,12 +663,12 @@ export function ListingForm({
 
             <div className="flex flex-col gap-1">
               <Input
-                aria-label="Description"
                 fullWidth
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder="Describe quality, harvest timing, delivery options..."
                 required
+                aria-label="Description"
+                placeholder="Describe quality, harvest timing, delivery options..."
                 value={description}
+                onChange={(event) => setDescription(event.target.value)}
               />
               {fieldErrors.description ? (
                 <p className="text-sm text-danger">{fieldErrors.description}</p>
@@ -661,20 +687,32 @@ export function ListingForm({
           </div>
         ) : null}
 
-        {submitError ? <p className="text-sm text-danger">{submitError}</p> : null}
+        {submitError ? (
+          <p className="text-sm text-danger">{submitError}</p>
+        ) : null}
       </div>
 
       <div className="flex shrink-0 items-center gap-3 border-t border-separator pt-4">
         {step === 1 ? (
           onCancel ? (
-            <Button className="flex-1" type="button" variant="secondary" onPress={onCancel}>
+            <Button
+              className="flex-1"
+              type="button"
+              variant="secondary"
+              onPress={onCancel}
+            >
               Cancel
             </Button>
           ) : (
             <div className="flex-1" />
           )
         ) : (
-          <Button className="flex-1" type="button" variant="secondary" onPress={handleBack}>
+          <Button
+            className="flex-1"
+            type="button"
+            variant="secondary"
+            onPress={handleBack}
+          >
             Back
           </Button>
         )}

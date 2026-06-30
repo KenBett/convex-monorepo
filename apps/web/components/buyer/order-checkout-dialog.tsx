@@ -1,7 +1,8 @@
 "use client";
 
-import { api } from "@repo/backend/convex/_generated/api";
 import type { Id } from "@repo/backend/convex/_generated/dataModel";
+
+import { api } from "@repo/backend/convex/_generated/api";
 import {
   calculateOrderTotal,
   formatOrderCancelledReason,
@@ -36,9 +37,15 @@ function getDefaultQuantity(
   minFromIntent?: number,
 ): number {
   const max = listing.quantityKg;
-  if (minFromIntent !== undefined && minFromIntent > 0 && minFromIntent <= max) {
+
+  if (
+    minFromIntent !== undefined &&
+    minFromIntent > 0 &&
+    minFromIntent <= max
+  ) {
     return minFromIntent;
   }
+
   return max;
 }
 
@@ -61,10 +68,7 @@ export function OrderCheckoutDialog({
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  const order = useQuery(
-    api.orders.getOrder,
-    orderId ? { orderId } : "skip",
-  );
+  const order = useQuery(api.orders.getOrder, orderId ? { orderId } : "skip");
   const wasModalOpenRef = useRef(false);
 
   useEffect(() => {
@@ -77,6 +81,7 @@ export function OrderCheckoutDialog({
 
   useEffect(() => {
     const wasOpen = wasModalOpenRef.current;
+
     wasModalOpenRef.current = modalState.isOpen;
 
     if (wasOpen && !modalState.isOpen) {
@@ -111,6 +116,7 @@ export function OrderCheckoutDialog({
 
   const parsedQuantity = useMemo(() => {
     const value = Number.parseFloat(quantityKg);
+
     return Number.isFinite(value) ? value : 0;
   }, [quantityKg]);
 
@@ -130,6 +136,7 @@ export function OrderCheckoutDialog({
 
     if (!parsed.success) {
       setFieldErrors(parsed.errors);
+
       return;
     }
 
@@ -137,6 +144,7 @@ export function OrderCheckoutDialog({
       setFieldErrors({
         quantityKg: `Maximum available is ${listing.quantityKg} kg`,
       });
+
       return;
     }
 
@@ -169,6 +177,7 @@ export function OrderCheckoutDialog({
   const handleCancelPending = async () => {
     if (!orderId) {
       onClose();
+
       return;
     }
 
@@ -196,7 +205,10 @@ export function OrderCheckoutDialog({
           <Modal.Dialog className="flex flex-col gap-0 p-6">
             <Modal.Header className="flex flex-col gap-1 border-0 p-0 pb-4">
               <Modal.Heading className="flex items-center gap-2 text-lg font-semibold">
-                <ShoppingBag className="h-5 w-5 text-muted" strokeWidth={1.75} />
+                <ShoppingBag
+                  className="h-5 w-5 text-muted"
+                  strokeWidth={1.75}
+                />
                 Order {theme.label}
               </Modal.Heading>
               <p className="text-sm text-muted">
@@ -213,16 +225,19 @@ export function OrderCheckoutDialog({
                       id="order-quantity"
                       inputMode="decimal"
                       min={0}
-                      onChange={(event) => setQuantityKg(event.target.value)}
                       placeholder={`Up to ${listing.quantityKg} kg`}
                       type="number"
                       value={quantityKg}
+                      onChange={(event) => setQuantityKg(event.target.value)}
                     />
                     {fieldErrors.quantityKg ? (
-                      <p className="text-xs text-danger">{fieldErrors.quantityKg}</p>
+                      <p className="text-xs text-danger">
+                        {fieldErrors.quantityKg}
+                      </p>
                     ) : (
                       <p className="text-xs text-muted">
-                        {listing.quantityKg} kg available · server validates live stock
+                        {listing.quantityKg} kg available · server validates
+                        live stock
                       </p>
                     )}
                   </div>
@@ -232,12 +247,12 @@ export function OrderCheckoutDialog({
                     <Input
                       id="order-mpesa"
                       inputMode="tel"
-                      onChange={(event) =>
-                        setMpesaPhone(normalizeMpesaPhone(event.target.value))
-                      }
                       placeholder="254712345678"
                       type="tel"
                       value={mpesaPhone}
+                      onChange={(event) =>
+                        setMpesaPhone(normalizeMpesaPhone(event.target.value))
+                      }
                     />
                     {fieldErrors.mpesaPhoneNumber ? (
                       <p className="text-xs text-danger">
@@ -256,7 +271,9 @@ export function OrderCheckoutDialog({
                     </p>
                   </div>
 
-                  {error ? <p className="text-sm text-danger">{error}</p> : null}
+                  {error ? (
+                    <p className="text-sm text-danger">{error}</p>
+                  ) : null}
                 </>
               ) : null}
 
@@ -329,7 +346,11 @@ export function OrderCheckoutDialog({
               ) : null}
 
               {phase === "paying" && isPendingPayment ? (
-                <Button size="sm" variant="secondary" onPress={() => void handleCancelPending()}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onPress={() => void handleCancelPending()}
+                >
                   Cancel order
                 </Button>
               ) : null}

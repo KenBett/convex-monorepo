@@ -1,7 +1,9 @@
 "use client";
 
-import { api } from "@repo/backend/convex/_generated/api";
 import type { ListingSearchResult } from "@repo/types";
+import type { FormEvent } from "react";
+
+import { api } from "@repo/backend/convex/_generated/api";
 import {
   getBuyerListingDescription,
   getBuyerListingSnippet,
@@ -9,7 +11,6 @@ import {
 import { useAction } from "convex/react";
 import { Button, Card, Chip, SearchField } from "@heroui/react";
 import { Search, ShoppingBag } from "lucide-react";
-import type { FormEvent } from "react";
 import { useState } from "react";
 
 import { OrderCheckoutDialog } from "@/components/buyer/order-checkout-dialog";
@@ -72,14 +73,14 @@ export function BuyerListingSearch() {
   const [hasSearched, setHasSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
-  const [checkoutListing, setCheckoutListing] = useState<ListingSearchResult | null>(
-    null,
-  );
+  const [checkoutListing, setCheckoutListing] =
+    useState<ListingSearchResult | null>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   const handleSearch = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmedQuery = query.trim();
+
     if (!trimmedQuery) {
       return;
     }
@@ -88,6 +89,7 @@ export function BuyerListingSearch() {
     setError(null);
     try {
       const response = await semanticSearch({ limit: 8, query: trimmedQuery });
+
       setHasSearched(true);
       setResults(response.results);
     } catch (searchError) {
@@ -105,7 +107,9 @@ export function BuyerListingSearch() {
         <div className="flex items-center gap-3">
           <ShoppingBag className="h-8 w-8 text-muted" strokeWidth={1.75} />
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Find produce</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Find produce
+            </h1>
           </div>
         </div>
       </div>
@@ -118,9 +122,9 @@ export function BuyerListingSearch() {
                 <SearchField.SearchIcon />
                 <SearchField.Input
                   aria-label="Search listings"
-                  onChange={(event) => setQuery(event.target.value)}
                   placeholder="e.g. 50kg potatoes in Nakuru"
                   value={query}
+                  onChange={(event) => setQuery(event.target.value)}
                 />
               </SearchField.Group>
             </SearchField>
@@ -135,15 +139,15 @@ export function BuyerListingSearch() {
             </Button>
           </form>
 
-          {error ? (
-            <p className="mt-4 text-sm text-danger">{error}</p>
-          ) : null}
+          {error ? <p className="mt-4 text-sm text-danger">{error}</p> : null}
 
           <div className="mt-5">
             {hasSearched && results.length === 0 ? (
               <div className="flex flex-col items-center gap-2 rounded-card border border-separator bg-default/60 px-6 py-10 text-center">
                 <Search className="h-5 w-5 text-muted" strokeWidth={1.75} />
-                <p className="text-sm font-medium text-foreground">No matching listings</p>
+                <p className="text-sm font-medium text-foreground">
+                  No matching listings
+                </p>
                 <p className="text-xs text-muted">
                   Try a different crop, county, or quantity.
                 </p>
@@ -157,11 +161,11 @@ export function BuyerListingSearch() {
                   {results.map((result) => (
                     <li key={result.listingId}>
                       <ListingResultCard
+                        result={result}
                         onOrder={(listing) => {
                           setCheckoutListing(listing);
                           setCheckoutOpen(true);
                         }}
-                        result={result}
                       />
                     </li>
                   ))}

@@ -1,6 +1,12 @@
-import { Package, ShoppingBag, Tractor, User, ClipboardList } from "lucide-react";
-
 import type { MarketplaceRole } from "@repo/types";
+
+import {
+  Package,
+  ShoppingBag,
+  Tractor,
+  User,
+  ClipboardList,
+} from "lucide-react";
 import { roleHomeSegment } from "@repo/utils";
 
 export const FARMER_NAV_ITEMS = [
@@ -21,6 +27,7 @@ export type AnyNavItem = FarmerNavItem | BuyerNavItem;
 
 export function getNavItemsForRole(role: MarketplaceRole | undefined) {
   if (role === "buyer") return BUYER_NAV_ITEMS;
+
   return FARMER_NAV_ITEMS;
 }
 
@@ -30,9 +37,12 @@ export function getRoleHomePath(role: MarketplaceRole): string {
 
 export function getPageTitle(pathname: string): string {
   const farmerItem = FARMER_NAV_ITEMS.find((item) => item.href === pathname);
+
   if (farmerItem) return farmerItem.label;
   const buyerItem = BUYER_NAV_ITEMS.find((item) => item.href === pathname);
+
   if (buyerItem) return buyerItem.label;
+
   return "Dashboard";
 }
 

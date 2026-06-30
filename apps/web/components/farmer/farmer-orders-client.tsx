@@ -1,7 +1,8 @@
 "use client";
 
-import { api } from "@repo/backend/convex/_generated/api";
 import type { Id } from "@repo/backend/convex/_generated/dataModel";
+
+import { api } from "@repo/backend/convex/_generated/api";
 import { formatOrderStatus, getCropTheme } from "@repo/types";
 import { useMutation, useQuery } from "convex/react";
 import { Button, Chip, Table } from "@heroui/react";
@@ -18,15 +19,14 @@ type FarmerOrderSummary = {
   totalKes: number;
 };
 
-function statusChipVariant(
-  status: string,
-): "primary" | "secondary" | "soft" {
+function statusChipVariant(status: string): "primary" | "secondary" | "soft" {
   if (status === "escrowed") {
     return "primary";
   }
   if (status === "cancelled") {
     return "soft";
   }
+
   return "secondary";
 }
 
@@ -52,7 +52,9 @@ function FarmerOrderActionCell({
       await markDelivered({ orderId });
     } catch (markError) {
       setError(
-        markError instanceof Error ? markError.message : "Could not update order",
+        markError instanceof Error
+          ? markError.message
+          : "Could not update order",
       );
     } finally {
       setIsSubmitting(false);
@@ -157,7 +159,9 @@ export function FarmerOrdersClient() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
       <div className="flex flex-col gap-1">
-        <h1 className="text-lg font-semibold tracking-tight text-foreground">Orders</h1>
+        <h1 className="text-lg font-semibold tracking-tight text-foreground">
+          Orders
+        </h1>
         <p className="text-sm text-muted">
           Live orders from buyers — updates automatically when payment clears.
         </p>
