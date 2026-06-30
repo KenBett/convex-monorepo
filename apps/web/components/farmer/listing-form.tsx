@@ -18,6 +18,7 @@ import {
   type ListingFormStep,
 } from "@repo/types";
 import { CropBadge, CropPickerGrid } from "@/components/farmer/crop-display";
+import { ListingImagePicker } from "@/components/farmer/listing-image-picker";
 import { Button, Input, Label, ListBox, Select } from "@heroui/react";
 import clsx from "clsx";
 import { useMutation } from "convex/react";
@@ -27,6 +28,7 @@ type ListingFormProps = {
   embedded?: boolean;
   listingId?: Id<"listings">;
   initialValues?: ListingFormInput;
+  initialImageUrl?: string | null;
   onCancel?: () => void;
   onSubmitted: () => void;
 };
@@ -67,6 +69,7 @@ type ReviewSummaryProps = {
   crop: CropType;
   description: string;
   grade: string;
+  imagePreviewUrl: string | null;
   pricePerKg: string;
   quantityKg: string;
 };
@@ -76,6 +79,7 @@ function ListingReviewSummary({
   crop,
   description,
   grade,
+  imagePreviewUrl,
   pricePerKg,
   quantityKg,
 }: ReviewSummaryProps) {
@@ -90,10 +94,22 @@ function ListingReviewSummary({
       <Label>Review your listing</Label>
       <div
         className={clsx(
-          "flex flex-col gap-3 rounded-xl p-4 shadow-sm",
+          "flex flex-col gap-3 overflow-hidden rounded-xl shadow-sm",
           bgClass,
         )}
       >
+        {imagePreviewUrl ? (
+          <div className="relative h-32 w-full">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt={`${theme.label} preview`}
+              className="h-full w-full object-cover"
+              src={imagePreviewUrl}
+            />
+          </div>
+        ) : null}
+
+        <div className="flex flex-col gap-3 p-4 pt-0">
         <div className="flex items-center gap-2.5">
           <CropBadge crop={crop} size="md" />
           <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">
@@ -131,6 +147,7 @@ function ListingReviewSummary({
             No description yet
           </p>
         )}
+        </div>
       </div>
     </div>
   );
@@ -142,10 +159,13 @@ type FormFieldsProps = {
   description: string;
   fieldErrors: ListingFormFieldErrors;
   grade: string;
+  imagePreviewUrl: string | null;
+  imageStorageId: Id<"_storage"> | null;
   onCountyChange: (county: County) => void;
   onCropChange: (crop: CropType) => void;
   onDescriptionChange: (value: string) => void;
   onGradeChange: (value: string) => void;
+  onImageChange: (storageId: Id<"_storage"> | null, previewUrl: string | null) => void;
   onPriceChange: (value: string) => void;
   onQuantityChange: (value: string) => void;
   pricePerKg: string;
@@ -161,10 +181,13 @@ function ListingFormFields({
   description,
   fieldErrors,
   grade,
+  imagePreviewUrl,
+  imageStorageId,
   onCountyChange,
   onCropChange,
   onDescriptionChange,
   onGradeChange,
+  onImageChange,
   onPriceChange,
   onQuantityChange,
   pricePerKg,
@@ -178,6 +201,13 @@ function ListingFormFields({
         onChange={onCropChange}
         value={crop}
         variant={cropPickerVariant}
+      />
+
+      <ListingImagePicker
+        error={fieldErrors.imageStorageId}
+        initialPreviewUrl={imagePreviewUrl}
+        value={imageStorageId}
+        onChange={onImageChange}
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -277,6 +307,7 @@ function ListingFormFields({
           crop={crop}
           description={description}
           grade={grade}
+          imagePreviewUrl={imagePreviewUrl}
           pricePerKg={pricePerKg}
           quantityKg={quantityKg}
         />
@@ -288,6 +319,7 @@ function ListingFormFields({
 export function ListingForm({
   embedded = false,
   initialValues,
+  initialImageUrl = null,
   listingId,
   onCancel,
   onSubmitted,
@@ -308,6 +340,12 @@ export function ListingForm({
   );
   const [description, setDescription] = useState(defaults.description);
   const [grade, setGrade] = useState(defaults.grade ?? "");
+  const [imageStorageId, setImageStorageId] = useState<Id<"_storage"> | null>(
+    defaults.imageStorageId ? (defaults.imageStorageId as Id<"_storage">) : null,
+  );
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(
+    initialImageUrl,
+  );
   const [fieldErrors, setFieldErrors] = useState<ListingFormFieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -317,8 +355,17 @@ export function ListingForm({
     county,
     description,
     grade,
+    imageStorageId: imageStorageId ?? "",
     pricePerKg,
     quantityKg,
+  };
+
+  const handleImageChange = (
+    storageId: Id<"_storage"> | null,
+    previewUrl: string | null,
+  ) => {
+    setImageStorageId(storageId);
+    setImagePreviewUrl(previewUrl);
   };
 
   const handleSubmit = async (event?: FormEvent<HTMLFormElement>) => {
@@ -343,16 +390,23 @@ export function ListingForm({
           crop: parsed.data.crop,
           description: parsed.data.description,
           grade: gradeValue ?? "",
+          imageStorageId: imageStorageId ?? undefined,
           listingId,
           pricePerKg: parsed.data.pricePerKg,
           quantityKg: parsed.data.quantityKg,
         });
       } else {
+        if (!imageStorageId) {
+          setFieldErrors({ imageStorageId: "Listing photo is required" });
+          return;
+        }
+
         await createListing({
           county: parsed.data.county,
           crop: parsed.data.crop,
           description: parsed.data.description,
           grade: gradeValue,
+          imageStorageId,
           pricePerKg: parsed.data.pricePerKg,
           quantityKg: parsed.data.quantityKg,
         });
@@ -411,10 +465,13 @@ export function ListingForm({
           description={description}
           fieldErrors={fieldErrors}
           grade={grade}
+          imagePreviewUrl={imagePreviewUrl}
+          imageStorageId={imageStorageId}
           onCountyChange={setCounty}
           onCropChange={setCrop}
           onDescriptionChange={setDescription}
           onGradeChange={setGrade}
+          onImageChange={handleImageChange}
           onPriceChange={setPricePerKg}
           onQuantityChange={setQuantityKg}
           pricePerKg={pricePerKg}
@@ -439,16 +496,18 @@ export function ListingForm({
 
   return (
     <div className={shellClass}>
-      <div className="flex flex-col gap-1">
+      <div className="shrink-0 flex flex-col gap-1">
         <h2 className="text-lg font-semibold tracking-tight">Create listing</h2>
         <p className="text-sm text-muted">
           Listings sync live across mobile and web.
         </p>
       </div>
 
-      <StepIndicator step={step} />
+      <div className="shrink-0">
+        <StepIndicator step={step} />
+      </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-5">
+      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto">
         {step === 1 ? (
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1">
@@ -475,9 +534,16 @@ export function ListingForm({
                 Listing details
               </h3>
               <p className="text-sm text-muted">
-                Quantity, price, and county help buyers find your produce.
+                Add a photo, then quantity, price, and county so buyers can find your produce.
               </p>
             </div>
+
+            <ListingImagePicker
+              error={fieldErrors.imageStorageId}
+              initialPreviewUrl={imagePreviewUrl}
+              value={imageStorageId}
+              onChange={handleImageChange}
+            />
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1">
@@ -588,6 +654,7 @@ export function ListingForm({
               crop={crop}
               description={description}
               grade={grade}
+              imagePreviewUrl={imagePreviewUrl}
               pricePerKg={pricePerKg}
               quantityKg={quantityKg}
             />
@@ -597,7 +664,7 @@ export function ListingForm({
         {submitError ? <p className="text-sm text-danger">{submitError}</p> : null}
       </div>
 
-      <div className="flex items-center gap-3 border-t border-separator pt-4">
+      <div className="flex shrink-0 items-center gap-3 border-t border-separator pt-4">
         {step === 1 ? (
           onCancel ? (
             <Button className="flex-1" type="button" variant="secondary" onPress={onCancel}>

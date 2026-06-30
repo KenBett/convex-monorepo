@@ -4,7 +4,7 @@ import { internal } from "../_generated/api";
 import type { DataModel } from "../_generated/dataModel";
 import { internalAction, internalQuery } from "../_generated/server";
 import { formatListingText } from "../lib/listings";
-import { GLOBAL_NAMESPACE, rag } from "../lib/rag";
+import { GLOBAL_NAMESPACE, rag, type RagEntryMetadata } from "../lib/rag";
 
 const listingForSyncValidator = v.object({
   _id: v.id("listings"),
@@ -94,6 +94,39 @@ export const syncListingToRag = internalAction({
 
     if (result.status !== "ready") {
       throw new Error(`Listing indexing did not complete (status: ${result.status})`);
+    }
+
+    return null;
+  },
+});
+
+export const removeListingFromRag = internalAction({
+  args: {
+    listingId: v.id("listings"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const namespace = await rag.getNamespace(ctx, {
+      namespace: GLOBAL_NAMESPACE,
+    });
+
+    if (!namespace) {
+      return null;
+    }
+
+    const listResult = await rag.list(ctx, {
+      limit: 100,
+      namespaceId: namespace.namespaceId,
+    });
+
+    for (const entry of listResult.page) {
+      const metadata = entry.metadata as RagEntryMetadata | undefined;
+      if (
+        metadata?.sourceType === "listing" &&
+        metadata.listingId === args.listingId
+      ) {
+        await rag.delete(ctx, { entryId: entry.entryId });
+      }
     }
 
     return null;

@@ -7,7 +7,6 @@ import {
   LISTING_CARD_NOISE_DATA_URI,
   LISTING_CARD_NOISE_OPACITY,
 } from "@repo/types";
-import { Button } from "heroui-native";
 import { useRouter } from "expo-router";
 import type { JSX } from "react";
 import { Image, Pressable, Text, View } from "react-native";
@@ -19,6 +18,7 @@ export type FarmerListingCardData = {
   crop: string;
   description: string;
   grade?: string;
+  imageUrl?: string | null;
   pricePerKg: number;
   quantityKg: number;
   status: ListingStatus;
@@ -27,9 +27,6 @@ export type FarmerListingCardData = {
 type FarmerListingCardProps = {
   listing: FarmerListingCardData;
   listingId: Id<"listings">;
-  isMarkingSoldOut?: boolean;
-  onEdit: () => void;
-  onMarkSoldOut: () => void;
 };
 
 function ListingStatusPill({ status }: { status: ListingStatus }): JSX.Element {
@@ -37,19 +34,19 @@ function ListingStatusPill({ status }: { status: ListingStatus }): JSX.Element {
 
   return (
     <View
-      className={`flex-row shrink-0 items-center gap-1.5 rounded-full px-2 py-1 ring-1 ring-black/5 ${
+      className={`flex-row shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 ring-1 ring-black/5 ${
         isActive
-          ? "bg-white/90 dark:bg-stone-900/90"
-          : "bg-white/90 dark:bg-stone-900/90"
+          ? "bg-white/95 dark:bg-stone-900/95"
+          : "bg-white/95 dark:bg-stone-900/95"
       }`}
     >
       <View
-        className={`h-1.5 w-1.5 rounded-full ${
+        className={`h-1 w-1 rounded-full ${
           isActive ? "bg-emerald-600 dark:bg-emerald-400" : "bg-stone-500"
         }`}
       />
       <Text
-        className={`text-[11px] font-medium leading-none ${
+        className={`text-[10px] font-medium leading-none ${
           isActive
             ? "text-emerald-800 dark:text-emerald-300"
             : "text-stone-700 dark:text-stone-300"
@@ -79,98 +76,70 @@ function ListingCardNoiseOverlay(): JSX.Element {
 export function FarmerListingCard({
   listing,
   listingId,
-  isMarkingSoldOut = false,
-  onEdit,
-  onMarkSoldOut,
 }: FarmerListingCardProps): JSX.Element {
   const router = useRouter();
   const theme = getCropTheme(listing.crop);
   const bgClass = getListingCardBgClass(listing.crop);
   const isSoldOut = listing.status === "sold_out";
-  const trimmedDescription = listing.description.trim();
 
   return (
-    <View
-      className={`relative w-[48%] overflow-hidden rounded-[0.875rem] shadow-sm ${bgClass} ${
+    <Pressable
+      accessibilityRole="link"
+      className={`relative aspect-square w-[48%] flex-col overflow-hidden rounded-[0.875rem] shadow-sm active:opacity-95 ${bgClass} ${
         isSoldOut ? "opacity-90" : ""
       }`}
+      onPress={() => {
+        router.push({
+          pathname: "/(farmer)/listings/[id]",
+          params: { id: listingId },
+        });
+      }}
     >
       <ListingCardNoiseOverlay />
 
-      <Pressable
-        accessibilityRole="link"
-        className="active:opacity-95"
-        onPress={() => {
-          router.push({
-            pathname: "/(farmer)/listings/[id]",
-            params: { id: listingId },
-          });
-        }}
-      >
-        <View className="gap-3 px-4.5 pb-2 pt-4.5">
-          <View className="flex-row items-start justify-between gap-2">
-            <View className="min-w-0 flex-1 flex-row items-center gap-2">
-              <CropBadge crop={listing.crop} size="sm" />
-              <Text
-                className="flex-1 text-emphasis capitalize text-neutral-900 dark:text-neutral-50"
-                numberOfLines={1}
-              >
-                {theme.label}
-              </Text>
-            </View>
-            <ListingStatusPill status={listing.status} />
+      <View className="relative min-h-0 flex-1 overflow-hidden">
+        {listing.imageUrl ? (
+          <Image
+            accessibilityLabel={`${theme.label} listing photo`}
+            className="absolute inset-0 h-full w-full"
+            resizeMode="cover"
+            source={{ uri: listing.imageUrl }}
+          />
+        ) : (
+          <View className="h-full items-center justify-center bg-black/5 dark:bg-black/20">
+            <CropBadge crop={listing.crop} size="lg" />
           </View>
-
-          <View className="gap-0.5">
-            <Text className="text-[22px] font-semibold leading-tight text-neutral-900 dark:text-neutral-50">
-              KES {listing.pricePerKg}
-              <Text className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
-                /kg
-              </Text>
-            </Text>
-            <Text className="text-sm text-neutral-600 dark:text-neutral-400">
-              {listing.quantityKg} kg
-            </Text>
-          </View>
-
-          <Text className="text-caption text-neutral-600 dark:text-neutral-400">
-            {listing.county}
-            {listing.grade ? ` · ${listing.grade}` : ""}
-          </Text>
-
-          {trimmedDescription.length > 0 ? (
-            <Text
-              className="border-l-2 border-neutral-300/60 pl-2.5 text-caption italic leading-relaxed text-neutral-600 dark:border-neutral-600/50 dark:text-neutral-400"
-              numberOfLines={2}
-            >
-              &ldquo;{trimmedDescription}&rdquo;
-            </Text>
-          ) : null}
+        )}
+        <View className="absolute right-2 top-2 z-10">
+          <ListingStatusPill status={listing.status} />
         </View>
-      </Pressable>
-
-      <View className="gap-2 px-4.5 pb-4.5">
-        <Button size="sm" variant="ghost" onPress={onEdit}>
-          Edit
-        </Button>
-        <Button
-          className={
-            isSoldOut
-              ? "opacity-45"
-              : "border border-warning/30 bg-warning/10"
-          }
-          isDisabled={isSoldOut || isMarkingSoldOut}
-          size="sm"
-          variant="secondary"
-          onPress={onMarkSoldOut}
-        >
-          {isSoldOut
-            ? "Sold out"
-            : isMarkingSoldOut
-              ? "Updating..."
-              : "Mark sold out"}
-        </Button>
       </View>
-    </View>
+
+      <View className="gap-1 px-2.5 pb-2.5 pt-2">
+        <View className="flex-row items-center gap-1.5">
+          <CropBadge crop={listing.crop} size="sm" />
+          <Text
+            className="flex-1 text-xs font-semibold capitalize text-neutral-900 dark:text-neutral-50"
+            numberOfLines={1}
+          >
+            {theme.label}
+          </Text>
+        </View>
+
+        <Text className="text-base font-semibold leading-none text-neutral-900 dark:text-neutral-50">
+          KES {listing.pricePerKg}
+          <Text className="text-[11px] font-medium text-neutral-600 dark:text-neutral-400">
+            /kg
+          </Text>
+        </Text>
+
+        <Text className="text-[11px] text-neutral-600 dark:text-neutral-400" numberOfLines={1}>
+          {listing.quantityKg} kg
+          {listing.grade ? ` · ${listing.grade}` : ""}
+          {" · "}
+          {listing.county}
+        </Text>
+      </View>
+    </Pressable>
   );
 }

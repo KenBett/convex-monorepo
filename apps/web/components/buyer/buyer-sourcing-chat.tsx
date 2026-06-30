@@ -67,7 +67,7 @@ function ChatMessage({ message }: { message: BuyerChatMessage }) {
         ) : null}
 
         {sourcing && sourcing.listings.length > 0 ? (
-          <ol className="grid w-full grid-cols-[repeat(auto-fill,minmax(11.5rem,1fr))] gap-3">
+          <ol className="grid w-full grid-cols-[repeat(auto-fill,minmax(12.5rem,1fr))] gap-3">
             {sourcing.listings.map((listing) => (
               <li key={listing.listingId}>
                 <BuyerListingCard result={listing} />

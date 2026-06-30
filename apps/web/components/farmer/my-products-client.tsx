@@ -1,9 +1,7 @@
 "use client";
 
 import { api } from "@repo/backend/convex/_generated/api";
-import type { Id } from "@repo/backend/convex/_generated/dataModel";
-import type { ListingFormInput } from "@repo/types";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { Package, Plus, Scale, ShoppingBag, Tag } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button, useOverlayState } from "@heroui/react";
@@ -12,24 +10,6 @@ import clsx from "clsx";
 
 import { FarmerListingCard } from "@/components/farmer/listing-card";
 import { ListingForm } from "@/components/farmer/listing-form";
-
-function listingToFormInput(listing: {
-  county: string;
-  crop: string;
-  description: string;
-  grade?: string;
-  pricePerKg: number;
-  quantityKg: number;
-}): ListingFormInput {
-  return {
-    county: listing.county as ListingFormInput["county"],
-    crop: listing.crop as ListingFormInput["crop"],
-    description: listing.description,
-    grade: listing.grade ?? "",
-    pricePerKg: listing.pricePerKg,
-    quantityKg: listing.quantityKg,
-  };
-}
 
 type ListingStat = {
   label: string;
@@ -87,22 +67,8 @@ function ListingsEmptyState({ onAddListing }: { onAddListing: () => void }) {
 
 export function MyProductsClient() {
   const listings = useQuery(api.listings.listingsByFarmer);
-  const markSoldOut = useMutation(api.listings.markSoldOut);
-
-  const [editingListingId, setEditingListingId] = useState<Id<"listings"> | null>(
-    null,
-  );
   const createModalState = useOverlayState();
   const [createFormKey, setCreateFormKey] = useState(0);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [markingSoldOutId, setMarkingSoldOutId] = useState<Id<"listings"> | null>(
-    null,
-  );
-
-  const editingListing =
-    editingListingId !== null
-      ? listings?.find((listing) => listing._id === editingListingId)
-      : undefined;
 
   const stats = useMemo(() => {
     if (!listings) {
@@ -123,27 +89,6 @@ export function MyProductsClient() {
     };
   }, [listings]);
 
-  const handleMarkSoldOut = async (listingId: Id<"listings">, crop: string) => {
-    const confirmed = window.confirm(
-      `Mark ${crop} as sold out? Buyers will still see it was available but marked sold out.`,
-    );
-    if (!confirmed) {
-      return;
-    }
-
-    setActionError(null);
-    setMarkingSoldOutId(listingId);
-    try {
-      await markSoldOut({ listingId });
-    } catch (error) {
-      setActionError(
-        error instanceof Error ? error.message : "Could not mark listing as sold out.",
-      );
-    } finally {
-      setMarkingSoldOutId(null);
-    }
-  };
-
   if (listings === undefined) {
     return (
       <div className="mx-auto flex w-full max-w-4xl items-center justify-center py-16">
@@ -157,8 +102,8 @@ export function MyProductsClient() {
       <Modal state={createModalState}>
         <Modal.Backdrop>
           <Modal.Container scroll="inside" size="lg">
-            <Modal.Dialog className="p-6">
-              <Modal.Body className="gap-0 p-0">
+            <Modal.Dialog className="flex max-h-[min(90dvh,720px)] flex-col p-6">
+              <Modal.Body className="flex min-h-0 flex-1 flex-col gap-0 overflow-hidden p-0">
                 <ListingForm
                   embedded
                   key={createFormKey}
@@ -174,34 +119,21 @@ export function MyProductsClient() {
         </Modal.Backdrop>
       </Modal>
 
-      {editingListing ? (
-        <ListingForm
-          initialValues={listingToFormInput(editingListing)}
-          listingId={editingListing._id}
-          onCancel={() => setEditingListingId(null)}
-          onSubmitted={() => setEditingListingId(null)}
-        />
-      ) : null}
-
-      {actionError ? <p className="text-sm text-danger">{actionError}</p> : null}
-
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 flex-col gap-1">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             My Products
           </h1>
         </div>
-        {editingListingId === null ? (
-          <Button
-            className="shrink-0 rounded-full bg-accent px-4 font-medium text-accent-foreground sm:mt-0.5"
-            onPress={createModalState.open}
-            size="sm"
-            variant="primary"
-          >
-            <Plus className="h-4 w-4" strokeWidth={1.75} />
-            Add listing
-          </Button>
-        ) : null}
+        <Button
+          className="shrink-0 rounded-full bg-accent px-4 font-medium text-accent-foreground sm:mt-0.5"
+          onPress={createModalState.open}
+          size="sm"
+          variant="primary"
+        >
+          <Plus className="h-4 w-4" strokeWidth={1.75} />
+          Add listing
+        </Button>
       </header>
 
       {stats ? (
@@ -228,19 +160,12 @@ export function MyProductsClient() {
         {listings.length === 0 ? (
           <ListingsEmptyState onAddListing={createModalState.open} />
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(11.5rem,1fr))] gap-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(12.5rem,1fr))] gap-3">
             {listings.map((listing) => (
               <FarmerListingCard
                 key={listing._id}
-                isMarkingSoldOut={markingSoldOutId === listing._id}
                 listing={listing}
                 listingId={listing._id}
-                onEdit={() => {
-                  setEditingListingId(listing._id);
-                }}
-                onMarkSoldOut={() => {
-                  void handleMarkSoldOut(listing._id, listing.crop);
-                }}
               />
             ))}
           </div>

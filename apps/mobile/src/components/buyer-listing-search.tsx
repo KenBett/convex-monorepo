@@ -5,7 +5,7 @@ import { useAction } from "convex/react";
 import { Button, Input, Surface, TextField } from "heroui-native";
 import type { JSX } from "react";
 import { useState } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator, Image, Text, View } from "react-native";
 
 import { ScreenShell } from "@/components/screen-shell";
 
@@ -17,24 +17,34 @@ function ListingResultCard({ result }: { result: ListingSearchResult }): JSX.Ele
   const description = getBuyerListingDescription(result.description);
 
   return (
-    <Surface className="gap-2 rounded-card border border-separator bg-surface p-card">
-      <View className="flex-row items-start justify-between gap-3">
-        <View className="min-w-0 flex-1 gap-1">
-          <Text className="text-section-title capitalize text-foreground">{result.crop}</Text>
-          <Text className="text-caption text-muted">{result.cooperativeName}</Text>
-        </View>
-        <Text className="text-caption text-muted">
-          {Math.round(result.score * 100)}% match
-        </Text>
-      </View>
-      <Text className="text-emphasis text-foreground">
-        {result.quantityKg} kg · KES {result.pricePerKg}/kg · {result.county}
-      </Text>
-      {description ? (
-        <Text className="text-caption text-muted" numberOfLines={2}>
-          {description}
-        </Text>
+    <Surface className="overflow-hidden rounded-card border border-separator bg-surface">
+      {result.imageUrl ? (
+        <Image
+          accessibilityLabel={`${result.crop} listing photo`}
+          className="aspect-[4/3] w-full"
+          resizeMode="cover"
+          source={{ uri: result.imageUrl }}
+        />
       ) : null}
+      <View className="gap-2 p-card">
+        <View className="flex-row items-start justify-between gap-3">
+          <View className="min-w-0 flex-1 gap-1">
+            <Text className="text-section-title capitalize text-foreground">{result.crop}</Text>
+            <Text className="text-caption text-muted">{result.cooperativeName}</Text>
+          </View>
+          <Text className="text-caption text-muted">
+            {Math.round(result.score * 100)}% match
+          </Text>
+        </View>
+        <Text className="text-emphasis text-foreground">
+          {result.quantityKg} kg · KES {result.pricePerKg}/kg · {result.county}
+        </Text>
+        {description ? (
+          <Text className="text-caption text-muted" numberOfLines={2}>
+            {description}
+          </Text>
+        ) : null}
+      </View>
     </Surface>
   );
 }

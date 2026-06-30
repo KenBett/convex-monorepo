@@ -27,9 +27,9 @@ export function getSidebarLayoutClasses(isExpanded: boolean) {
   };
 }
 
-export const NAVBAR_HEIGHT_CLASSES = "h-16 md:h-24";
+export const NAVBAR_HEIGHT_CLASSES = "h-12 md:h-14";
 
-export const NAVBAR_OFFSET_CLASSES = "pt-16 md:pt-24";
+export const NAVBAR_OFFSET_CLASSES = "pt-12 md:pt-14";
 
 export const MOBILE_TAB_BAR_HEIGHT_CLASSES = "h-16";
 

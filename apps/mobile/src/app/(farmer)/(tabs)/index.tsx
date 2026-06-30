@@ -110,15 +110,6 @@ export default function FarmerScreen(): JSX.Element {
                   key={listing._id}
                   listing={listing}
                   listingId={listing._id}
-                  onEdit={() => {
-                    router.push({
-                      pathname: "/(farmer)/listings/[id]",
-                      params: { id: listing._id },
-                    });
-                  }}
-                  onMarkSoldOut={() => {
-                    router.push("/(farmer)/(tabs)/my-products");
-                  }}
                 />
               ))}
             </View>

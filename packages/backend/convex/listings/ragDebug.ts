@@ -14,7 +14,7 @@ import {
   STAGE_A_RAG_MARKER,
   STAGE_B_CROP_MARKER,
 } from "../lib/listings";
-import { createPlaceholderListingImage } from "../lib/listingImages";
+import { PLACEHOLDER_PNG_BYTES } from "../lib/listingImages";
 import {
   GLOBAL_NAMESPACE,
   VECTOR_SCORE_THRESHOLD,
@@ -126,10 +126,10 @@ export const debugListingIndex = query({
   },
 });
 
-export const seedStageAListing = internalMutation({
-  args: {},
+export const insertStageAListing = internalMutation({
+  args: { imageStorageId: v.id("_storage") },
   returns: v.id("listings"),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const farmer = await ctx.db.query("farmerProfiles").first();
     if (!farmer) {
       throw new Error("No farmer profile found. Complete farmer onboarding first.");
@@ -146,17 +146,29 @@ export const seedStageAListing = internalMutation({
       }
     }
 
-    const imageStorageId = await createPlaceholderListingImage(ctx);
-
     return await ctx.db.insert("listings", {
       county: "Nairobi",
       crop: "potatoes",
       description: `${STAGE_A_RAG_MARKER}: distinctive potatoes listing for semantic search e2e test.`,
       farmerId: farmer._id,
-      imageStorageId,
+      imageStorageId: args.imageStorageId,
       pricePerKg: 50,
       quantityKg: 50,
       status: "active",
+    });
+  },
+});
+
+export const seedStageAListing = internalAction({
+  args: {},
+  returns: v.id("listings"),
+  handler: async (ctx): Promise<Id<"listings">> => {
+    const imageStorageId = await ctx.storage.store(
+      new Blob([PLACEHOLDER_PNG_BYTES], { type: "image/png" }),
+    );
+
+    return await ctx.runMutation(internal.listings.ragDebug.insertStageAListing, {
+      imageStorageId,
     });
   },
 });
@@ -218,7 +230,7 @@ export const runStageARagVerification = internalAction({
     searchQuery: string;
     soldOutResultCount: number;
   }> => {
-    const listingId: Id<"listings"> = await ctx.runMutation(
+    const listingId: Id<"listings"> = await ctx.runAction(
       internal.listings.ragDebug.seedStageAListing,
       {},
     );
@@ -308,13 +320,13 @@ const stageBCropResultValidator = v.object({
   searchQuery: v.string(),
 });
 
-export const seedStageBCropListings = internalMutation({
-  args: {},
+export const insertStageBCropListings = internalMutation({
+  args: { imageStorageId: v.id("_storage") },
   returns: v.object({
     maizeListingId: v.id("listings"),
     potatoListingId: v.id("listings"),
   }),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const farmer = await ctx.db.query("farmerProfiles").first();
     if (!farmer) {
       throw new Error("No farmer profile found. Complete farmer onboarding first.");
@@ -332,14 +344,13 @@ export const seedStageBCropListings = internalMutation({
     }
 
     const sharedDescription = `${STAGE_B_CROP_MARKER}: staple grain and tuber produce available in Nairobi with similar quality and pricing for crop filter verification.`;
-    const imageStorageId = await createPlaceholderListingImage(ctx);
 
     const maizeListingId = await ctx.db.insert("listings", {
       county: "Nairobi",
       crop: "maize",
       description: sharedDescription,
       farmerId: farmer._id,
-      imageStorageId,
+      imageStorageId: args.imageStorageId,
       pricePerKg: 45,
       quantityKg: 200,
       status: "active",
@@ -350,13 +361,33 @@ export const seedStageBCropListings = internalMutation({
       crop: "potatoes",
       description: sharedDescription,
       farmerId: farmer._id,
-      imageStorageId,
+      imageStorageId: args.imageStorageId,
       pricePerKg: 45,
       quantityKg: 200,
       status: "active",
     });
 
     return { maizeListingId, potatoListingId };
+  },
+});
+
+export const seedStageBCropListings = internalAction({
+  args: {},
+  returns: v.object({
+    maizeListingId: v.id("listings"),
+    potatoListingId: v.id("listings"),
+  }),
+  handler: async (ctx): Promise<{
+    maizeListingId: Id<"listings">;
+    potatoListingId: Id<"listings">;
+  }> => {
+    const imageStorageId = await ctx.storage.store(
+      new Blob([PLACEHOLDER_PNG_BYTES], { type: "image/png" }),
+    );
+
+    return await ctx.runMutation(internal.listings.ragDebug.insertStageBCropListings, {
+      imageStorageId,
+    });
   },
 });
 
@@ -371,7 +402,7 @@ export const runStageBCropFilterVerification = internalAction({
     potatoListingId: Id<"listings">;
     searchQuery: string;
   }> => {
-    const { maizeListingId, potatoListingId } = await ctx.runMutation(
+    const { maizeListingId, potatoListingId } = await ctx.runAction(
       internal.listings.ragDebug.seedStageBCropListings,
       {},
     );

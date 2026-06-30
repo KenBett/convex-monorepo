@@ -1,12 +1,10 @@
 "use client";
 
 import { api } from "@repo/backend/convex/_generated/api";
-import type { Id } from "@repo/backend/convex/_generated/dataModel";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { Package, Scale, ShoppingBag } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import clsx from "clsx";
 
 import { FarmerListingCard } from "@/components/farmer/listing-card";
@@ -35,12 +33,7 @@ function ListingStatCard({ label, value, icon: Icon }: ListingStat) {
 }
 
 export function FarmerDashboardClient() {
-  const router = useRouter();
   const listings = useQuery(api.listings.listingsByFarmer);
-  const markSoldOut = useMutation(api.listings.markSoldOut);
-  const [markingSoldOutId, setMarkingSoldOutId] = useState<Id<"listings"> | null>(
-    null,
-  );
 
   const stats = useMemo(() => {
     if (!listings) {
@@ -61,22 +54,6 @@ export function FarmerDashboardClient() {
       activePreview: activeListings.slice(0, 3),
     };
   }, [listings]);
-
-  const handleMarkSoldOut = async (listingId: Id<"listings">, crop: string) => {
-    const confirmed = window.confirm(
-      `Mark ${crop} as sold out? Buyers will no longer see it in search results.`,
-    );
-    if (!confirmed) {
-      return;
-    }
-
-    setMarkingSoldOutId(listingId);
-    try {
-      await markSoldOut({ listingId });
-    } finally {
-      setMarkingSoldOutId(null);
-    }
-  };
 
   if (listings === undefined) {
     return (
@@ -133,15 +110,8 @@ export function FarmerDashboardClient() {
             {stats.activePreview.map((listing) => (
               <FarmerListingCard
                 key={listing._id}
-                isMarkingSoldOut={markingSoldOutId === listing._id}
                 listing={listing}
                 listingId={listing._id}
-                onEdit={() => {
-                  router.push(`/farmer/listings/${listing._id}`);
-                }}
-                onMarkSoldOut={() => {
-                  void handleMarkSoldOut(listing._id, listing.crop);
-                }}
               />
             ))}
           </div>

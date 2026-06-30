@@ -47,6 +47,7 @@ function toStreamListings(
     crop: string;
     description: string;
     grade?: string;
+    imageUrl: string | null;
     listingId: string;
     pricePerKg: number;
     quantityKg: number;
@@ -62,6 +63,7 @@ function toStreamListings(
     crop: listing.crop,
     description: listing.description,
     grade: listing.grade,
+    imageUrl: listing.imageUrl,
     listingId: listing.listingId,
     pricePerKg: listing.pricePerKg,
     quantityKg: listing.quantityKg,

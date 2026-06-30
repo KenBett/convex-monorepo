@@ -40,6 +40,8 @@ async function toListingSummary(
   ctx: Parameters<typeof getListingImageUrl>[0],
   listing: Doc<"listings">,
 ) {
+  const imageUrl = await getListingImageUrl(ctx, listing.imageStorageId);
+
   return {
     _creationTime: listing._creationTime,
     _id: listing._id,
@@ -50,7 +52,7 @@ async function toListingSummary(
     farmerId: listing.farmerId,
     grade: listing.grade,
     imageStorageId: listing.imageStorageId,
-    imageUrl: await getListingImageUrl(ctx, listing.imageStorageId),
+    imageUrl,
     pricePerKg: listing.pricePerKg,
     quantityKg: listing.quantityKg,
     status: listing.status,
@@ -251,6 +253,68 @@ export const markSoldOut = mutation({
 
     await ctx.db.patch("listings", args.listingId, { status: "sold_out" });
     await ctx.scheduler.runAfter(0, internal.listings.ragSync.syncListingToRag, {
+      listingId: args.listingId,
+    });
+
+    return null;
+  },
+});
+
+export const updateListingStatus = mutation({
+  args: {
+    listingId: v.id("listings"),
+    soldOut: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const profile = await requireFarmerProfile(ctx);
+    const listing = await ctx.db.get("listings", args.listingId);
+
+    if (!listing) {
+      throw new Error("Listing not found");
+    }
+
+    if (listing.farmerId !== profile._id) {
+      throw new Error("Unauthorized");
+    }
+
+    if (listing.status === "expired") {
+      throw new Error("Expired listings cannot be updated");
+    }
+
+    const nextStatus = args.soldOut ? "sold_out" : "active";
+    if (listing.status === nextStatus) {
+      return null;
+    }
+
+    await ctx.db.patch("listings", args.listingId, { status: nextStatus });
+    await ctx.scheduler.runAfter(0, internal.listings.ragSync.syncListingToRag, {
+      listingId: args.listingId,
+    });
+
+    return null;
+  },
+});
+
+export const deleteListing = mutation({
+  args: {
+    listingId: v.id("listings"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const profile = await requireFarmerProfile(ctx);
+    const listing = await ctx.db.get("listings", args.listingId);
+
+    if (!listing) {
+      throw new Error("Listing not found");
+    }
+
+    if (listing.farmerId !== profile._id) {
+      throw new Error("Unauthorized");
+    }
+
+    await ctx.db.delete("listings", args.listingId);
+    await ctx.scheduler.runAfter(0, internal.listings.ragSync.removeListingFromRag, {
       listingId: args.listingId,
     });
 

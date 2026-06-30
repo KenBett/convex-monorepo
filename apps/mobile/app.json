@@ -10,7 +10,8 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to record voice questions during knowledge calls."
+        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to record voice questions during knowledge calls.",
+        "NSPhotoLibraryUsageDescription": "Allow $(PRODUCT_NAME) to choose crop photos for your listings."
       }
     },
     "android": {
@@ -34,7 +35,13 @@
           }
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to choose crop photos for your listings."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

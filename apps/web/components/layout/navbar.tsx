@@ -62,17 +62,17 @@ export const Navbar = () => {
     >
       <header
         className={clsx(
-          "flex h-full items-center justify-between gap-4",
+          "flex h-full items-center justify-between gap-3",
           CONTENT_CONTAINER_CLASSES,
         )}
       >
-        <div className="flex min-w-0 items-center gap-3">
+        <div className="flex min-w-0 items-center gap-2">
           <NextLink
             aria-label="Go to profile"
             className="hidden shrink-0 rounded-full transition-opacity hover:opacity-80 md:inline-flex"
             href={profilePath}
           >
-            <Avatar size="md">
+            <Avatar size="sm">
               {viewer?.image ? (
                 <Avatar.Image
                   alt={displayName}
@@ -87,9 +87,9 @@ export const Navbar = () => {
             <>
               <div
                 aria-hidden="true"
-                className="hidden h-6 w-px shrink-0 bg-separator md:block"
+                className="hidden h-4 w-px shrink-0 bg-separator md:block"
               />
-              <h1 className="truncate text-base font-semibold text-foreground md:text-lg">
+              <h1 className="truncate text-sm font-semibold text-foreground md:text-base">
                 {pageTitle}
               </h1>
             </>
@@ -100,7 +100,7 @@ export const Navbar = () => {
           <button
             aria-label="Sign out"
             className={clsx(
-              "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+              "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
               "border border-separator bg-background text-muted",
               "transition-colors hover:bg-default/40 hover:text-foreground",
               "disabled:cursor-not-allowed disabled:opacity-60",
@@ -109,7 +109,7 @@ export const Navbar = () => {
             onClick={() => void handleSignOut()}
             type="button"
           >
-            <LogOut className="h-5 w-5" />
+            <LogOut className="h-3.5 w-3.5" />
           </button>
           <Tooltip.Content showArrow placement="bottom">
             <Tooltip.Arrow />

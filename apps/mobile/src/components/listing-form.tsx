@@ -15,6 +15,7 @@ import {
   type ListingFormStep,
 } from "@repo/types";
 import { CropBadge, CropPickerGrid } from "@/components/crop-display";
+import { ListingImagePicker } from "@/components/listing-image-picker";
 import { useMutation } from "convex/react";
 import {
   Button,
@@ -26,7 +27,7 @@ import {
   TextField,
 } from "heroui-native";
 import { Fragment, useState, type JSX } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { Image, ScrollView, Text, View } from "react-native";
 
 type SelectOption = {
   label: string;
@@ -128,6 +129,7 @@ function ListingReviewSummary({
   crop,
   description,
   grade,
+  imagePreviewUrl,
   pricePerKg,
   quantityKg,
 }: {
@@ -135,6 +137,7 @@ function ListingReviewSummary({
   crop: CropType;
   description: string;
   grade: string;
+  imagePreviewUrl: string | null;
   pricePerKg: string;
   quantityKg: string;
 }): JSX.Element {
@@ -147,7 +150,17 @@ function ListingReviewSummary({
   return (
     <View className="gap-section-title">
       <Label>Review your listing</Label>
-      <View className={`gap-3 rounded-xl p-4 shadow-sm ${bgClass}`}>
+      <View className={`gap-3 overflow-hidden rounded-xl shadow-sm ${bgClass}`}>
+        {imagePreviewUrl ? (
+          <Image
+            accessibilityLabel="Listing preview"
+            className="aspect-[4/3] w-full"
+            resizeMode="cover"
+            source={{ uri: imagePreviewUrl }}
+          />
+        ) : null}
+
+        <View className="gap-3 p-4 pt-0">
         <View className="flex-row items-center gap-2.5">
           <CropBadge crop={crop} size="md" />
           <Text className="text-emphasis text-neutral-900 dark:text-neutral-50">
@@ -185,6 +198,7 @@ function ListingReviewSummary({
             No description yet
           </Text>
         )}
+        </View>
       </View>
     </View>
   );
@@ -195,6 +209,7 @@ type ListingFormProps = {
   embeddedLayout?: "stack" | "modal";
   listingId?: Id<"listings">;
   initialValues?: ListingFormInput;
+  initialImageUrl?: string | null;
   onCancel?: () => void;
   onSubmitted: () => void;
 };
@@ -203,6 +218,7 @@ export function ListingForm({
   embedded = false,
   embeddedLayout = "stack",
   initialValues,
+  initialImageUrl = null,
   listingId,
   onCancel,
   onSubmitted,
@@ -225,6 +241,12 @@ export function ListingForm({
   );
   const [description, setDescription] = useState(defaults.description);
   const [grade, setGrade] = useState(defaults.grade ?? "");
+  const [imageStorageId, setImageStorageId] = useState<Id<"_storage"> | null>(
+    defaults.imageStorageId ? (defaults.imageStorageId as Id<"_storage">) : null,
+  );
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(
+    initialImageUrl,
+  );
   const [fieldErrors, setFieldErrors] = useState<ListingFormFieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -234,8 +256,17 @@ export function ListingForm({
     county: countyValue.value,
     description,
     grade,
+    imageStorageId: imageStorageId ?? "",
     pricePerKg,
     quantityKg,
+  };
+
+  const handleImageChange = (
+    storageId: Id<"_storage"> | null,
+    previewUrl: string | null,
+  ): void => {
+    setImageStorageId(storageId);
+    setImagePreviewUrl(previewUrl);
   };
 
   const handleSubmit = async (): Promise<void> => {
@@ -258,16 +289,23 @@ export function ListingForm({
           crop: parsed.data.crop,
           description: parsed.data.description,
           grade: gradeValue ?? "",
+          imageStorageId: imageStorageId ?? undefined,
           listingId,
           pricePerKg: parsed.data.pricePerKg,
           quantityKg: parsed.data.quantityKg,
         });
       } else {
+        if (!imageStorageId) {
+          setFieldErrors({ imageStorageId: "Listing photo is required" });
+          return;
+        }
+
         await createListing({
           county: parsed.data.county,
           crop: parsed.data.crop,
           description: parsed.data.description,
           grade: gradeValue,
+          imageStorageId,
           pricePerKg: parsed.data.pricePerKg,
           quantityKg: parsed.data.quantityKg,
         });
@@ -309,6 +347,13 @@ export function ListingForm({
         error={fieldErrors.crop}
         onChange={setCrop}
         value={crop}
+      />
+
+      <ListingImagePicker
+        error={fieldErrors.imageStorageId}
+        initialPreviewUrl={imagePreviewUrl}
+        value={imageStorageId}
+        onChange={handleImageChange}
       />
 
       <View className="flex-row gap-3">
@@ -462,9 +507,16 @@ export function ListingForm({
         <View className="gap-1">
           <Text className="text-section-title">Listing details</Text>
           <Text className="text-caption text-muted">
-            Quantity, price, and county help buyers find your produce.
+            Add a photo, then quantity, price, and county so buyers can find your produce.
           </Text>
         </View>
+
+        <ListingImagePicker
+          error={fieldErrors.imageStorageId}
+          initialPreviewUrl={imagePreviewUrl}
+          value={imageStorageId}
+          onChange={handleImageChange}
+        />
 
         <View className="flex-row gap-3">
           <View className="flex-1">
@@ -552,6 +604,7 @@ export function ListingForm({
           crop={crop}
           description={description}
           grade={grade}
+          imagePreviewUrl={imagePreviewUrl}
           pricePerKg={pricePerKg}
           quantityKg={quantityKg}
         />

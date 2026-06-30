@@ -1,6 +1,6 @@
 import { api } from "@repo/backend/convex/_generated/api";
 import type { Id } from "@repo/backend/convex/_generated/dataModel";
-import { LISTING_IMAGE_ACCEPT, uploadListingImageToStorage } from "@repo/utils";
+import { uploadListingImageToStorage } from "@repo/utils";
 import * as ImagePicker from "expo-image-picker";
 import { Button, Label } from "heroui-native";
 import { Camera, ImagePlus } from "lucide-react-native";
@@ -10,16 +10,20 @@ import { useMutation } from "convex/react";
 
 type ListingImagePickerProps = {
   error?: string;
+  hideLabel?: boolean;
   initialPreviewUrl?: string | null;
   onChange: (storageId: Id<"_storage"> | null, previewUrl: string | null) => void;
   value: Id<"_storage"> | null;
+  variant?: "default" | "compact";
 };
 
 export function ListingImagePicker({
   error,
+  hideLabel = false,
   initialPreviewUrl = null,
   onChange,
   value,
+  variant = "default",
 }: ListingImagePickerProps): JSX.Element {
   const generateUploadUrl = useMutation(api.listings.generateListingImageUploadUrl);
   const [previewUrl, setPreviewUrl] = useState<string | null>(initialPreviewUrl);
@@ -74,55 +78,88 @@ export function ListingImagePicker({
   };
 
   const displayError = uploadError ?? error;
+  const compact = variant === "compact";
 
   return (
-    <View className="gap-section-title">
-      <Label>Listing photo</Label>
+    <View className="min-w-0 gap-section-title">
+      {!hideLabel ? <Label>{compact ? "Photo" : "Listing photo"}</Label> : null}
 
       {previewUrl ? (
-        <View className="overflow-hidden rounded-xl border border-separator">
-          <Image
-            accessibilityLabel="Listing preview"
-            className="aspect-[4/3] w-full"
-            resizeMode="cover"
-            source={{ uri: previewUrl }}
-          />
-          <View className="gap-2 border-t border-separator bg-surface p-3">
-            <Button
-              isDisabled={isUploading}
-              size="sm"
-              variant="secondary"
-              onPress={() => {
-                void pickImage();
-              }}
-            >
-              <Camera color="currentColor" size={16} />
-              {isUploading ? "Uploading..." : "Replace photo"}
-            </Button>
+        compact ? (
+          <Pressable
+            accessibilityLabel={isUploading ? "Uploading photo" : "Replace photo"}
+            className="relative h-16 w-16 overflow-hidden rounded-lg border border-separator"
+            disabled={isUploading}
+            onPress={() => {
+              void pickImage();
+            }}
+          >
+            <Image
+              accessibilityLabel="Listing preview"
+              className="h-16 w-16"
+              resizeMode="cover"
+              source={{ uri: previewUrl }}
+            />
+            <View className="absolute inset-0 items-center justify-center bg-black/50">
+              <Camera color="#fff" size={16} />
+            </View>
+            {isUploading ? (
+              <View className="absolute inset-0 items-center justify-center bg-black/60">
+                <Text className="text-xs font-medium text-white">…</Text>
+              </View>
+            ) : null}
+          </Pressable>
+        ) : (
+          <View className="overflow-hidden rounded-xl border border-separator">
+            <Image
+              accessibilityLabel="Listing preview"
+              className="aspect-[4/3] w-full"
+              resizeMode="cover"
+              source={{ uri: previewUrl }}
+            />
+            <View className="gap-2 border-t border-separator bg-surface p-3">
+              <Button
+                isDisabled={isUploading}
+                size="sm"
+                variant="secondary"
+                onPress={() => {
+                  void pickImage();
+                }}
+              >
+                <Camera color="currentColor" size={16} />
+                {isUploading ? "Uploading..." : "Replace photo"}
+              </Button>
+            </View>
           </View>
-        </View>
+        )
       ) : (
         <Pressable
           accessibilityRole="button"
-          className={`aspect-[4/3] items-center justify-center gap-3 rounded-xl border border-dashed border-separator bg-surface px-4 ${
-            isUploading ? "opacity-70" : ""
-          }`}
+          className={`items-center justify-center rounded-xl border border-dashed border-separator bg-surface ${
+            compact ? "h-16 w-16" : "aspect-[4/3] w-full px-4"
+          } ${isUploading ? "opacity-70" : ""}`}
           disabled={isUploading}
           onPress={() => {
             void pickImage();
           }}
         >
-          <View className="h-12 w-12 items-center justify-center rounded-full bg-default/45">
-            <ImagePlus color="#737373" size={20} />
+          <View
+            className={`items-center justify-center rounded-full bg-default/45 ${
+              compact ? "h-8 w-8" : "h-12 w-12"
+            }`}
+          >
+            <ImagePlus color="#737373" size={compact ? 16 : 20} />
           </View>
-          <View className="items-center gap-1">
-            <Text className="text-emphasis text-foreground">
-              {isUploading ? "Uploading photo..." : "Add a crop photo"}
-            </Text>
-            <Text className="text-caption text-muted">
-              JPEG, PNG, or WebP up to 5 MB
-            </Text>
-          </View>
+          {!compact ? (
+            <View className="items-center gap-1">
+              <Text className="text-emphasis text-foreground">
+                {isUploading ? "Uploading photo..." : "Add a crop photo"}
+              </Text>
+              <Text className="text-caption text-muted">
+                JPEG, PNG, or WebP up to 5 MB
+              </Text>
+            </View>
+          ) : null}
         </Pressable>
       )}
 
