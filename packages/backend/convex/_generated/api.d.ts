@@ -18,6 +18,7 @@ import type * as lib_roles from "../lib/roles.js";
 import type * as lib_voicePipeline from "../lib/voicePipeline.js";
 import type * as lib_voiceQueryCache from "../lib/voiceQueryCache.js";
 import type * as users from "../users.js";
+import type * as voiceStream from "../voiceStream.js";
 
 import type {
   ApiFromModules,
@@ -36,6 +37,7 @@ declare const fullApi: ApiFromModules<{
   "lib/voicePipeline": typeof lib_voicePipeline;
   "lib/voiceQueryCache": typeof lib_voiceQueryCache;
   users: typeof users;
+  voiceStream: typeof voiceStream;
 }>;
 
 /**

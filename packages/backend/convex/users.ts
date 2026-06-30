@@ -4,9 +4,12 @@ import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { requireAuthUserId } from "./lib/auth";
-import { normalizeRole } from "./lib/roles";
+import { getMarketplaceRole } from "./lib/roles";
 
-const roleValidator = v.union(v.literal("admin"), v.literal("member"));
+const marketplaceRoleValidator = v.union(
+  v.literal("farmer"),
+  v.literal("buyer"),
+);
 
 const viewerValidator = v.union(
   v.object({
@@ -19,7 +22,8 @@ const viewerValidator = v.union(
     phone: v.optional(v.string()),
     phoneVerificationTime: v.optional(v.number()),
     isAnonymous: v.optional(v.boolean()),
-    role: roleValidator,
+    onboardingComplete: v.boolean(),
+    role: v.optional(marketplaceRoleValidator),
   }),
   v.null(),
 );
@@ -36,7 +40,7 @@ export const viewer = query({
     if (!user) {
       return null;
     }
-    return withNormalizedRole(user);
+    return withViewerFields(user);
   },
 });
 
@@ -64,7 +68,7 @@ export const updateProfile = mutation({
 
 export const setUserRole = internalMutation({
   args: {
-    role: roleValidator,
+    role: marketplaceRoleValidator,
     userId: v.id("users"),
   },
   returns: v.null(),
@@ -74,11 +78,30 @@ export const setUserRole = internalMutation({
   },
 });
 
-function withNormalizedRole(user: Doc<"users">): Doc<"users"> & {
-  role: "admin" | "member";
+function withViewerFields(user: Doc<"users">): {
+  _id: Doc<"users">["_id"];
+  _creationTime: Doc<"users">["_creationTime"];
+  name?: string;
+  image?: string;
+  email?: string;
+  emailVerificationTime?: number;
+  phone?: string;
+  phoneVerificationTime?: number;
+  isAnonymous?: boolean;
+  onboardingComplete: boolean;
+  role?: "farmer" | "buyer";
 } {
   return {
-    ...user,
-    role: normalizeRole(user),
+    _id: user._id,
+    _creationTime: user._creationTime,
+    name: user.name,
+    image: user.image,
+    email: user.email,
+    emailVerificationTime: user.emailVerificationTime,
+    phone: user.phone,
+    phoneVerificationTime: user.phoneVerificationTime,
+    isAnonymous: user.isAnonymous,
+    onboardingComplete: user.onboardingComplete ?? false,
+    role: getMarketplaceRole(user),
   };
 }

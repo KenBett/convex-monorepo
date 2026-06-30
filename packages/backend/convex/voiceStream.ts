@@ -1,5 +1,3 @@
-"use node";
-
 /**
  * Streaming voice RAG endpoint.
  *
@@ -94,7 +92,7 @@ export const streamVoiceTurn = httpAction(async (ctx, request) => {
   }
 
   // ── SSE stream ────────────────────────────────────────────────────────────
-  const { readable, writable } = new TransformStream<string, string>();
+  const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
   const writer = writable.getWriter();
   const enc = new TextEncoder();
 
@@ -262,7 +260,7 @@ export const streamVoiceTurn = httpAction(async (ctx, request) => {
     }
   })();
 
-  return new Response(readable as unknown as ReadableStream<Uint8Array>, {
+  return new Response(readable, {
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Cache-Control": "no-cache",

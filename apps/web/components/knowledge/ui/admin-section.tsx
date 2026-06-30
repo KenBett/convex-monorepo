@@ -1,7 +1,9 @@
+"use client";
+
 import type { DocumentSummary } from "@repo/types";
 import { Button, Card, Input, TextArea } from "@heroui/react";
 import { BookOpen, FileText, Upload } from "lucide-react";
-import type { ChangeEvent, FormEvent, ReactNode } from "react";
+import { useRef, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 
 import { DocumentStatusChip } from "@/components/knowledge/ui/document-status-chip";
 import { KnowledgeEmptyState } from "@/components/knowledge/ui/knowledge-empty-state";
@@ -37,6 +39,8 @@ export function AdminSection({
   textBody,
   textTitle,
 }: AdminSectionProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
@@ -87,22 +91,40 @@ export function AdminSection({
               value={fileTitle}
               variant="secondary"
             />
-            <label className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-full bg-default/50 px-4 py-2.5 text-sm text-muted transition-opacity hover:opacity-80">
-              <Upload className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">
-                {selectedFile?.name ?? "Choose file…"}
-              </span>
+            <div className="flex flex-col gap-2">
               <input
                 accept=".pdf,.txt,.md,text/plain,application/pdf,text/markdown"
                 aria-label="Choose file"
-                className="sr-only"
+                className="hidden"
                 onChange={onFileChange}
+                ref={fileInputRef}
                 type="file"
               />
-            </label>
+              <Button
+                className="w-full justify-start rounded-full px-4 font-normal"
+                onPress={() => fileInputRef.current?.click()}
+                size="sm"
+                type="button"
+                variant="secondary"
+              >
+                <Upload className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">
+                  {selectedFile?.name ?? "Choose file…"}
+                </span>
+              </Button>
+              {selectedFile ? (
+                <p className="text-xs text-muted">
+                  {selectedFile.name} · ready to upload
+                </p>
+              ) : (
+                <p className="text-xs text-muted">
+                  PDF, TXT, or Markdown. Pick a file to enable Upload.
+                </p>
+              )}
+            </div>
             <Button
               className="w-fit rounded-full bg-accent px-5 font-medium text-accent-foreground focus-visible:outline-none focus-visible:opacity-80"
-              isDisabled={busyState === "file" || !selectedFile}
+              isDisabled={busyState === "file"}
               size="sm"
               type="submit"
               variant="primary"

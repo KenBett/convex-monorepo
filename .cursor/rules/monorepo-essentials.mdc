@@ -1,0 +1,13 @@
+---
+description: Offtake OS monorepo essentials (always on, keep minimal)
+alwaysApply: true
+---
+
+# Monorepo essentials
+
+- **Package manager:** Bun only (`bun install`, `bun add`, `bun run`)
+- **Backend:** `packages/backend/convex/` — import API via `@repo/backend/convex/_generated/api`
+- **Shared types/utils:** `@repo/types`, `@repo/utils`
+- **Apps:** `apps/web` (Next.js), `apps/mobile` (Expo Router under `src/app/`)
+- **Git:** Do not commit or push unless the user explicitly asks
+- **Phased work:** Follow `phase.md` in order; do not skip ahead of the current phase checklist

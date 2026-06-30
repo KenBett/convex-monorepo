@@ -46,7 +46,6 @@ export default function ExploreScreen(): JSX.Element {
   const [busyState, setBusyState] = useState<"search" | "ask" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const isAdmin = viewer?.role === "admin";
   const corpusStats = useMemo(() => {
     const items = documents ?? [];
     return {
@@ -108,8 +107,8 @@ export default function ExploreScreen(): JSX.Element {
       </View>
 
       <ExploreMetrics
-        isAdmin={isAdmin}
         readyCount={corpusStats.readyCount}
+        role={viewer?.role}
         totalCount={corpusStats.totalCount}
       />
 

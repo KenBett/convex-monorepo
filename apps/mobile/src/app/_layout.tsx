@@ -22,6 +22,7 @@ import { useUniwind } from "uniwind";
 
 import { AppHeroUIProvider } from "@/components/app-hero-ui-provider";
 import { AuthGate } from "@/components/auth-gate";
+import { RoleGate } from "@/components/role-gate";
 import {
   ThemePreferenceProvider,
   useThemePreference,
@@ -59,6 +60,8 @@ function RootNavigation(): JSX.Element {
         >
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="(farmer)" />
+          <Stack.Screen name="(buyer)" />
         </Stack>
       </View>
     </ThemeProvider>
@@ -84,7 +87,9 @@ function AppBootstrap(): JSX.Element | null {
         config={{ devInfo: { stylingPrinciples: false } }}
       >
         <AuthGate>
-          <RootNavigation />
+          <RoleGate>
+            <RootNavigation />
+          </RoleGate>
         </AuthGate>
       </AppHeroUIProvider>
     </ConvexClientProvider>

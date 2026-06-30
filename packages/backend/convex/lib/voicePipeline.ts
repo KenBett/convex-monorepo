@@ -1,5 +1,3 @@
-"use node";
-
 /**
  * Stateless helpers for the streaming voice RAG pipeline.
  *
@@ -66,7 +64,7 @@ export async function transcribeWhisper(
   const formData = new FormData();
   formData.append(
     "file",
-    new Blob([audioBytes], { type: mimeType }),
+    new Blob([new Uint8Array(audioBytes)], { type: mimeType }),
     filename,
   );
   formData.append("model", "whisper-1");

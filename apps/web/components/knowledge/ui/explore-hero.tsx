@@ -1,16 +1,23 @@
 import { ExploreMetricCard } from "@/components/knowledge/ui/explore-metric-card";
+import type { MarketplaceRole } from "@repo/types";
 
 interface ExploreHeroProps {
-  isAdmin: boolean;
   readyCount: number;
+  role?: MarketplaceRole;
   totalCount: number;
 }
 
-export function ExploreHero({
-  isAdmin,
-  readyCount,
-  totalCount,
-}: ExploreHeroProps) {
+function formatAccessLabel(role?: MarketplaceRole): string {
+  if (role === "farmer") {
+    return "Farmer";
+  }
+  if (role === "buyer") {
+    return "Buyer";
+  }
+  return "Unassigned";
+}
+
+export function ExploreHero({ readyCount, role, totalCount }: ExploreHeroProps) {
   return (
     <header className="flex flex-col gap-5">
       <div className="flex flex-col gap-1">
@@ -24,7 +31,7 @@ export function ExploreHero({
         <ExploreMetricCard
           className="col-span-2 sm:col-span-1"
           label="Access"
-          value={isAdmin ? "Admin" : "Member"}
+          value={formatAccessLabel(role)}
         />
       </div>
     </header>

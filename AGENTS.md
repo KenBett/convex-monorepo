@@ -1,13 +1,24 @@
-<!-- convex-ai-start -->
+# Agent instructions — Offtake OS monorepo
 
-This project uses [Convex](https://convex.dev) as its backend.
+## Stack
 
-When working on Convex code, **always read
-`convex/_generated/ai/guidelines.md` first** for important guidelines on
-how to correctly use Convex APIs and patterns. The file contains rules that
-override what you may have learned about Convex from training data.
+- **Backend:** Convex in `packages/backend/convex/`
+- **Web:** Next.js 16 in `apps/web`
+- **Mobile:** Expo 56 in `apps/mobile`
+- **Shared:** `@repo/types`, `@repo/utils`, `@repo/backend`
 
-Convex agent skills for common tasks can be installed by running
-`npx convex ai-files install`.
+## Convex
 
-<!-- convex-ai-end -->
+When working on Convex code, read `packages/backend/convex/_generated/ai/guidelines.md` first.
+
+Use `bun run convex:dev` for development (not `convex deploy`).
+
+Detailed Convex rules apply via `.cursor/rules/convex-project.mdc` when editing `packages/backend/convex/**`.
+
+## Phased delivery
+
+Follow `phase.md` in order. Do not skip ahead of the current phase "Done when" checklist.
+
+## Cursor context
+
+The Convex Cursor plugin rules are **disabled** in `.cursor/settings.json` to save context. Re-enable only if you need plugin MCP/hooks and accept ~25k extra rule tokens.

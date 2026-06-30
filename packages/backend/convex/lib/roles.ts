@@ -2,10 +2,15 @@ import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { requireAuthUserId } from "./auth";
 
-export type UserRole = "admin" | "member";
+export type MarketplaceRole = "farmer" | "buyer";
 
-export function normalizeRole(user: Doc<"users"> | null): UserRole {
-  return user?.role === "admin" ? "admin" : "member";
+export function getMarketplaceRole(
+  user: Doc<"users"> | null,
+): MarketplaceRole | undefined {
+  if (user?.role === "farmer" || user?.role === "buyer") {
+    return user.role;
+  }
+  return undefined;
 }
 
 export async function getCurrentUser(
@@ -15,16 +20,6 @@ export async function getCurrentUser(
   const user = await ctx.db.get("users", userId);
   if (!user) {
     throw new Error("User not found");
-  }
-  return user;
-}
-
-export async function requireAdmin(
-  ctx: QueryCtx | MutationCtx,
-): Promise<Doc<"users">> {
-  const user = await getCurrentUser(ctx);
-  if (normalizeRole(user) !== "admin") {
-    throw new Error("Admin access required");
   }
   return user;
 }

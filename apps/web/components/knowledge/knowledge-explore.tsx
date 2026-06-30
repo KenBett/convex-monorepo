@@ -1,23 +1,17 @@
 "use client";
 
 import { api } from "@repo/backend/convex/_generated/api";
-import type { Id } from "@repo/backend/convex/_generated/dataModel";
-import type { DocumentSummary } from "@repo/types";
-import { useAction, useMutation, useQuery } from "convex/react";
-import type { ChangeEvent, FormEvent } from "react";
+import { useAction, useQuery } from "convex/react";
+import type { FormEvent } from "react";
 import { useMemo, useState } from "react";
 
-import { extractPdfText } from "@/components/knowledge/pdf-text-extractor";
 import type { ExploreMode } from "@/components/knowledge/types";
-import { AdminSection } from "@/components/knowledge/ui/admin-section";
 import { CommandDeck } from "@/components/knowledge/ui/command-deck";
 import { CorpusPanel } from "@/components/knowledge/ui/corpus-panel";
 import { ExploreHero } from "@/components/knowledge/ui/explore-hero";
 import { ExploreStatusAlert } from "@/components/knowledge/ui/explore-status-alert";
 import { getErrorMessage } from "@/components/knowledge/utils";
 import { useVoiceCall } from "@/hooks/use-voice-assistant";
-
-const MIN_INDEXABLE_TEXT_LENGTH = 20;
 
 export function KnowledgeExplore() {
   const viewer = useQuery(api.users.viewer);
@@ -27,9 +21,6 @@ export function KnowledgeExplore() {
   const askWithHistory = useAction(api.knowledge.askWithHistory);
   const transcribeSpeech = useAction(api.knowledgeSpeech.transcribeSpeech);
   const synthesizeSpeech = useAction(api.knowledgeSpeech.synthesizeSpeech);
-  const addTextDocument = useAction(api.knowledge.addTextDocument);
-  const addFileDocument = useAction(api.knowledge.addFileDocument);
-  const deleteDocument = useMutation(api.knowledge.deleteDocument);
 
   const voiceCall = useVoiceCall({
     askWithHistory,
@@ -48,14 +39,9 @@ export function KnowledgeExplore() {
   const [answerSources, setAnswerSources] = useState<
     Awaited<ReturnType<typeof askKnowledge>>["sources"]
   >([]);
-  const [textTitle, setTextTitle] = useState("");
-  const [textBody, setTextBody] = useState("");
-  const [fileTitle, setFileTitle] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [busyState, setBusyState] = useState<string | null>(null);
 
-  const isAdmin = viewer?.role === "admin";
   const corpusStats = useMemo(() => {
     const items = documents ?? [];
     return {
@@ -102,86 +88,11 @@ export function KnowledgeExplore() {
     }
   };
 
-  const handleAddText = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const title = textTitle.trim();
-    const text = textBody.trim();
-    if (!title || text.length < MIN_INDEXABLE_TEXT_LENGTH) {
-      setStatusMessage(
-        `Text must be at least ${MIN_INDEXABLE_TEXT_LENGTH} characters.`,
-      );
-      return;
-    }
-    setBusyState("text");
-    setStatusMessage(null);
-    try {
-      await addTextDocument({ text, title });
-      setTextTitle("");
-      setTextBody("");
-      setStatusMessage("Indexed.");
-    } catch (error) {
-      setStatusMessage(getErrorMessage(error, "Upload failed"));
-    } finally {
-      setBusyState(null);
-    }
-  };
-
-  const handleAddFile = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!selectedFile) {
-      return;
-    }
-    setBusyState("file");
-    setStatusMessage(null);
-    try {
-      const text =
-        selectedFile.type === "application/pdf" ||
-        selectedFile.name.toLowerCase().endsWith(".pdf")
-          ? await extractPdfText(selectedFile)
-          : await selectedFile.text();
-      const trimmedText = text.trim();
-      if (trimmedText.length < MIN_INDEXABLE_TEXT_LENGTH) {
-        setStatusMessage("No extractable text found in this file.");
-        return;
-      }
-      const title = fileTitle.trim() || selectedFile.name;
-      await addFileDocument({
-        filename: selectedFile.name,
-        text: trimmedText,
-        title,
-      });
-      setFileTitle("");
-      setSelectedFile(null);
-      setStatusMessage("Indexed.");
-    } catch (error) {
-      setStatusMessage(getErrorMessage(error, "Upload failed"));
-    } finally {
-      setBusyState(null);
-    }
-  };
-
-  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setSelectedFile(event.target.files?.[0] ?? null);
-  };
-
-  const handleDelete = async (document: DocumentSummary) => {
-    setBusyState(`delete:${document._id}`);
-    setStatusMessage(null);
-    try {
-      await deleteDocument({ documentId: document._id as Id<"documents"> });
-      setStatusMessage(`Deleted ${document.title}.`);
-    } catch (error) {
-      setStatusMessage(getErrorMessage(error, "Delete failed"));
-    } finally {
-      setBusyState(null);
-    }
-  };
-
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 pb-4">
       <ExploreHero
-        isAdmin={isAdmin}
         readyCount={corpusStats.readyCount}
+        role={viewer?.role}
         totalCount={corpusStats.totalCount}
       />
 
@@ -220,24 +131,6 @@ export function KnowledgeExplore() {
           isLoading={documents === undefined}
         />
       </div>
-
-      {isAdmin ? (
-        <AdminSection
-          busyState={busyState}
-          documents={documents}
-          fileTitle={fileTitle}
-          onAddFile={handleAddFile}
-          onAddText={handleAddText}
-          onDelete={(document) => void handleDelete(document)}
-          onFileChange={handleFileChange}
-          onFileTitleChange={setFileTitle}
-          onTextBodyChange={setTextBody}
-          onTextTitleChange={setTextTitle}
-          selectedFile={selectedFile}
-          textBody={textBody}
-          textTitle={textTitle}
-        />
-      ) : null}
     </div>
   );
 }

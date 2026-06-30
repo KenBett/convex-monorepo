@@ -1,3 +1,16 @@
+import type { MarketplaceRole } from "./marketplace";
+
+export {
+  COUNTIES,
+  CROP_TYPES,
+  type BusinessType,
+  type County,
+  type CropType,
+  type ListingStatus,
+  type MarketplaceRole,
+  type OrderStatus,
+} from "./marketplace";
+
 export interface User {
   id: string;
   name?: string;
@@ -5,15 +18,14 @@ export interface User {
   image?: string;
   emailVerificationTime?: number;
   isAnonymous?: boolean;
-  role?: UserRole;
+  onboardingComplete?: boolean;
+  role?: MarketplaceRole;
 }
 
 export interface ApiResponse<T> {
   data: T;
   error: string | null;
 }
-
-export type UserRole = "admin" | "member";
 
 export type DocumentStatus = "processing" | "ready" | "error";
 

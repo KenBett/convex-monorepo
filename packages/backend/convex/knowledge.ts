@@ -10,7 +10,6 @@ import {
   type ActionCtx,
   action,
   internalMutation,
-  internalQuery,
   mutation,
   query,
 } from "./_generated/server";
@@ -23,7 +22,6 @@ import {
   answerModel,
   rag,
 } from "./lib/rag";
-import { normalizeRole, requireAdmin } from "./lib/roles";
 
 const sourceTypeValidator = v.union(v.literal("text"), v.literal("file"));
 const documentStatusValidator = v.union(
@@ -31,8 +29,6 @@ const documentStatusValidator = v.union(
   v.literal("ready"),
   v.literal("error"),
 );
-const roleValidator = v.union(v.literal("admin"), v.literal("member"));
-
 const documentSummaryValidator = v.object({
   _creationTime: v.number(),
   _id: v.id("documents"),
@@ -116,7 +112,6 @@ export const addTextDocument = action({
     entryId: string;
   }> => {
     const userId = await requireAuthUserId(ctx);
-    await requireAdminFromAction(ctx, userId);
     const text = validateIndexableText(args.text);
     const documentId: Id<"documents"> = await ctx.runMutation(
       internal.knowledge.createDocumentMetadata,
@@ -171,7 +166,6 @@ export const addFileDocument = action({
     storageId?: Id<"_storage">;
   }> => {
     const userId = await requireAuthUserId(ctx);
-    await requireAdminFromAction(ctx, userId);
     const text = validateIndexableText(args.text);
     const storageId =
       args.fileBytes === undefined
@@ -227,7 +221,7 @@ export const deleteDocument = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireAuthUserId(ctx);
     const document = await ctx.db.get("documents", args.documentId);
     if (!document) {
       throw new Error("Document not found");
@@ -325,31 +319,11 @@ If the answer is not in the context, say you do not know.
 Keep answers concise and conversational for spoken delivery (about 2-4 sentences).${historyBlock}`;
 }
 
-export const getActor = internalQuery({
-  args: {
-    userId: v.id("users"),
-  },
-  returns: v.object({
-    role: roleValidator,
-    userId: v.id("users"),
-  }),
-  handler: async (ctx, args) => {
-    const user = await ctx.db.get("users", args.userId);
-    if (!user) {
-      throw new Error("User not found");
-    }
-    return {
-      role: normalizeRole(user),
-      userId: user._id,
-    };
-  },
-});
-
 export const debugCorpus = query({
   args: {},
   returns: debugCorpusValidator,
   handler: async (ctx) => {
-    await requireAdmin(ctx);
+    await requireAuthUserId(ctx);
     const documents = await ctx.db.query("documents").order("desc").take(100);
     const documentsByStatus = {
       error: documents.filter((doc) => doc.status === "error").length,
@@ -447,17 +421,6 @@ export const completeDocument = rag.defineOnComplete<DataModel>(
     });
   },
 );
-
-async function requireAdminFromAction(
-  ctx: ActionCtx,
-  userId: Id<"users">,
-): Promise<void> {
-  const actor: { role: "admin" | "member"; userId: Id<"users"> } =
-    await ctx.runQuery(internal.knowledge.getActor, { userId });
-  if (actor.role !== "admin") {
-    throw new Error("Admin access required");
-  }
-}
 
 function validateIndexableText(text: string): string {
   const trimmed = text.trim();

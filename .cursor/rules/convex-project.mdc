@@ -1,0 +1,32 @@
+---
+description: Convex conventions for this monorepo (replaces Convex plugin always-on rules)
+globs: packages/backend/convex/**/*
+alwaysApply: false
+---
+
+# Convex — Offtake OS monorepo
+
+- Backend source: `packages/backend/convex/` (`convex.json` points here)
+- Before editing Convex code, read `packages/backend/convex/_generated/ai/guidelines.md`
+- Dev: `bun run convex:dev` or `bunx convex dev` — never `convex deploy` during development
+- Package manager: Bun (`bun install`, `bun run …`)
+
+## Functions
+
+- Public `query` / `mutation` / `action`: validate `args` and `returns`
+- Always `await` promises in Convex handlers
+- Auth: `ctx.auth.getUserIdentity()` on functions that touch user data
+- Prefer indexes (`.withIndex`) over `.filter()` on DB queries
+- No `Date.now()` inside queries (pass time as arg or use scheduled jobs)
+- Schedule only `internal.*` functions, never public `api.*`
+- `"use node"` files: actions only, no queries/mutations
+- Paginate unbounded lists; avoid `.collect()` on large tables
+- Put business logic in plain TS helpers; keep function wrappers thin
+- TypeScript strict; avoid `any`; use `Doc<"table">` / `Id<"table">`
+
+## This project
+
+- Auth: `@convex-dev/auth` + Google OAuth
+- RAG: `@convex-dev/rag` in `lib/rag.ts`, namespace `"global"`
+- Marketplace schema: `farmerProfiles`, `buyerProfiles`, `listings`, `orders`
+- Shared constants: import `CROP_TYPES`, `COUNTIES` from `@repo/types`, do not duplicate
