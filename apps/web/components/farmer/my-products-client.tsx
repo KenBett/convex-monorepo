@@ -190,9 +190,6 @@ export function MyProductsClient() {
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             My Products
           </h1>
-          <p className="text-sm text-muted">
-            Manage your listings — changes sync instantly across web and mobile.
-          </p>
         </div>
         {editingListingId === null ? (
           <Button

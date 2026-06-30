@@ -3,8 +3,18 @@ import { v } from "convex/values";
 
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { action, internalQuery } from "../_generated/server";
-import { requireBuyerProfile } from "../lib/listings";
+import {
+  action,
+  internalAction,
+  internalQuery,
+  type ActionCtx,
+} from "../_generated/server";
+import {
+  assertValidCrop,
+  isDebugListingDescription,
+  requireBuyerProfile,
+} from "../lib/listings";
+import { getListingImageUrl } from "../lib/listingImages";
 import {
   GLOBAL_NAMESPACE,
   SEARCH_LIMIT,
@@ -13,12 +23,13 @@ import {
   rag,
 } from "../lib/rag";
 
-const listingSearchResultValidator = v.object({
+export const listingSearchResultValidator = v.object({
   cooperativeName: v.string(),
   county: v.string(),
   crop: v.string(),
   description: v.string(),
   grade: v.optional(v.string()),
+  imageUrl: v.union(v.string(), v.null()),
   listingId: v.id("listings"),
   pricePerKg: v.number(),
   quantityKg: v.number(),
@@ -39,9 +50,25 @@ const searchCandidateValidator = v.object({
   title: v.optional(v.string()),
 });
 
-const searchResponseValidator = v.object({
+export const searchResponseValidator = v.object({
   results: v.array(listingSearchResultValidator),
 });
+
+export type ListingSearchResultRow = {
+  cooperativeName: string;
+  county: string;
+  crop: string;
+  description: string;
+  grade?: string;
+  imageUrl: string | null;
+  listingId: Id<"listings">;
+  pricePerKg: number;
+  quantityKg: number;
+  score: number;
+  snippet: string;
+  status: "active" | "expired" | "sold_out";
+  title?: string;
+};
 
 export const verifyBuyerAccess = internalQuery({
   args: {},
@@ -55,27 +82,24 @@ export const verifyBuyerAccess = internalQuery({
 export const hydrateSearchCandidates = internalQuery({
   args: {
     candidates: v.array(searchCandidateValidator),
+    requiredCrop: v.optional(v.string()),
   },
   returns: v.array(listingSearchResultValidator),
   handler: async (ctx, args) => {
-    const results: Array<{
-      cooperativeName: string;
-      county: string;
-      crop: string;
-      description: string;
-      grade?: string;
-      listingId: Id<"listings">;
-      pricePerKg: number;
-      quantityKg: number;
-      score: number;
-      snippet: string;
-      status: "active" | "expired" | "sold_out";
-      title?: string;
-    }> = [];
+    const results: ListingSearchResultRow[] = [];
 
     for (const candidate of args.candidates) {
       const listing = await ctx.db.get("listings", candidate.listingId);
-      if (!listing || listing.status !== "active" || listing.quantityKg <= 0) {
+      if (
+        !listing ||
+        listing.status !== "active" ||
+        listing.quantityKg <= 0 ||
+        isDebugListingDescription(listing.description)
+      ) {
+        continue;
+      }
+
+      if (args.requiredCrop && listing.crop !== args.requiredCrop) {
         continue;
       }
 
@@ -90,6 +114,7 @@ export const hydrateSearchCandidates = internalQuery({
         crop: listing.crop,
         description: listing.description,
         grade: listing.grade,
+        imageUrl: await getListingImageUrl(ctx, listing.imageStorageId),
         listingId: listing._id,
         pricePerKg: listing.pricePerKg,
         quantityKg: listing.quantityKg,
@@ -104,54 +129,76 @@ export const hydrateSearchCandidates = internalQuery({
   },
 });
 
-export const semanticSearch = action({
+export async function runListingSemanticSearch(
+  ctx: ActionCtx,
   args: {
+    crop?: string;
+    limit?: number;
+    query: string;
+  },
+): Promise<{
+  ragCandidateCount: number;
+  results: ListingSearchResultRow[];
+}> {
+  const query = args.query.trim();
+  if (query.length === 0) {
+    throw new Error("Search query is required");
+  }
+
+  if (args.crop) {
+    assertValidCrop(args.crop);
+  }
+
+  const resultLimit = args.limit ?? SEARCH_LIMIT;
+  const response = await rag.search(ctx, {
+    chunkContext: { after: 1, before: 1 },
+    limit: Math.min(resultLimit * 4, 32),
+    namespace: GLOBAL_NAMESPACE,
+    query,
+    vectorScoreThreshold: VECTOR_SCORE_THRESHOLD,
+  });
+
+  const candidates = collectListingCandidates(
+    response.results,
+    response.entries,
+    resultLimit,
+  );
+
+  const results = await ctx.runQuery(internal.listings.search.hydrateSearchCandidates, {
+    candidates,
+    requiredCrop: args.crop,
+  });
+
+  return {
+    ragCandidateCount: candidates.length,
+    results,
+  };
+}
+
+export const runListingSemanticSearchInternal = internalAction({
+  args: {
+    crop: v.optional(v.string()),
     limit: v.optional(v.number()),
     query: v.string(),
   },
   returns: searchResponseValidator,
-  handler: async (ctx, args): Promise<{
-    results: Array<{
-      cooperativeName: string;
-      county: string;
-      crop: string;
-      description: string;
-      grade?: string;
-      listingId: Id<"listings">;
-      pricePerKg: number;
-      quantityKg: number;
-      score: number;
-      snippet: string;
-      status: "active" | "expired" | "sold_out";
-      title?: string;
-    }>;
-  }> => {
+  handler: async (ctx, args) => {
+    const { results } = await runListingSemanticSearch(ctx, args);
+    return { results };
+  },
+});
+
+export const semanticSearch = action({
+  args: {
+    crop: v.optional(v.string()),
+    limit: v.optional(v.number()),
+    query: v.string(),
+  },
+  returns: searchResponseValidator,
+  handler: async (ctx, args): Promise<{ results: ListingSearchResultRow[] }> => {
     await ctx.runQuery(internal.listings.search.verifyBuyerAccess, {});
 
-    const query = args.query.trim();
-    if (query.length === 0) {
-      throw new Error("Search query is required");
-    }
-
-    const resultLimit = args.limit ?? SEARCH_LIMIT;
-    const response = await rag.search(ctx, {
-      chunkContext: { before: 1, after: 1 },
-      limit: Math.min(resultLimit * 4, 32),
-      namespace: GLOBAL_NAMESPACE,
-      query,
-      vectorScoreThreshold: VECTOR_SCORE_THRESHOLD,
-    });
-
-    const candidates = collectListingCandidates(
-      response.results,
-      response.entries,
-      resultLimit,
-    );
-
-    const results = await ctx.runQuery(internal.listings.search.hydrateSearchCandidates, {
-      candidates,
-    });
-
+    const { results } = await runListingSemanticSearch(ctx, args);
     return { results };
   },
 });

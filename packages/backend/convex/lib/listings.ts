@@ -5,6 +5,16 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { MIN_INDEXABLE_TEXT_LENGTH } from "./rag";
 import { getCurrentUser, getMarketplaceRole } from "./roles";
 
+export const STAGE_A_RAG_MARKER = "STAGE_A_RAG_VERIFICATION";
+export const STAGE_B_CROP_MARKER = "STAGE_B_CROP_FILTER_VERIFICATION";
+
+export function isDebugListingDescription(description: string): boolean {
+  return (
+    description.includes(STAGE_A_RAG_MARKER) ||
+    description.includes(STAGE_B_CROP_MARKER)
+  );
+}
+
 export function assertValidCrop(crop: string): void {
   if (!(CROP_TYPES as readonly string[]).includes(crop)) {
     throw new Error("Invalid crop");

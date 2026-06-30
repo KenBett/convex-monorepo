@@ -16,6 +16,8 @@ export type RagEntryMetadata = {
   status: "active" | "expired" | "sold_out";
 };
 
+export const answerModel = openai("gpt-4o-mini");
+
 export const rag = new RAG<Record<string, never>, RagEntryMetadata>(
   components.rag,
   {

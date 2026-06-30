@@ -1,7 +1,12 @@
 import { v } from "convex/values";
 
 import { internal } from "./_generated/api";
-import { mutation, query } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+import { internalMutation, mutation, query } from "./_generated/server";
+import {
+  assertListingImageStorageId,
+  getListingImageUrl,
+} from "./lib/listingImages";
 import {
   assertPositiveNumber,
   assertValidCounty,
@@ -24,10 +29,41 @@ const listingSummaryValidator = v.object({
   description: v.string(),
   farmerId: v.id("farmerProfiles"),
   grade: v.optional(v.string()),
+  imageStorageId: v.id("_storage"),
+  imageUrl: v.union(v.string(), v.null()),
   pricePerKg: v.number(),
   quantityKg: v.number(),
-  ragDocumentId: v.optional(v.string()),
   status: listingStatusValidator,
+});
+
+async function toListingSummary(
+  ctx: Parameters<typeof getListingImageUrl>[0],
+  listing: Doc<"listings">,
+) {
+  return {
+    _creationTime: listing._creationTime,
+    _id: listing._id,
+    availableFrom: listing.availableFrom,
+    county: listing.county,
+    crop: listing.crop,
+    description: listing.description,
+    farmerId: listing.farmerId,
+    grade: listing.grade,
+    imageStorageId: listing.imageStorageId,
+    imageUrl: await getListingImageUrl(ctx, listing.imageStorageId),
+    pricePerKg: listing.pricePerKg,
+    quantityKg: listing.quantityKg,
+    status: listing.status,
+  };
+}
+
+export const generateListingImageUploadUrl = mutation({
+  args: {},
+  returns: v.string(),
+  handler: async (ctx) => {
+    await requireFarmerProfile(ctx);
+    return await ctx.storage.generateUploadUrl();
+  },
 });
 
 export const listingsByFarmer = query({
@@ -36,11 +72,15 @@ export const listingsByFarmer = query({
   handler: async (ctx) => {
     const profile = await requireFarmerProfile(ctx);
 
-    return await ctx.db
+    const listings = await ctx.db
       .query("listings")
       .withIndex("by_farmer", (q) => q.eq("farmerId", profile._id))
       .order("desc")
       .collect();
+
+    return await Promise.all(
+      listings.map((listing) => toListingSummary(ctx, listing)),
+    );
   },
 });
 
@@ -55,7 +95,7 @@ export const getListingById = query({
       return null;
     }
 
-    return listing;
+    return await toListingSummary(ctx, listing);
   },
 });
 
@@ -65,6 +105,7 @@ export const createListing = mutation({
     crop: v.string(),
     description: v.string(),
     grade: v.optional(v.string()),
+    imageStorageId: v.id("_storage"),
     pricePerKg: v.number(),
     quantityKg: v.number(),
   },
@@ -76,6 +117,7 @@ export const createListing = mutation({
     assertValidCounty(args.county);
     assertPositiveNumber(args.quantityKg, "Quantity");
     assertPositiveNumber(args.pricePerKg, "Price");
+    await assertListingImageStorageId(ctx, args.imageStorageId);
 
     const description = args.description.trim();
     if (description.length === 0) {
@@ -88,6 +130,7 @@ export const createListing = mutation({
       description,
       farmerId: profile._id,
       grade: args.grade?.trim() || undefined,
+      imageStorageId: args.imageStorageId,
       pricePerKg: args.pricePerKg,
       quantityKg: args.quantityKg,
       status: "active",
@@ -107,6 +150,7 @@ export const updateListing = mutation({
     crop: v.optional(v.string()),
     description: v.optional(v.string()),
     grade: v.optional(v.string()),
+    imageStorageId: v.optional(v.id("_storage")),
     listingId: v.id("listings"),
     pricePerKg: v.optional(v.number()),
     quantityKg: v.optional(v.number()),
@@ -129,6 +173,7 @@ export const updateListing = mutation({
       crop?: string;
       description?: string;
       grade?: string;
+      imageStorageId?: Id<"_storage">;
       pricePerKg?: number;
       quantityKg?: number;
     } = {};
@@ -163,6 +208,11 @@ export const updateListing = mutation({
 
     if (args.grade !== undefined) {
       updates.grade = args.grade.trim() || undefined;
+    }
+
+    if (args.imageStorageId !== undefined) {
+      await assertListingImageStorageId(ctx, args.imageStorageId);
+      updates.imageStorageId = args.imageStorageId;
     }
 
     if (Object.keys(updates).length === 0) {
@@ -205,5 +255,18 @@ export const markSoldOut = mutation({
     });
 
     return null;
+  },
+});
+
+/** Wipes all listings so farmers can recreate them with photos. */
+export const clearAllListings = internalMutation({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    const listings = await ctx.db.query("listings").collect();
+    for (const listing of listings) {
+      await ctx.db.delete("listings", listing._id);
+    }
+    return listings.length;
   },
 });

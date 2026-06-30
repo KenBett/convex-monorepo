@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 
-import { BuyerListingSearch } from "@/components/buyer/listing-search";
+import { BuyerSourcingChat } from "@/components/buyer/buyer-sourcing-chat";
 
 export const metadata: Metadata = {
   title: "Buyer Dashboard",
 };
 
 export default function BuyerPage() {
-  return <BuyerListingSearch />;
+  return <BuyerSourcingChat />;
 }

@@ -39,6 +39,37 @@ This creates a `potatoes` listing in Nairobi with description marker `STAGE_A_RA
 
 ---
 
+## STAGE B — Thin Conversational Sourcing Layer
+
+Buyer web chat: natural-language query → streamed narration + structured listing cards. Uses a thin LLM orchestration layer on top of `semanticSearch` (no `@convex-dev/agent`). Crop is a hard structural filter at hydration time; sold-out / zero-quantity listings are excluded by live DB hydration (same guarantee as Stage A).
+
+**Crop filter verification (automated):** From `packages/backend`, run:
+
+```bash
+bunx convex run listings/ragDebug:runStageBCropFilterVerification "{}" --push
+```
+
+**Expected:**
+
+```json
+{
+  "maizeFound": true,
+  "potatoLeakCount": 0,
+  "searchQuery": "STAGE_B_CROP_FILTER_VERIFICATION staple produce Nairobi",
+  "cropFilter": "maize"
+}
+```
+
+**Sold-out verification:** Re-run Stage A (same command as above). Both guarantees are structural — not LLM judgment.
+
+**Stage B Done when:**
+- [ ] Buyer can type a natural-language request on `/buyer` and see a streamed response
+- [ ] Listing cards render from structured stream data (not parsed from text)
+- [ ] `runStageBCropFilterVerification` passes (`potatoLeakCount: 0`)
+- [ ] `runStageARagVerification` still passes (`foundWhenSoldOut: false`)
+
+---
+
 ## PHASE 0 — Repo Audit (no code changes in this phase)
 
 Before writing anything, inspect the repo and report back on each of these:

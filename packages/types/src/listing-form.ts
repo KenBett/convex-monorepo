@@ -7,6 +7,7 @@ export const listingFormSchema = z.object({
   county: z.enum(COUNTIES, { message: "Select a county" }),
   description: z.string().trim().min(1, "Description is required"),
   grade: z.string().trim().optional(),
+  imageStorageId: z.string().trim().min(1, "Listing photo is required"),
   pricePerKg: z.coerce.number().positive("Price must be a positive number"),
   quantityKg: z.coerce.number().positive("Quantity must be a positive number"),
 });
@@ -44,6 +45,7 @@ export function listingFormDefaults(): ListingFormInput {
     county: COUNTIES[0],
     description: "",
     grade: "",
+    imageStorageId: "",
     pricePerKg: 0,
     quantityKg: 0,
   };
@@ -55,7 +57,7 @@ export type ListingFormStep = 1 | 2 | 3;
 
 export const LISTING_FORM_STEP_LABELS = [
   "Choose crop",
-  "Listing details",
+  "Photo & details",
   "Review & create",
 ] as const;
 
@@ -63,6 +65,7 @@ const listingFormStepSchemas = {
   1: listingFormSchema.pick({ crop: true }),
   2: listingFormSchema.pick({
     county: true,
+    imageStorageId: true,
     pricePerKg: true,
     quantityKg: true,
   }),

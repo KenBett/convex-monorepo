@@ -11,12 +11,13 @@
     "convex:dev": "bunx convex dev"
   },
   "devDependencies": {
+    "convex": "1.41.0",
     "eslint": "^9.0.0",
     "prettier": "^3.0.0",
     "turbo": "^2.0.0",
     "typescript": "^5.0.0"
   },
-  "dependencies": {
-    "convex": "^1.41.0"
+  "overrides": {
+    "convex": "1.41.0"
   }
 }

@@ -2,6 +2,10 @@
 
 import { api } from "@repo/backend/convex/_generated/api";
 import type { ListingSearchResult } from "@repo/types";
+import {
+  getBuyerListingDescription,
+  getBuyerListingSnippet,
+} from "@repo/types";
 import { useAction } from "convex/react";
 import { Button, Card, Chip, SearchField } from "@heroui/react";
 import { Search, ShoppingBag } from "lucide-react";
@@ -13,6 +17,9 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 function ListingResultCard({ result }: { result: ListingSearchResult }) {
+  const description = getBuyerListingDescription(result.description);
+  const snippet = getBuyerListingSnippet(result.snippet, description);
+
   return (
     <article className="flex flex-col gap-3 rounded-[0.875rem] border border-separator bg-default/45 p-4">
       <div className="flex items-start justify-between gap-3">
@@ -30,8 +37,12 @@ function ListingResultCard({ result }: { result: ListingSearchResult }) {
       <p className="text-sm text-foreground">
         {result.quantityKg} kg · KES {result.pricePerKg}/kg · {result.county}
       </p>
-      <p className="line-clamp-2 text-sm text-muted">{result.description}</p>
-      <p className="line-clamp-2 text-xs leading-5 text-muted">{result.snippet}</p>
+      {description ? (
+        <p className="line-clamp-2 text-sm text-muted">{description}</p>
+      ) : null}
+      {snippet ? (
+        <p className="line-clamp-2 text-xs leading-5 text-muted">{snippet}</p>
+      ) : null}
     </article>
   );
 }
@@ -74,9 +85,6 @@ export function BuyerListingSearch() {
           <ShoppingBag className="h-8 w-8 text-muted" strokeWidth={1.75} />
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Find produce</h1>
-            <p className="text-sm text-muted">
-              Search listings by crop, county, quantity, or natural language.
-            </p>
           </div>
         </div>
       </div>

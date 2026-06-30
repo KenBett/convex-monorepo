@@ -100,6 +100,7 @@ export interface ListingSearchResult {
   crop: string;
   description: string;
   grade?: string;
+  imageUrl?: string | null;
   listingId: string;
   pricePerKg: number;
   quantityKg: number;
@@ -112,3 +113,19 @@ export interface ListingSearchResult {
 export interface ListingSearchResponse {
   results: ListingSearchResult[];
 }
+
+export {
+  buyerSearchIntentSchema,
+  fromParsedBuyerSearchIntent,
+  type BuyerSearchIntent,
+  type BuyerSourcingListingResult,
+  type BuyerSourcingMeta,
+  type BuyerSourcingSearchResponse,
+  type BuyerSourcingStreamData,
+} from "./buyer-sourcing";
+
+export {
+  getBuyerListingDescription,
+  getBuyerListingSnippet,
+  isDebugListingDescription,
+} from "./listing-display";

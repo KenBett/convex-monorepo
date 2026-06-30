@@ -47,27 +47,19 @@ export const getListingForSync = internalQuery({
   },
 });
 
-export const completeListing = rag.defineOnComplete<DataModel>(
-  async (ctx, args) => {
-    const metadata = args.entry.metadata;
-    if (metadata === undefined || metadata.sourceType !== "listing") {
-      return;
-    }
+export const completeListing = rag.defineOnComplete<DataModel>(async (ctx, args) => {
+  const metadata = args.entry.metadata;
+  if (metadata === undefined || metadata.sourceType !== "listing") {
+    return;
+  }
 
-    const listingId = metadata.listingId;
-    if (args.error !== undefined) {
-      console.error("Listing RAG sync failed", {
-        error: args.error,
-        listingId,
-      });
-      return;
-    }
-
-    await ctx.db.patch("listings", listingId, {
-      ragDocumentId: args.entry.entryId,
+  if (args.error !== undefined) {
+    console.error("Listing RAG sync failed", {
+      error: args.error,
+      listingId: metadata.listingId,
     });
-  },
-);
+  }
+});
 
 export const syncListingToRag = internalAction({
   args: {

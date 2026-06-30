@@ -1,10 +1,8 @@
 import "@/styles/globals.css";
 import { Metadata, Viewport } from "next";
 
-import { ConvexClientProvider } from "@/lib/convex";
 import { fontSans } from "@/config/fonts";
 import { siteConfig } from "@/config/site";
-import { themeProviderProps } from "@/config/theme";
 
 import { Providers } from "./providers";
 
@@ -32,9 +30,7 @@ export default function RootLayout({
   return (
     <html suppressHydrationWarning className={fontSans.variable} lang="en">
       <body className="min-h-dvh bg-background font-sans antialiased">
-        <ConvexClientProvider>
-          <Providers themeProps={themeProviderProps}>{children}</Providers>
-        </ConvexClientProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

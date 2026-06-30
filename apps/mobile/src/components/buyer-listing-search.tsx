@@ -1,5 +1,6 @@
 import { api } from "@repo/backend/convex/_generated/api";
 import type { ListingSearchResult } from "@repo/types";
+import { getBuyerListingDescription } from "@repo/types";
 import { useAction } from "convex/react";
 import { Button, Input, Surface, TextField } from "heroui-native";
 import type { JSX } from "react";
@@ -13,6 +14,8 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 function ListingResultCard({ result }: { result: ListingSearchResult }): JSX.Element {
+  const description = getBuyerListingDescription(result.description);
+
   return (
     <Surface className="gap-2 rounded-card border border-separator bg-surface p-card">
       <View className="flex-row items-start justify-between gap-3">
@@ -27,9 +30,11 @@ function ListingResultCard({ result }: { result: ListingSearchResult }): JSX.Ele
       <Text className="text-emphasis text-foreground">
         {result.quantityKg} kg · KES {result.pricePerKg}/kg · {result.county}
       </Text>
-      <Text className="text-caption text-muted" numberOfLines={2}>
-        {result.description}
-      </Text>
+      {description ? (
+        <Text className="text-caption text-muted" numberOfLines={2}>
+          {description}
+        </Text>
+      ) : null}
     </Surface>
   );
 }
@@ -69,9 +74,6 @@ export function BuyerListingSearch(): JSX.Element {
       <View className="gap-section">
         <View className="gap-2">
           <Text className="text-page-title text-foreground">Find produce</Text>
-          <Text className="text-caption text-muted">
-            Search listings by crop, county, quantity, or natural language.
-          </Text>
         </View>
 
         <Surface className="gap-3 rounded-card bg-surface p-card">

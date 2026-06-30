@@ -46,9 +46,9 @@ export default defineSchema({
     description: v.string(),
     farmerId: v.id("farmerProfiles"),
     grade: v.optional(v.string()),
+    imageStorageId: v.id("_storage"),
     pricePerKg: v.number(),
     quantityKg: v.number(),
-    ragDocumentId: v.optional(v.string()),
     status: v.union(
       v.literal("active"),
       v.literal("sold_out"),

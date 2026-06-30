@@ -10,6 +10,9 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: monorepoRoot,
   turbopack: {
     root: monorepoRoot,
+    resolveAlias: {
+      convex: path.join(monorepoRoot, "node_modules/convex"),
+    },
   },
 };
 

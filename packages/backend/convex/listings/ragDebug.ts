@@ -9,22 +9,25 @@ import {
   query,
   type ActionCtx,
 } from "../_generated/server";
-import { requireFarmerProfile } from "../lib/listings";
+import {
+  requireFarmerProfile,
+  STAGE_A_RAG_MARKER,
+  STAGE_B_CROP_MARKER,
+} from "../lib/listings";
+import { createPlaceholderListingImage } from "../lib/listingImages";
 import {
   GLOBAL_NAMESPACE,
   VECTOR_SCORE_THRESHOLD,
   rag,
   type RagEntryMetadata,
 } from "../lib/rag";
-
-/** Grep-friendly marker for Stage A RAG verification listings. */
-export const STAGE_A_RAG_MARKER = "STAGE_A_RAG_VERIFICATION";
+import { runListingSemanticSearch } from "./search";
 
 const listingIndexRowValidator = v.object({
   _id: v.id("listings"),
   county: v.string(),
   crop: v.string(),
-  ragDocumentId: v.optional(v.string()),
+  hasImage: v.boolean(),
   status: v.union(
     v.literal("active"),
     v.literal("sold_out"),
@@ -73,7 +76,7 @@ export const debugListingIndex = query({
           _id: listing._id,
           county: listing.county,
           crop: listing.crop,
-          ragDocumentId: listing.ragDocumentId,
+          hasImage: Boolean(listing.imageStorageId),
           status: listing.status,
         })),
         ragEntries: [],
@@ -109,7 +112,7 @@ export const debugListingIndex = query({
         _id: listing._id,
         county: listing.county,
         crop: listing.crop,
-        ragDocumentId: listing.ragDocumentId,
+        hasImage: Boolean(listing.imageStorageId),
         status: listing.status,
       })),
       ragEntries,
@@ -143,11 +146,14 @@ export const seedStageAListing = internalMutation({
       }
     }
 
+    const imageStorageId = await createPlaceholderListingImage(ctx);
+
     return await ctx.db.insert("listings", {
       county: "Nairobi",
       crop: "potatoes",
       description: `${STAGE_A_RAG_MARKER}: distinctive potatoes listing for semantic search e2e test.`,
       farmerId: farmer._id,
+      imageStorageId,
       pricePerKg: 50,
       quantityKg: 50,
       status: "active",
@@ -168,7 +174,7 @@ export const getListingRagState = internalQuery({
   args: { listingId: v.id("listings") },
   returns: v.union(
     v.object({
-      ragDocumentId: v.optional(v.string()),
+      hasImage: v.boolean(),
       status: v.union(
         v.literal("active"),
         v.literal("sold_out"),
@@ -184,7 +190,7 @@ export const getListingRagState = internalQuery({
     }
 
     return {
-      ragDocumentId: listing.ragDocumentId,
+      hasImage: Boolean(listing.imageStorageId),
       status: listing.status,
     };
   },
@@ -222,7 +228,7 @@ export const runStageARagVerification = internalAction({
     });
 
     const afterSync: {
-      ragDocumentId?: string;
+      hasImage: boolean;
       status: "active" | "expired" | "sold_out";
     } | null = await ctx.runQuery(internal.listings.ragDebug.getListingRagState, {
       listingId,
@@ -244,7 +250,7 @@ export const runStageARagVerification = internalAction({
       activeResultCount: activeResults.length,
       foundWhenActive: activeResults.includes(listingId),
       foundWhenSoldOut: soldOutResults.includes(listingId),
-      indexed: Boolean(afterSync?.ragDocumentId),
+      indexed: Boolean(afterSync?.hasImage),
       listingId,
       searchQuery,
       soldOutResultCount: soldOutResults.length,
@@ -292,3 +298,110 @@ async function searchActiveListings(
 
   return activeListingIds.filter((id) => id === targetListingId);
 }
+
+const stageBCropResultValidator = v.object({
+  cropFilter: v.string(),
+  maizeFound: v.boolean(),
+  maizeListingId: v.id("listings"),
+  potatoLeakCount: v.number(),
+  potatoListingId: v.id("listings"),
+  searchQuery: v.string(),
+});
+
+export const seedStageBCropListings = internalMutation({
+  args: {},
+  returns: v.object({
+    maizeListingId: v.id("listings"),
+    potatoListingId: v.id("listings"),
+  }),
+  handler: async (ctx) => {
+    const farmer = await ctx.db.query("farmerProfiles").first();
+    if (!farmer) {
+      throw new Error("No farmer profile found. Complete farmer onboarding first.");
+    }
+
+    const listings = await ctx.db
+      .query("listings")
+      .withIndex("by_farmer", (q) => q.eq("farmerId", farmer._id))
+      .collect();
+
+    for (const listing of listings) {
+      if (listing.description.includes(STAGE_B_CROP_MARKER)) {
+        await ctx.db.delete("listings", listing._id);
+      }
+    }
+
+    const sharedDescription = `${STAGE_B_CROP_MARKER}: staple grain and tuber produce available in Nairobi with similar quality and pricing for crop filter verification.`;
+    const imageStorageId = await createPlaceholderListingImage(ctx);
+
+    const maizeListingId = await ctx.db.insert("listings", {
+      county: "Nairobi",
+      crop: "maize",
+      description: sharedDescription,
+      farmerId: farmer._id,
+      imageStorageId,
+      pricePerKg: 45,
+      quantityKg: 200,
+      status: "active",
+    });
+
+    const potatoListingId = await ctx.db.insert("listings", {
+      county: "Nairobi",
+      crop: "potatoes",
+      description: sharedDescription,
+      farmerId: farmer._id,
+      imageStorageId,
+      pricePerKg: 45,
+      quantityKg: 200,
+      status: "active",
+    });
+
+    return { maizeListingId, potatoListingId };
+  },
+});
+
+export const runStageBCropFilterVerification = internalAction({
+  args: {},
+  returns: stageBCropResultValidator,
+  handler: async (ctx): Promise<{
+    cropFilter: string;
+    maizeFound: boolean;
+    maizeListingId: Id<"listings">;
+    potatoLeakCount: number;
+    potatoListingId: Id<"listings">;
+    searchQuery: string;
+  }> => {
+    const { maizeListingId, potatoListingId } = await ctx.runMutation(
+      internal.listings.ragDebug.seedStageBCropListings,
+      {},
+    );
+
+    await ctx.runAction(internal.listings.ragSync.syncListingToRag, {
+      listingId: maizeListingId,
+    });
+    await ctx.runAction(internal.listings.ragSync.syncListingToRag, {
+      listingId: potatoListingId,
+    });
+
+    const searchQuery = `${STAGE_B_CROP_MARKER} staple produce Nairobi`;
+    const cropFilter = "maize";
+
+    const { results } = await runListingSemanticSearch(ctx, {
+      crop: cropFilter,
+      limit: 8,
+      query: searchQuery,
+    });
+
+    const potatoLeaks = results.filter((result) => result.crop === "potatoes");
+    const maizeFound = results.some((result) => result.listingId === maizeListingId);
+
+    return {
+      cropFilter,
+      maizeFound,
+      maizeListingId,
+      potatoLeakCount: potatoLeaks.length,
+      potatoListingId,
+      searchQuery,
+    };
+  },
+});
