@@ -1,15 +1,21 @@
 "use client";
 
 import { useAuthToken } from "@convex-dev/auth/react";
+import { api } from "@repo/backend/convex/_generated/api";
 import type { BuyerSourcingListingResult, BuyerSourcingStreamData } from "@repo/types";
 import { useChat } from "@ai-sdk/react";
+import { useQuery } from "convex/react";
 import { Button, Card } from "@heroui/react";
 import { DefaultChatTransport, isDataUIPart, type UIMessage } from "ai";
 import { Bot, Send, ShoppingBag, UserRound } from "lucide-react";
-import { FormEvent, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { BuyerListingCard } from "@/components/buyer/buyer-listing-card";
 import { OrderCheckoutDialog } from "@/components/buyer/order-checkout-dialog";
+import {
+  loadBuyerSourcingMessages,
+  saveBuyerSourcingMessages,
+} from "@/lib/buyer-sourcing-chat-storage";
 import { getBuyerSourcingIntroMessage } from "@/lib/buyer-sourcing-intro";
 
 const BUYER_SOURCING_CHAT_API = "/api/buyer/sourcing";
@@ -95,8 +101,12 @@ function ChatMessage({
 
 export function BuyerSourcingChat() {
   const authToken = useAuthToken();
+  const viewer = useQuery(api.users.viewer);
   const tokenRef = useRef<string | null>(null);
   tokenRef.current = authToken;
+
+  const chatStorageKey = viewer?._id ?? null;
+  const hasHydratedRef = useRef(false);
 
   const transport = useMemo(
     () =>
@@ -113,9 +123,31 @@ export function BuyerSourcingChat() {
     [],
   );
 
-  const { error, messages, sendMessage, status, stop } = useChat<BuyerChatMessage>({
-    transport,
-  });
+  const { error, messages, sendMessage, setMessages, status, stop } =
+    useChat<BuyerChatMessage>({
+      id: chatStorageKey ?? undefined,
+      transport,
+    });
+
+  useEffect(() => {
+    if (!chatStorageKey || hasHydratedRef.current) {
+      return;
+    }
+
+    hasHydratedRef.current = true;
+    const persistedMessages = loadBuyerSourcingMessages<BuyerChatMessage>(chatStorageKey);
+    if (persistedMessages.length > 0) {
+      setMessages(persistedMessages);
+    }
+  }, [chatStorageKey, setMessages]);
+
+  useEffect(() => {
+    if (!chatStorageKey || messages.length === 0) {
+      return;
+    }
+
+    saveBuyerSourcingMessages(chatStorageKey, messages);
+  }, [chatStorageKey, messages]);
 
   const [input, setInput] = useState("");
   const [checkoutListing, setCheckoutListing] =

@@ -1,11 +1,16 @@
 import { COUNTIES, CROP_TYPES, type BuyerSearchIntent } from "@repo/types";
 import { jsonSchema } from "ai";
 
+export type BuyerSearchPricePreference = "cheapest" | "most_expensive";
+
 export type ParsedBuyerSearchIntent = {
   county: (typeof COUNTIES)[number] | null;
   crop: (typeof CROP_TYPES)[number] | null;
   maxPricePerKg: number | null;
   minQuantityKg: number | null;
+  pricePreference: BuyerSearchPricePreference | null;
+  refinePreviousResults: boolean;
+  resultLimit: number | null;
   searchText: string;
 };
 
@@ -30,18 +35,48 @@ export const buyerSearchIntentParseSchema = jsonSchema<ParsedBuyerSearchIntent>(
     searchText: {
       type: "string",
     },
+    refinePreviousResults: {
+      type: "boolean",
+    },
+    pricePreference: {
+      type: ["string", "null"],
+      enum: ["cheapest", "most_expensive", null],
+    },
+    resultLimit: {
+      type: ["number", "null"],
+    },
   },
-  required: ["crop", "county", "maxPricePerKg", "minQuantityKg", "searchText"],
+  required: [
+    "crop",
+    "county",
+    "maxPricePerKg",
+    "minQuantityKg",
+    "searchText",
+    "refinePreviousResults",
+    "pricePreference",
+    "resultLimit",
+  ],
   additionalProperties: false,
 });
 
+export type BuyerSearchIntentWithRefinement = BuyerSearchIntent & {
+  pricePreference?: BuyerSearchPricePreference;
+  refinePreviousResults?: boolean;
+  resultLimit?: number;
+};
+
 export function toBuyerSearchIntent(
   parsed: ParsedBuyerSearchIntent,
-): BuyerSearchIntent {
-  const intent: BuyerSearchIntent = { searchText: parsed.searchText };
+): BuyerSearchIntentWithRefinement {
+  const intent: BuyerSearchIntentWithRefinement = {
+    searchText: parsed.searchText,
+  };
   if (parsed.crop != null) intent.crop = parsed.crop;
   if (parsed.county != null) intent.county = parsed.county;
   if (parsed.maxPricePerKg != null) intent.maxPricePerKg = parsed.maxPricePerKg;
   if (parsed.minQuantityKg != null) intent.minQuantityKg = parsed.minQuantityKg;
+  if (parsed.refinePreviousResults) intent.refinePreviousResults = true;
+  if (parsed.pricePreference != null) intent.pricePreference = parsed.pricePreference;
+  if (parsed.resultLimit != null) intent.resultLimit = parsed.resultLimit;
   return intent;
 }

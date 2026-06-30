@@ -6,28 +6,52 @@ import {
 
 import { internal } from "../_generated/api";
 import { httpAction } from "../_generated/server";
+import { buildBuyerChatRequestContext } from "./buyerChatMessages";
 import type { BuyerSearchIntent } from "./buyerChatParse";
 import type { ListingSearchResultRow } from "./search";
 
-function getLastUserText(messages: UIMessage[]): string {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (message.role !== "user") {
-      continue;
-    }
-
-    const text = message.parts
-      .filter((part) => part.type === "text")
-      .map((part) => part.text)
-      .join("\n")
-      .trim();
-
-    if (text.length > 0) {
-      return text;
-    }
+function toChatContextPayload(
+  messages: UIMessage[],
+): {
+  conversationTranscript: string;
+  latestUserMessage: string;
+  previousSourcing?: {
+    crops: string[];
+    intent: BuyerSearchIntent;
+    listingCount: number;
+    listings: Array<{
+      crop: string;
+      listingId: ListingSearchResultRow["listingId"];
+      pricePerKg: number;
+    }>;
+  };
+} {
+  const context = buildBuyerChatRequestContext(messages);
+  if (!context.previousSourcing) {
+    return {
+      conversationTranscript: context.conversationTranscript,
+      latestUserMessage: context.latestUserMessage,
+    };
   }
 
-  return "";
+  const crops = [
+    ...new Set(context.previousSourcing.listings.map((listing) => listing.crop)),
+  ];
+
+  return {
+    conversationTranscript: context.conversationTranscript,
+    latestUserMessage: context.latestUserMessage,
+    previousSourcing: {
+      crops,
+      intent: context.previousSourcing.intent,
+      listingCount: context.previousSourcing.listings.length,
+      listings: context.previousSourcing.listings.map((listing) => ({
+        crop: listing.crop,
+        listingId: listing.listingId as ListingSearchResultRow["listingId"],
+        pricePerKg: listing.pricePerKg,
+      })),
+    },
+  };
 }
 
 function getCorsHeaders(request: Request): HeadersInit {
@@ -78,8 +102,8 @@ export const buyerSourcingChat = httpAction(async (ctx, request) => {
       });
     }
 
-    const query = getLastUserText(messages);
-    if (query.length === 0) {
+    const chatContext = toChatContextPayload(messages);
+    if (chatContext.latestUserMessage.length === 0) {
       return new Response("Missing user message", {
         headers: corsHeaders,
         status: 400,
@@ -96,7 +120,7 @@ export const buyerSourcingChat = httpAction(async (ctx, request) => {
       results: ListingSearchResultRow[];
     } = await ctx.runAction(
       internal.listings.buyerSourcing.runBuyerSourcingSearch,
-      { query },
+      { chatContext },
     );
 
     const stream = createUIMessageStream({

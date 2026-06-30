@@ -16,6 +16,9 @@ export type BuyerSearchIntent = {
   crop?: (typeof CROP_TYPES)[number];
   maxPricePerKg?: number;
   minQuantityKg?: number;
+  pricePreference?: "cheapest" | "most_expensive";
+  refinePreviousResults?: boolean;
+  resultLimit?: number;
   searchText: string;
 };
 

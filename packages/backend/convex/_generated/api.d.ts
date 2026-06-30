@@ -19,6 +19,7 @@ import type * as lib_rag from "../lib/rag.js";
 import type * as lib_roles from "../lib/roles.js";
 import type * as listings from "../listings.js";
 import type * as listings_buyerChatHttp from "../listings/buyerChatHttp.js";
+import type * as listings_buyerChatMessages from "../listings/buyerChatMessages.js";
 import type * as listings_buyerChatParse from "../listings/buyerChatParse.js";
 import type * as listings_buyerSearchIntentParse from "../listings/buyerSearchIntentParse.js";
 import type * as listings_buyerSourcing from "../listings/buyerSourcing.js";
@@ -51,6 +52,7 @@ declare const fullApi: ApiFromModules<{
   "lib/roles": typeof lib_roles;
   listings: typeof listings;
   "listings/buyerChatHttp": typeof listings_buyerChatHttp;
+  "listings/buyerChatMessages": typeof listings_buyerChatMessages;
   "listings/buyerChatParse": typeof listings_buyerChatParse;
   "listings/buyerSearchIntentParse": typeof listings_buyerSearchIntentParse;
   "listings/buyerSourcing": typeof listings_buyerSourcing;
