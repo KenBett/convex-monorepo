@@ -5,21 +5,144 @@ import {
   type BusinessType,
   type MarketplaceRole,
 } from "@repo/types";
+import { roleHomeSegment } from "@repo/utils";
 import { useMutation, useQuery } from "convex/react";
 import type { Href } from "expo-router";
 import { useRouter } from "expo-router";
-import { Button, ListGroup, Radio, Separator, Surface } from "heroui-native";
-import { Fragment, useEffect, useState, type JSX } from "react";
-import { Text, TextInput, View } from "react-native";
+import {
+  Button,
+  Input,
+  Label,
+  Radio,
+  RadioGroup,
+  Select,
+  Separator,
+  Surface,
+  TextField,
+  useThemeColor,
+} from "heroui-native";
+import { Fragment, useState, type JSX, type ReactNode } from "react";
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 
 type OnboardingStep = "role" | "profile";
 
+type SelectOption = {
+  value: string;
+  label: string;
+};
+
+const COUNTY_OPTIONS: SelectOption[] = COUNTIES.map((county) => ({
+  value: county,
+  label: county,
+}));
+
+const BUSINESS_TYPE_OPTIONS: SelectOption[] = BUSINESS_TYPES.map((type) => ({
+  value: type,
+  label: type.charAt(0).toUpperCase() + type.slice(1),
+}));
+
 function getRoleHomePath(role: MarketplaceRole): Href {
-  return (role === "farmer" ? "/(farmer)" : "/(buyer)") as Href;
+  return `/(${roleHomeSegment(role)})` as Href;
 }
 
-function formatBusinessType(type: BusinessType): string {
-  return type.charAt(0).toUpperCase() + type.slice(1);
+function OnboardingLayout({ children }: { children: ReactNode }): JSX.Element {
+  return (
+    <KeyboardAvoidingView
+      behavior={process.env.EXPO_OS === "ios" ? "padding" : undefined}
+      className="bg-background flex-1"
+    >
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="grow px-screen-x pb-screen-bottom pt-screen-top"
+        contentInsetAdjustmentBehavior="automatic"
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View className="w-full grow justify-center py-4">{children}</View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+function OnboardingCard({ children }: { children: ReactNode }): JSX.Element {
+  return (
+    <Surface
+      variant="default"
+      className="w-full max-w-sm gap-section self-center rounded-card p-card-lg shadow-elevated"
+    >
+      {children}
+    </Surface>
+  );
+}
+
+function OnboardingHeader({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}): JSX.Element {
+  return (
+    <View className="gap-section-title">
+      <Text className="text-page-title text-center">{title}</Text>
+      <Text className="text-caption text-center">{description}</Text>
+    </View>
+  );
+}
+
+function FormSelect({
+  label,
+  listLabel,
+  onValueChange,
+  options,
+  placeholder,
+  value,
+}: {
+  label: string;
+  listLabel: string;
+  onValueChange: (option: SelectOption) => void;
+  options: SelectOption[];
+  placeholder: string;
+  value: SelectOption | undefined;
+}): JSX.Element {
+  return (
+    <View className="gap-section-title">
+      <Label>{label}</Label>
+      <Select
+        onValueChange={(next) => {
+          if (next && !Array.isArray(next)) {
+            onValueChange(next);
+          }
+        }}
+        presentation="bottom-sheet"
+        value={value}
+      >
+        <Select.Trigger>
+          <Select.Value placeholder={placeholder} />
+          <Select.TriggerIndicator />
+        </Select.Trigger>
+        <Select.Portal>
+          <Select.Overlay />
+          <Select.Content presentation="bottom-sheet" snapPoints={["45%", "85%"]}>
+            <Select.Close />
+            <Select.ListLabel>{listLabel}</Select.ListLabel>
+            {options.map((option, index) => (
+              <Fragment key={option.value}>
+                <Select.Item label={option.label} value={option.value} />
+                {index < options.length - 1 ? <Separator /> : null}
+              </Fragment>
+            ))}
+          </Select.Content>
+        </Select.Portal>
+      </Select>
+    </View>
+  );
 }
 
 export function OnboardingFlow(): JSX.Element {
@@ -27,6 +150,7 @@ export function OnboardingFlow(): JSX.Element {
   const viewer = useQuery(api.users.viewer);
   const setUserRole = useMutation(api.users.setUserRole);
   const completeOnboarding = useMutation(api.users.completeOnboarding);
+  const foregroundColor = useThemeColor("foreground");
 
   const [step, setStep] = useState<OnboardingStep>("role");
   const [role, setRole] = useState<MarketplaceRole | null>(null);
@@ -35,18 +159,25 @@ export function OnboardingFlow(): JSX.Element {
 
   const [cooperativeName, setCooperativeName] = useState("");
   const [businessName, setBusinessName] = useState("");
-  const [businessType, setBusinessType] = useState<BusinessType>("individual");
-  const [county, setCounty] = useState<string>(COUNTIES[0]);
+  const [businessTypeValue, setBusinessTypeValue] = useState<SelectOption>(
+    () =>
+      BUSINESS_TYPE_OPTIONS.find((option) => option.value === "individual") ??
+      BUSINESS_TYPE_OPTIONS[0]!,
+  );
+  const [countyValue, setCountyValue] = useState<SelectOption>(
+    () => COUNTY_OPTIONS[0]!,
+  );
   const [phoneNumber, setPhoneNumber] = useState("");
   const [mpesaNumber, setMpesaNumber] = useState("");
 
-  useEffect(() => {
-    if (!viewer?.role) {
-      return;
-    }
+  // Resume at the profile step if the role was already chosen in a prior session.
+  // Render-time sync (not an effect) per React's "you might not need an effect".
+  const [syncedRole, setSyncedRole] = useState<MarketplaceRole | null>(null);
+  if (viewer?.role && viewer.role !== syncedRole) {
+    setSyncedRole(viewer.role);
     setRole(viewer.role);
     setStep("profile");
-  }, [viewer?.role]);
+  }
 
   const handleRoleContinue = async (): Promise<void> => {
     if (!role) {
@@ -79,6 +210,9 @@ export function OnboardingFlow(): JSX.Element {
     setError(null);
     setIsSubmitting(true);
     try {
+      const county = countyValue.value;
+      const businessType = businessTypeValue.value as BusinessType;
+
       if (role === "farmer") {
         await completeOnboarding({
           farmerProfile: {
@@ -113,242 +247,188 @@ export function OnboardingFlow(): JSX.Element {
   if (viewer === undefined) {
     return (
       <View className="bg-background flex-1 items-center justify-center">
-        <Text className="text-muted">Loading…</Text>
+        <ActivityIndicator color={foregroundColor} size="large" />
       </View>
     );
   }
 
   if (step === "role") {
     return (
-      <View className="bg-background flex-1 items-center justify-center px-6">
-        <Surface variant="default" className="w-full max-w-sm gap-6 rounded-card p-8 shadow-elevated">
-          <Text className="text-center text-2xl font-semibold text-foreground">
-            How will you use Offtake?
-          </Text>
-          <Text className="text-center text-sm text-muted">
-            Choose your role to continue. This cannot be skipped.
-          </Text>
+      <OnboardingLayout>
+        <OnboardingCard>
+          <OnboardingHeader
+            description="Choose your role to continue. This cannot be skipped."
+            title="How will you use Offtake?"
+          />
 
-          <ListGroup>
-            {(["farmer", "buyer"] as const).map((option, index) => {
-              const isSelected = role === option;
-              const label = option === "farmer" ? "I'm a Farmer" : "I'm a Buyer";
-
-              return (
-                <Fragment key={option}>
-                  {index > 0 ? <Separator className="mx-4" /> : null}
-                  <ListGroup.Item
-                    accessibilityRole="radio"
-                    accessibilityState={{ checked: isSelected }}
-                    className="min-h-touch gap-4 py-4"
-                    onPress={() => {
-                      setRole(option);
-                      setError(null);
-                    }}
-                  >
-                    <ListGroup.ItemContent>
-                      <ListGroup.ItemTitle>{label}</ListGroup.ItemTitle>
-                    </ListGroup.ItemContent>
-                    <ListGroup.ItemSuffix>
-                      <Radio
-                        isSelected={isSelected}
-                        onSelectedChange={() => {
-                          setRole(option);
-                          setError(null);
-                        }}
-                      >
-                        {({ isSelected: selected }) => (
-                          <Radio.Indicator
-                            className={
-                              selected
-                                ? "size-3 border-2 border-accent bg-accent"
-                                : "size-3 border-2 border-foreground/35 bg-background"
-                            }
-                          >
-                            {selected ? (
-                              <Radio.IndicatorThumb className="size-3 bg-accent-foreground" />
-                            ) : null}
-                          </Radio.Indicator>
-                        )}
-                      </Radio>
-                    </ListGroup.ItemSuffix>
-                  </ListGroup.Item>
-                </Fragment>
-              );
-            })}
-          </ListGroup>
+          <RadioGroup
+            onValueChange={(value) => {
+              setRole(value as MarketplaceRole);
+              setError(null);
+            }}
+            value={role ?? undefined}
+          >
+            <RadioGroup.Item value="farmer">
+              {({ isSelected }) => (
+                <>
+                  <Label>I&apos;m a Farmer</Label>
+                  <Radio variant="secondary">
+                    <Radio.Indicator
+                      className={
+                        isSelected
+                          ? "size-3 border-2 border-accent bg-accent"
+                          : "size-3 border-2 border-foreground/35 bg-background"
+                      }
+                    >
+                      {isSelected ? (
+                        <Radio.IndicatorThumb className="size-3 bg-accent-foreground" />
+                      ) : null}
+                    </Radio.Indicator>
+                  </Radio>
+                </>
+              )}
+            </RadioGroup.Item>
+            <Separator className="my-1" />
+            <RadioGroup.Item value="buyer">
+              {({ isSelected }) => (
+                <>
+                  <Label>I&apos;m a Buyer</Label>
+                  <Radio variant="secondary">
+                    <Radio.Indicator
+                      className={
+                        isSelected
+                          ? "size-3 border-2 border-accent bg-accent"
+                          : "size-3 border-2 border-foreground/35 bg-background"
+                      }
+                    >
+                      {isSelected ? (
+                        <Radio.IndicatorThumb className="size-3 bg-accent-foreground" />
+                      ) : null}
+                    </Radio.Indicator>
+                  </Radio>
+                </>
+              )}
+            </RadioGroup.Item>
+          </RadioGroup>
 
           {error ? <Text className="text-sm text-danger">{error}</Text> : null}
 
           <Button
+            className="w-full"
             isDisabled={!role || isSubmitting}
             onPress={() => void handleRoleContinue()}
             size="sm"
+            variant="primary"
           >
             <Button.Label>{isSubmitting ? "Saving…" : "Continue"}</Button.Label>
           </Button>
-        </Surface>
+        </OnboardingCard>
+      </OnboardingLayout>
+    );
+  }
+
+  if (!role) {
+    return (
+      <View className="bg-background flex-1 items-center justify-center">
+        <ActivityIndicator color={foregroundColor} size="large" />
       </View>
     );
   }
 
   return (
-    <View className="bg-background flex-1 items-center justify-center px-6">
-      <Surface variant="default" className="w-full max-w-sm gap-4 rounded-card p-8 shadow-elevated">
-        <Text className="text-center text-2xl font-semibold text-foreground">
-          Complete your profile
-        </Text>
-        <Text className="mb-2 text-center text-sm text-muted">
-          {role === "farmer"
-            ? "Tell buyers who you are and how to reach you."
-            : "Tell farmers about your business."}
-        </Text>
+    <OnboardingLayout>
+      <OnboardingCard>
+        <OnboardingHeader
+          description={
+            role === "farmer"
+              ? "Tell buyers who you are and how to reach you."
+              : "Tell farmers about your business."
+          }
+          title="Complete your profile"
+        />
 
-        {role === "farmer" ? (
-          <>
-            <View className="gap-2">
-              <Text className="text-caption text-muted">Cooperative name</Text>
-              <TextInput
-                className="min-h-touch rounded-control border border-separator bg-background px-4 text-foreground"
-                onChangeText={setCooperativeName}
-                placeholder="Cooperative or farm name"
-                value={cooperativeName}
+        <View className="gap-section">
+          {role === "farmer" ? (
+            <>
+              <TextField isRequired>
+                <Label>Cooperative name</Label>
+                <Input
+                  onChangeText={setCooperativeName}
+                  placeholder="Cooperative or farm name"
+                  value={cooperativeName}
+                />
+              </TextField>
+              <TextField isRequired>
+                <Label>Phone number</Label>
+                <Input
+                  keyboardType="phone-pad"
+                  onChangeText={setPhoneNumber}
+                  placeholder="Phone number"
+                  value={phoneNumber}
+                />
+              </TextField>
+              <TextField isRequired>
+                <Label>M-Pesa number</Label>
+                <Input
+                  keyboardType="phone-pad"
+                  onChangeText={setMpesaNumber}
+                  placeholder="M-Pesa number"
+                  value={mpesaNumber}
+                />
+              </TextField>
+            </>
+          ) : (
+            <>
+              <TextField isRequired>
+                <Label>Business name</Label>
+                <Input
+                  onChangeText={setBusinessName}
+                  placeholder="Business name"
+                  value={businessName}
+                />
+              </TextField>
+              <FormSelect
+                label="Business type"
+                listLabel="Business type"
+                onValueChange={setBusinessTypeValue}
+                options={BUSINESS_TYPE_OPTIONS}
+                placeholder="Choose business type"
+                value={businessTypeValue}
               />
-            </View>
-            <View className="gap-2">
-              <Text className="text-caption text-muted">Phone number</Text>
-              <TextInput
-                className="min-h-touch rounded-control border border-separator bg-background px-4 text-foreground"
-                keyboardType="phone-pad"
-                onChangeText={setPhoneNumber}
-                placeholder="Phone number"
-                value={phoneNumber}
-              />
-            </View>
-            <View className="gap-2">
-              <Text className="text-caption text-muted">M-Pesa number</Text>
-              <TextInput
-                className="min-h-touch rounded-control border border-separator bg-background px-4 text-foreground"
-                keyboardType="phone-pad"
-                onChangeText={setMpesaNumber}
-                placeholder="M-Pesa number"
-                value={mpesaNumber}
-              />
-            </View>
-          </>
-        ) : (
-          <>
-            <View className="gap-2">
-              <Text className="text-caption text-muted">Business name</Text>
-              <TextInput
-                className="min-h-touch rounded-control border border-separator bg-background px-4 text-foreground"
-                onChangeText={setBusinessName}
-                placeholder="Business name"
-                value={businessName}
-              />
-            </View>
-            <View className="gap-2">
-              <Text className="text-caption text-muted">Business type</Text>
-              <ListGroup>
-                {BUSINESS_TYPES.map((type, index) => {
-                  const isSelected = businessType === type;
-                  return (
-                    <Fragment key={type}>
-                      {index > 0 ? <Separator className="mx-4" /> : null}
-                      <ListGroup.Item
-                        className="min-h-touch py-3"
-                        onPress={() => setBusinessType(type)}
-                      >
-                        <ListGroup.ItemContent>
-                          <ListGroup.ItemTitle>
-                            {formatBusinessType(type)}
-                          </ListGroup.ItemTitle>
-                        </ListGroup.ItemContent>
-                        <ListGroup.ItemSuffix>
-                          <Radio isSelected={isSelected} onSelectedChange={() => setBusinessType(type)}>
-                            {({ isSelected: selected }) => (
-                              <Radio.Indicator
-                                className={
-                                  selected
-                                    ? "size-3 border-2 border-accent bg-accent"
-                                    : "size-3 border-2 border-foreground/35 bg-background"
-                                }
-                              >
-                                {selected ? (
-                                  <Radio.IndicatorThumb className="size-3 bg-accent-foreground" />
-                                ) : null}
-                              </Radio.Indicator>
-                            )}
-                          </Radio>
-                        </ListGroup.ItemSuffix>
-                      </ListGroup.Item>
-                    </Fragment>
-                  );
-                })}
-              </ListGroup>
-            </View>
-            <View className="gap-2">
-              <Text className="text-caption text-muted">Phone number</Text>
-              <TextInput
-                className="min-h-touch rounded-control border border-separator bg-background px-4 text-foreground"
-                keyboardType="phone-pad"
-                onChangeText={setPhoneNumber}
-                placeholder="Phone number"
-                value={phoneNumber}
-              />
-            </View>
-          </>
-        )}
+              <TextField isRequired>
+                <Label>Phone number</Label>
+                <Input
+                  keyboardType="phone-pad"
+                  onChangeText={setPhoneNumber}
+                  placeholder="Phone number"
+                  value={phoneNumber}
+                />
+              </TextField>
+            </>
+          )}
 
-        <View className="gap-2">
-          <Text className="text-caption text-muted">County</Text>
-          <ListGroup>
-            {COUNTIES.map((item, index) => {
-              const isSelected = county === item;
-              return (
-                <Fragment key={item}>
-                  {index > 0 ? <Separator className="mx-4" /> : null}
-                  <ListGroup.Item
-                    className="min-h-touch py-3"
-                    onPress={() => setCounty(item)}
-                  >
-                    <ListGroup.ItemContent>
-                      <ListGroup.ItemTitle>{item}</ListGroup.ItemTitle>
-                    </ListGroup.ItemContent>
-                    <ListGroup.ItemSuffix>
-                      <Radio isSelected={isSelected} onSelectedChange={() => setCounty(item)}>
-                        {({ isSelected: selected }) => (
-                          <Radio.Indicator
-                            className={
-                              selected
-                                ? "size-3 border-2 border-accent bg-accent"
-                                : "size-3 border-2 border-foreground/35 bg-background"
-                            }
-                          >
-                            {selected ? (
-                              <Radio.IndicatorThumb className="size-3 bg-accent-foreground" />
-                            ) : null}
-                          </Radio.Indicator>
-                        )}
-                      </Radio>
-                    </ListGroup.ItemSuffix>
-                  </ListGroup.Item>
-                </Fragment>
-              );
-            })}
-          </ListGroup>
+          <FormSelect
+            label="County"
+            listLabel="County"
+            onValueChange={setCountyValue}
+            options={COUNTY_OPTIONS}
+            placeholder="Choose county"
+            value={countyValue}
+          />
         </View>
 
         {error ? <Text className="text-sm text-danger">{error}</Text> : null}
 
         <Button
+          className="w-full"
           isDisabled={isSubmitting}
           onPress={() => void handleProfileSubmit()}
           size="sm"
+          variant="primary"
         >
           <Button.Label>{isSubmitting ? "Saving…" : "Finish setup"}</Button.Label>
         </Button>
-      </Surface>
-    </View>
+      </OnboardingCard>
+    </OnboardingLayout>
   );
 }

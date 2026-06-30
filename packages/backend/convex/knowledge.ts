@@ -404,10 +404,15 @@ export const markDocumentError = internalMutation({
 
 export const completeDocument = rag.defineOnComplete<DataModel>(
   async (ctx, args) => {
-    const documentId = args.entry.metadata?.documentId;
-    if (documentId === undefined) {
+    const metadata = args.entry.metadata;
+    if (
+      metadata === undefined ||
+      (metadata.sourceType !== "text" && metadata.sourceType !== "file")
+    ) {
       return;
     }
+
+    const documentId = metadata.documentId;
     if (args.error !== undefined) {
       await ctx.db.patch("documents", documentId, {
         error: args.error,

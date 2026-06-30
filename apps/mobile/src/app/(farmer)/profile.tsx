@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 import type { JSX } from "react";
-import { ListGroup, Radio, Separator, Surface, useThemeColor } from "heroui-native";
+import { ListGroup, Radio, Separator, useThemeColor } from "heroui-native";
 import { Moon, Smartphone, Sun } from "lucide-react-native";
 import { Text, View } from "react-native";
 
@@ -21,7 +21,7 @@ const THEME_OPTIONS: ThemeOption[] = [
   { label: "Dark", value: "dark", icon: Moon },
 ];
 
-export default function ProfileScreen(): JSX.Element {
+export default function FarmerProfileScreen(): JSX.Element {
   const { preference, setPreference } = useAppTheme();
   const foregroundColor = useThemeColor("foreground");
 
@@ -34,7 +34,7 @@ export default function ProfileScreen(): JSX.Element {
       <ProfileAccountSection />
       <View className="gap-section-title">
         <Text className="text-section-title">Appearance</Text>
-          <ListGroup>
+        <ListGroup>
           {THEME_OPTIONS.map((option, index) => {
             const Icon = option.icon;
             const isSelected = preference === option.value;
@@ -82,7 +82,7 @@ export default function ProfileScreen(): JSX.Element {
               </Fragment>
             );
           })}
-          </ListGroup>
+        </ListGroup>
       </View>
     </ScreenShell>
   );

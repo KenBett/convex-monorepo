@@ -1,25 +1,36 @@
-import { Home, Search, User } from "lucide-react";
+import { Package, ShoppingBag, Tractor, User } from "lucide-react";
 
-export const NAV_ITEMS = [
-  { label: "Home", href: "/", icon: Home },
-  { label: "Explore", href: "/explore", icon: Search },
-  { label: "Profile", href: "/profile", icon: User },
+import type { MarketplaceRole } from "@repo/types";
+import { roleHomeSegment } from "@repo/utils";
+
+export const FARMER_NAV_ITEMS = [
+  { label: "Dashboard", href: "/farmer", icon: Tractor },
+  { label: "My Products", href: "/farmer/my-products", icon: Package },
+  { label: "Profile", href: "/farmer/profile", icon: User },
 ] as const;
 
-export type NavItem = (typeof NAV_ITEMS)[number];
+export const BUYER_NAV_ITEMS = [
+  { label: "Dashboard", href: "/buyer", icon: ShoppingBag },
+  { label: "Profile", href: "/buyer/profile", icon: User },
+] as const;
 
-export function getNavItem(href: NavItem["href"]): NavItem {
-  const item = NAV_ITEMS.find((navItem) => navItem.href === href);
+export type FarmerNavItem = (typeof FARMER_NAV_ITEMS)[number];
+export type BuyerNavItem = (typeof BUYER_NAV_ITEMS)[number];
+export type AnyNavItem = FarmerNavItem | BuyerNavItem;
 
-  if (!item) {
-    throw new Error(`No nav item found for href: ${href}`);
-  }
+export function getNavItemsForRole(role: MarketplaceRole | undefined) {
+  if (role === "buyer") return BUYER_NAV_ITEMS;
+  return FARMER_NAV_ITEMS;
+}
 
-  return item;
+export function getRoleHomePath(role: MarketplaceRole): string {
+  return `/${roleHomeSegment(role)}`;
 }
 
 export function getPageTitle(pathname: string): string {
-  const item = NAV_ITEMS.find((navItem) => navItem.href === pathname);
-
-  return item?.label ?? "Home";
+  const farmerItem = FARMER_NAV_ITEMS.find((item) => item.href === pathname);
+  if (farmerItem) return farmerItem.label;
+  const buyerItem = BUYER_NAV_ITEMS.find((item) => item.href === pathname);
+  if (buyerItem) return buyerItem.label;
+  return "Dashboard";
 }

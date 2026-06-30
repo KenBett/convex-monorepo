@@ -2,7 +2,6 @@ import "@/styles/globals.css";
 import { Metadata, Viewport } from "next";
 
 import { ConvexClientProvider } from "@/lib/convex";
-import { RoleGate } from "@/components/auth/role-gate";
 import { fontSans } from "@/config/fonts";
 import { siteConfig } from "@/config/site";
 import { themeProviderProps } from "@/config/theme";
@@ -34,9 +33,7 @@ export default function RootLayout({
     <html suppressHydrationWarning className={fontSans.variable} lang="en">
       <body className="min-h-dvh bg-background font-sans antialiased">
         <ConvexClientProvider>
-          <Providers themeProps={themeProviderProps}>
-            <RoleGate>{children}</RoleGate>
-          </Providers>
+          <Providers themeProps={themeProviderProps}>{children}</Providers>
         </ConvexClientProvider>
       </body>
     </html>

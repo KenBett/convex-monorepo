@@ -1,4 +1,12 @@
-import { AuthRedirect } from "@/components/auth/auth-redirect";
+import { RouteGuard } from "@/components/auth/route-guard";
+
+function AuthSpinner() {
+  return (
+    <div className="flex min-h-dvh items-center justify-center bg-background">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-foreground" />
+    </div>
+  );
+}
 
 export default function AuthLayout({
   children,
@@ -6,10 +14,10 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <AuthRedirect>
+    <RouteGuard mode="guest" fallback={<AuthSpinner />}>
       <div className="flex min-h-dvh items-center justify-center bg-background px-4 py-12">
         <div className="w-full max-w-sm">{children}</div>
       </div>
-    </AuthRedirect>
+    </RouteGuard>
   );
 }

@@ -2,26 +2,12 @@
 
 import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "@repo/backend/convex/_generated/api";
+import { getInitials } from "@repo/utils";
 import { Avatar, Button } from "@heroui/react";
 import { useQuery } from "convex/react";
 import { useState } from "react";
 
 import { ThemeListBox } from "@/components/theme-list-box";
-
-function getInitials(name: string | undefined, email: string | undefined) {
-  if (name) {
-    return name
-      .split(" ")
-      .map((part) => part[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase();
-  }
-  if (email) {
-    return email.slice(0, 2).toUpperCase();
-  }
-  return "?";
-}
 
 export function ProfileContent() {
   const viewer = useQuery(api.users.viewer);

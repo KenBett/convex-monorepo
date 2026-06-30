@@ -1,12 +1,15 @@
 "use client";
 
+import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "@repo/backend/convex/_generated/api";
-import { Avatar } from "@heroui/react";
+import { getInitials } from "@repo/utils";
+import { Avatar, Tooltip } from "@heroui/react";
 import { useQuery } from "convex/react";
 import clsx from "clsx";
-import { Search } from "lucide-react";
+import { LogOut } from "lucide-react";
 import NextLink from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 
 import { getPageTitle } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
@@ -20,31 +23,32 @@ import { useSidebar } from "./sidebar-context";
 
 const avatarInitials = siteConfig.name.slice(0, 2).toUpperCase();
 
-function getInitials(name: string | undefined, email: string | undefined) {
-  if (name) {
-    return name
-      .split(" ")
-      .map((part) => part[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase();
-  }
-  if (email) {
-    return email.slice(0, 2).toUpperCase();
-  }
-  return avatarInitials;
-}
-
 export const Navbar = () => {
   const pathname = usePathname();
   const pageTitle = getPageTitle(pathname);
   const { isExpanded } = useSidebar();
   const { navbarLeft } = getSidebarLayoutClasses(isExpanded);
   const viewer = useQuery(api.users.viewer);
+  const { signOut } = useAuthActions();
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  const profilePath =
+    viewer?.role === "farmer"
+      ? "/farmer/profile"
+      : viewer?.role === "buyer"
+        ? "/buyer/profile"
+        : "/onboarding";
   const displayName = viewer?.name ?? viewer?.email ?? "Account";
-  const initials = viewer
-    ? getInitials(viewer.name, viewer.email)
-    : avatarInitials;
+  const initials = getInitials(viewer?.name, viewer?.email, avatarInitials);
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      await signOut();
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
 
   return (
     <nav
@@ -65,7 +69,7 @@ export const Navbar = () => {
           <NextLink
             aria-label="Go to profile"
             className="hidden shrink-0 rounded-full transition-opacity hover:opacity-80 md:inline-flex"
-            href="/profile"
+            href={profilePath}
           >
             <Avatar size="md">
               {viewer?.image ? (
@@ -87,13 +91,26 @@ export const Navbar = () => {
           </h1>
         </div>
 
-        <NextLink
-          aria-label="Explore"
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-default/40 hover:text-foreground"
-          href="/explore"
-        >
-          <Search className="h-5 w-5" />
-        </NextLink>
+        <Tooltip delay={0}>
+          <button
+            aria-label="Sign out"
+            className={clsx(
+              "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+              "border border-separator bg-background text-muted",
+              "transition-colors hover:bg-default/40 hover:text-foreground",
+              "disabled:cursor-not-allowed disabled:opacity-60",
+            )}
+            disabled={isSigningOut}
+            onClick={() => void handleSignOut()}
+            type="button"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
+          <Tooltip.Content showArrow placement="bottom">
+            <Tooltip.Arrow />
+            <p>{isSigningOut ? "Signing out…" : "Sign out"}</p>
+          </Tooltip.Content>
+        </Tooltip>
       </header>
     </nav>
   );

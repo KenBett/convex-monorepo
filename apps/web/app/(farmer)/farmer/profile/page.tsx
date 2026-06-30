@@ -6,6 +6,6 @@ export const metadata: Metadata = {
   title: "Profile",
 };
 
-export default function ProfilePage() {
+export default function FarmerProfilePage() {
   return <ProfileContent />;
 }

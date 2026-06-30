@@ -14,10 +14,13 @@ import type * as knowledge from "../knowledge.js";
 import type * as knowledgeSpeech from "../knowledgeSpeech.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_createAuthUser from "../lib/createAuthUser.js";
+import type * as lib_listings from "../lib/listings.js";
 import type * as lib_rag from "../lib/rag.js";
 import type * as lib_roles from "../lib/roles.js";
 import type * as lib_voicePipeline from "../lib/voicePipeline.js";
 import type * as lib_voiceQueryCache from "../lib/voiceQueryCache.js";
+import type * as listings from "../listings.js";
+import type * as listings_ragSync from "../listings/ragSync.js";
 import type * as users from "../users.js";
 import type * as voiceStream from "../voiceStream.js";
 
@@ -34,10 +37,13 @@ declare const fullApi: ApiFromModules<{
   knowledgeSpeech: typeof knowledgeSpeech;
   "lib/auth": typeof lib_auth;
   "lib/createAuthUser": typeof lib_createAuthUser;
+  "lib/listings": typeof lib_listings;
   "lib/rag": typeof lib_rag;
   "lib/roles": typeof lib_roles;
   "lib/voicePipeline": typeof lib_voicePipeline;
   "lib/voiceQueryCache": typeof lib_voiceQueryCache;
+  listings: typeof listings;
+  "listings/ragSync": typeof listings_ragSync;
   users: typeof users;
   voiceStream: typeof voiceStream;
 }>;

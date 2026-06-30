@@ -5,7 +5,7 @@ import { ScreenShell } from "@/components/screen-shell";
 
 export default function FarmerScreen(): JSX.Element {
   return (
-    <ScreenShell title="Farmer">
+    <ScreenShell scrollable={false} title="Dashboard">
       <View className="gap-2">
         <Text className="text-page-title text-foreground">Farmer dashboard</Text>
         <Text className="text-caption text-muted">

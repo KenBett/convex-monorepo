@@ -12,13 +12,10 @@ import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
+import { getRoleHomePath } from "@/config/navigation";
 import { LayoutSkeleton } from "@/components/layout/layout-skeleton";
 
 type OnboardingStep = "role" | "profile";
-
-function getRoleHomePath(role: MarketplaceRole): string {
-  return role === "farmer" ? "/farmer" : "/buyer";
-}
 
 export function OnboardingFlow() {
   const router = useRouter();

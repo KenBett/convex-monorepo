@@ -11,6 +11,12 @@ export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+export {
+  MARKETPLACE_ROLES,
+  getInitials,
+  roleHomeSegment,
+} from "./marketplace-routing";
+
 export { VoiceClientTelemetry } from "./voice-telemetry";
 export {
   convexSiteUrlFromCloudUrl,

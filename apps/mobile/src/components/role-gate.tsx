@@ -1,11 +1,11 @@
-import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "@repo/backend/convex/_generated/api";
 import type { MarketplaceRole } from "@repo/types";
+import { roleHomeSegment } from "@repo/utils";
 import { useConvexAuth, useQuery } from "convex/react";
 import type { Href } from "expo-router";
 import { useRouter, useSegments } from "expo-router";
 import { useThemeColor } from "heroui-native";
-import { useEffect, useRef, type JSX, type ReactNode } from "react";
+import { useEffect, type JSX, type ReactNode } from "react";
 import { ActivityIndicator, View } from "react-native";
 
 interface RoleGateProps {
@@ -13,12 +13,11 @@ interface RoleGateProps {
 }
 
 function getRoleHomePath(role: MarketplaceRole): Href {
-  return (role === "farmer" ? "/(farmer)" : "/(buyer)") as Href;
+  return `/(${roleHomeSegment(role)})` as Href;
 }
 
 function isOnRoleGroup(segments: string[], role: MarketplaceRole): boolean {
-  const group = role === "farmer" ? "(farmer)" : "(buyer)";
-  return segments[0] === group;
+  return segments[0] === `(${roleHomeSegment(role)})`;
 }
 
 function needsOnboarding(viewer: {

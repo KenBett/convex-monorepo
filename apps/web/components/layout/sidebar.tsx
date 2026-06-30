@@ -1,12 +1,14 @@
 "use client";
 
-import NextLink from "next/link";
-import { usePathname } from "next/navigation";
+import { api } from "@repo/backend/convex/_generated/api";
 import { Tooltip } from "@heroui/react";
+import { useQuery } from "convex/react";
 import clsx from "clsx";
 import { PanelLeft, PanelLeftClose } from "lucide-react";
+import NextLink from "next/link";
+import { usePathname } from "next/navigation";
 
-import { NAV_ITEMS } from "@/config/navigation";
+import { getNavItemsForRole, getRoleHomePath } from "@/config/navigation";
 import { getSidebarLayoutClasses } from "@/constants/layout";
 
 import { Logo } from "./logo";
@@ -16,6 +18,9 @@ export const Sidebar = () => {
   const pathname = usePathname();
   const { isExpanded, toggleSidebar } = useSidebar();
   const { sidebarWidth } = getSidebarLayoutClasses(isExpanded);
+  const viewer = useQuery(api.users.viewer);
+  const navItems = getNavItemsForRole(viewer?.role);
+  const homePath = getRoleHomePath(viewer?.role ?? "farmer");
 
   return (
     <div
@@ -34,7 +39,7 @@ export const Sidebar = () => {
         )}
       >
         <div className="flex h-14 items-center justify-center px-2">
-          <NextLink aria-label="Home" className="flex items-center" href="/">
+          <NextLink aria-label="Home" className="flex items-center" href={homePath}>
             <Logo size={28} />
           </NextLink>
         </div>
@@ -45,7 +50,7 @@ export const Sidebar = () => {
             isExpanded ? "items-stretch" : "items-center",
           )}
         >
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;
 

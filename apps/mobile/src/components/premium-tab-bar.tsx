@@ -4,7 +4,14 @@ import type {
 } from "@/components/premium-tab-bar.types";
 import * as Haptics from "expo-haptics";
 import { useThemeColor } from "heroui-native";
-import { House, Search, User } from "lucide-react-native";
+import {
+  House,
+  Package,
+  Search,
+  ShoppingBag,
+  Tractor,
+  User,
+} from "lucide-react-native";
 import type { LucideIcon } from "lucide-react-native";
 import type { JSX } from "react";
 import { Platform, Pressable, View } from "react-native";
@@ -14,7 +21,21 @@ const TAB_ICONS: Record<string, LucideIcon> = {
   index: House,
   explore: Search,
   profile: User,
+  "my-products": Package,
 };
+
+function getTabIcon(routeName: string, routes: PremiumTabRoute[]): LucideIcon {
+  const isFarmerTabs = routes.some((route) => route.name === "my-products");
+  const isBuyerTabs =
+    !isFarmerTabs && routes.some((route) => route.name === "index");
+  if (routeName === "index" && isFarmerTabs) {
+    return Tractor;
+  }
+  if (routeName === "index" && isBuyerTabs) {
+    return ShoppingBag;
+  }
+  return TAB_ICONS[routeName] ?? House;
+}
 
 type TabBarItemProps = {
   color: string;
@@ -94,7 +115,7 @@ export function PremiumTabBar({
               : (options.title ?? route.name);
           const isFocused = state.index === index;
           const color = isFocused ? accentColor : mutedColor;
-          const Icon = TAB_ICONS[route.name] ?? House;
+          const Icon = getTabIcon(route.name, state.routes);
 
           const onPress = () => {
             const event = navigation.emit({

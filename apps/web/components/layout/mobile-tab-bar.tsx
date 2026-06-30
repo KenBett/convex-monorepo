@@ -1,14 +1,18 @@
 "use client";
 
+import { api } from "@repo/backend/convex/_generated/api";
+import { useQuery } from "convex/react";
+import clsx from "clsx";
 import NextLink from "next/link";
 import { usePathname } from "next/navigation";
-import clsx from "clsx";
 
-import { NAV_ITEMS } from "@/config/navigation";
+import { getNavItemsForRole } from "@/config/navigation";
 import { MOBILE_TAB_BAR_HEIGHT_CLASSES } from "@/constants/layout";
 
 export const MobileTabBar = () => {
   const pathname = usePathname();
+  const viewer = useQuery(api.users.viewer);
+  const navItems = getNavItemsForRole(viewer?.role);
 
   return (
     <nav
@@ -24,7 +28,7 @@ export const MobileTabBar = () => {
           MOBILE_TAB_BAR_HEIGHT_CLASSES,
         )}
       >
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;
 
