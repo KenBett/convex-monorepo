@@ -11,7 +11,7 @@ import NextLink from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
-import { getPageTitle } from "@/config/navigation";
+import { getPageTitle, ROUTES_WITH_PAGE_HEADER } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
 import {
   CONTENT_CONTAINER_CLASSES,
@@ -26,6 +26,7 @@ const avatarInitials = siteConfig.name.slice(0, 2).toUpperCase();
 export const Navbar = () => {
   const pathname = usePathname();
   const pageTitle = getPageTitle(pathname);
+  const showPageTitle = !ROUTES_WITH_PAGE_HEADER.has(pathname);
   const { isExpanded } = useSidebar();
   const { navbarLeft } = getSidebarLayoutClasses(isExpanded);
   const viewer = useQuery(api.users.viewer);
@@ -82,13 +83,17 @@ export const Navbar = () => {
               <Avatar.Fallback>{initials}</Avatar.Fallback>
             </Avatar>
           </NextLink>
-          <div
-            aria-hidden="true"
-            className="hidden h-6 w-px shrink-0 bg-separator md:block"
-          />
-          <h1 className="truncate text-base font-semibold text-foreground md:text-lg">
-            {pageTitle}
-          </h1>
+          {showPageTitle ? (
+            <>
+              <div
+                aria-hidden="true"
+                className="hidden h-6 w-px shrink-0 bg-separator md:block"
+              />
+              <h1 className="truncate text-base font-semibold text-foreground md:text-lg">
+                {pageTitle}
+              </h1>
+            </>
+          ) : null}
         </div>
 
         <Tooltip delay={0}>
@@ -104,7 +109,7 @@ export const Navbar = () => {
             onClick={() => void handleSignOut()}
             type="button"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-5 w-5" />
           </button>
           <Tooltip.Content showArrow placement="bottom">
             <Tooltip.Arrow />

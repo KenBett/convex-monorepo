@@ -2,12 +2,13 @@ import { api } from "@repo/backend/convex/_generated/api";
 import type { Id } from "@repo/backend/convex/_generated/dataModel";
 import {
   COUNTIES,
-  CROP_TYPES,
   listingFormDefaults,
   parseListingForm,
+  type CropType,
   type ListingFormFieldErrors,
   type ListingFormInput,
 } from "@repo/types";
+import { CropPickerGrid } from "@/components/crop-display";
 import { useMutation } from "convex/react";
 import {
   Button,
@@ -19,17 +20,14 @@ import {
   TextField,
 } from "heroui-native";
 import { Fragment, useState, type JSX } from "react";
-import { Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 
 type SelectOption = {
   label: string;
   value: string;
 };
 
-const CROP_OPTIONS: SelectOption[] = CROP_TYPES.map((crop) => ({
-  value: crop,
-  label: crop.charAt(0).toUpperCase() + crop.slice(1),
-}));
+const FIELD_CLASS = "border border-separator bg-field-background";
 
 const COUNTY_OPTIONS: SelectOption[] = COUNTIES.map((county) => ({
   value: county,
@@ -69,7 +67,7 @@ function FormSelect({
         presentation="bottom-sheet"
         value={value}
       >
-        <Select.Trigger>
+        <Select.Trigger className={FIELD_CLASS}>
           <Select.Value placeholder={placeholder} />
           <Select.TriggerIndicator />
         </Select.Trigger>
@@ -93,6 +91,8 @@ function FormSelect({
 }
 
 type ListingFormProps = {
+  embedded?: boolean;
+  embeddedLayout?: "stack" | "modal";
   listingId?: Id<"listings">;
   initialValues?: ListingFormInput;
   onCancel?: () => void;
@@ -100,6 +100,8 @@ type ListingFormProps = {
 };
 
 export function ListingForm({
+  embedded = false,
+  embeddedLayout = "stack",
   initialValues,
   listingId,
   onCancel,
@@ -109,9 +111,7 @@ export function ListingForm({
   const updateListing = useMutation(api.listings.updateListing);
 
   const defaults = initialValues ?? listingFormDefaults();
-  const [cropValue, setCropValue] = useState<SelectOption>(() =>
-    findOption(CROP_OPTIONS, defaults.crop),
-  );
+  const [crop, setCrop] = useState<CropType>(defaults.crop);
   const [countyValue, setCountyValue] = useState<SelectOption>(() =>
     findOption(COUNTY_OPTIONS, defaults.county),
   );
@@ -122,6 +122,7 @@ export function ListingForm({
     defaults.pricePerKg > 0 ? String(defaults.pricePerKg) : "",
   );
   const [description, setDescription] = useState(defaults.description);
+  const [grade, setGrade] = useState(defaults.grade ?? "");
   const [fieldErrors, setFieldErrors] = useState<ListingFormFieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -129,9 +130,10 @@ export function ListingForm({
   const handleSubmit = async (): Promise<void> => {
     setSubmitError(null);
     const parsed = parseListingForm({
-      crop: cropValue.value,
+      crop,
       county: countyValue.value,
       description,
+      grade,
       pricePerKg,
       quantityKg,
     });
@@ -144,11 +146,14 @@ export function ListingForm({
     setFieldErrors({});
     setIsSubmitting(true);
     try {
+      const gradeValue = parsed.data.grade?.trim() || undefined;
+
       if (listingId) {
         await updateListing({
           county: parsed.data.county,
           crop: parsed.data.crop,
           description: parsed.data.description,
+          grade: gradeValue ?? "",
           listingId,
           pricePerKg: parsed.data.pricePerKg,
           quantityKg: parsed.data.quantityKg,
@@ -158,6 +163,7 @@ export function ListingForm({
           county: parsed.data.county,
           crop: parsed.data.crop,
           description: parsed.data.description,
+          grade: gradeValue,
           pricePerKg: parsed.data.pricePerKg,
           quantityKg: parsed.data.quantityKg,
         });
@@ -172,45 +178,43 @@ export function ListingForm({
     }
   };
 
-  return (
-    <Surface variant="default" className="gap-section rounded-card p-card-lg shadow-elevated">
+  const fields = (
+    <>
       <Text className="text-section-title">
         {listingId ? "Edit listing" : "Create listing"}
       </Text>
 
-      <FormSelect
+      <CropPickerGrid
         error={fieldErrors.crop}
-        label="Crop"
-        listLabel="Choose a crop"
-        onValueChange={setCropValue}
-        options={CROP_OPTIONS}
-        placeholder="Select crop"
-        value={cropValue}
+        onChange={setCrop}
+        value={crop}
       />
 
       <TextField isRequired isInvalid={Boolean(fieldErrors.quantityKg)}>
         <Label>Quantity (kg)</Label>
         <Input
+          className={FIELD_CLASS}
           keyboardType="decimal-pad"
           onChangeText={setQuantityKg}
           placeholder="e.g. 500"
           value={quantityKg}
         />
         {fieldErrors.quantityKg ? (
-          <TextField.ErrorMessage>{fieldErrors.quantityKg}</TextField.ErrorMessage>
+          <Text className="text-caption text-danger">{fieldErrors.quantityKg}</Text>
         ) : null}
       </TextField>
 
       <TextField isRequired isInvalid={Boolean(fieldErrors.pricePerKg)}>
         <Label>Price per kg (KES)</Label>
         <Input
+          className={FIELD_CLASS}
           keyboardType="decimal-pad"
           onChangeText={setPricePerKg}
           placeholder="e.g. 45"
           value={pricePerKg}
         />
         {fieldErrors.pricePerKg ? (
-          <TextField.ErrorMessage>{fieldErrors.pricePerKg}</TextField.ErrorMessage>
+          <Text className="text-caption text-danger">{fieldErrors.pricePerKg}</Text>
         ) : null}
       </TextField>
 
@@ -224,9 +228,23 @@ export function ListingForm({
         value={countyValue}
       />
 
+      <TextField isInvalid={Boolean(fieldErrors.grade)}>
+        <Label>Grade (optional)</Label>
+        <Input
+          className={FIELD_CLASS}
+          onChangeText={setGrade}
+          placeholder="e.g. Grade 1"
+          value={grade}
+        />
+        {fieldErrors.grade ? (
+          <Text className="text-caption text-danger">{fieldErrors.grade}</Text>
+        ) : null}
+      </TextField>
+
       <TextField isRequired isInvalid={Boolean(fieldErrors.description)}>
         <Label>Description</Label>
         <Input
+          className={FIELD_CLASS}
           multiline
           numberOfLines={4}
           onChangeText={setDescription}
@@ -234,29 +252,63 @@ export function ListingForm({
           value={description}
         />
         {fieldErrors.description ? (
-          <TextField.ErrorMessage>{fieldErrors.description}</TextField.ErrorMessage>
+          <Text className="text-caption text-danger">{fieldErrors.description}</Text>
         ) : null}
       </TextField>
 
       {submitError ? <Text className="text-caption text-danger">{submitError}</Text> : null}
+    </>
+  );
 
-      <View className="flex-row gap-3">
-        {onCancel ? (
-          <Button className="flex-1" size="sm" variant="secondary" onPress={onCancel}>
-            Cancel
-          </Button>
-        ) : null}
-        <Button
-          className="flex-1"
-          isDisabled={isSubmitting}
-          size="sm"
-          onPress={() => {
-            void handleSubmit();
-          }}
-        >
-          {isSubmitting ? "Saving..." : listingId ? "Save changes" : "Create listing"}
+  const actions = (
+    <View className="flex-row gap-3">
+      {onCancel ? (
+        <Button className="flex-1" size="sm" variant="secondary" onPress={onCancel}>
+          Cancel
         </Button>
+      ) : null}
+      <Button
+        className="flex-1"
+        isDisabled={isSubmitting}
+        size="sm"
+        onPress={() => {
+          void handleSubmit();
+        }}
+      >
+        {isSubmitting ? "Saving..." : listingId ? "Save changes" : "Create listing"}
+      </Button>
+    </View>
+  );
+
+  if (embedded && embeddedLayout === "modal") {
+    return (
+      <View className="max-h-full">
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          contentContainerClassName="gap-section pb-4"
+        >
+          {fields}
+        </ScrollView>
+        <View className="border-t border-separator pt-3">{actions}</View>
       </View>
+    );
+  }
+
+  const content = (
+    <>
+      {fields}
+      {actions}
+    </>
+  );
+
+  if (embedded) {
+    return <View className="gap-section">{content}</View>;
+  }
+
+  return (
+    <Surface variant="default" className="gap-section rounded-card p-card-lg shadow-elevated">
+      {content}
     </Surface>
   );
 }

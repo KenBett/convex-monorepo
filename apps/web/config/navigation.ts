@@ -34,3 +34,8 @@ export function getPageTitle(pathname: string): string {
   if (buyerItem) return buyerItem.label;
   return "Dashboard";
 }
+
+/** Routes that render their own page title block — hide the navbar duplicate. */
+export const ROUTES_WITH_PAGE_HEADER = new Set([
+  "/farmer/my-products",
+]);

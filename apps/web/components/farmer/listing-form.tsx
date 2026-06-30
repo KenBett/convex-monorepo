@@ -8,13 +8,15 @@ import {
   type ListingFormFieldErrors,
   type ListingFormInput,
   COUNTIES,
-  CROP_TYPES,
+  type CropType,
 } from "@repo/types";
+import { CropPickerGrid } from "@/components/farmer/crop-display";
 import { Button, Input, Label, ListBox, Select } from "@heroui/react";
 import { useMutation } from "convex/react";
 import { FormEvent, useState } from "react";
 
 type ListingFormProps = {
+  embedded?: boolean;
   listingId?: Id<"listings">;
   initialValues?: ListingFormInput;
   onCancel?: () => void;
@@ -22,6 +24,7 @@ type ListingFormProps = {
 };
 
 export function ListingForm({
+  embedded = false,
   initialValues,
   listingId,
   onCancel,
@@ -31,7 +34,7 @@ export function ListingForm({
   const updateListing = useMutation(api.listings.updateListing);
 
   const defaults = initialValues ?? listingFormDefaults();
-  const [crop, setCrop] = useState(defaults.crop);
+  const [crop, setCrop] = useState<CropType>(defaults.crop);
   const [county, setCounty] = useState(defaults.county);
   const [quantityKg, setQuantityKg] = useState(
     defaults.quantityKg > 0 ? String(defaults.quantityKg) : "",
@@ -40,6 +43,7 @@ export function ListingForm({
     defaults.pricePerKg > 0 ? String(defaults.pricePerKg) : "",
   );
   const [description, setDescription] = useState(defaults.description);
+  const [grade, setGrade] = useState(defaults.grade ?? "");
   const [fieldErrors, setFieldErrors] = useState<ListingFormFieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -52,6 +56,7 @@ export function ListingForm({
       crop,
       county,
       description,
+      grade,
       pricePerKg,
       quantityKg,
     });
@@ -64,11 +69,14 @@ export function ListingForm({
     setFieldErrors({});
     setIsSubmitting(true);
     try {
+      const gradeValue = parsed.data.grade?.trim() || undefined;
+
       if (listingId) {
         await updateListing({
           county: parsed.data.county,
           crop: parsed.data.crop,
           description: parsed.data.description,
+          grade: gradeValue ?? "",
           listingId,
           pricePerKg: parsed.data.pricePerKg,
           quantityKg: parsed.data.quantityKg,
@@ -78,6 +86,7 @@ export function ListingForm({
           county: parsed.data.county,
           crop: parsed.data.crop,
           description: parsed.data.description,
+          grade: gradeValue,
           pricePerKg: parsed.data.pricePerKg,
           quantityKg: parsed.data.quantityKg,
         });
@@ -94,7 +103,11 @@ export function ListingForm({
 
   return (
     <form
-      className="flex flex-col gap-4 rounded-lg bg-surface p-6 text-surface-foreground shadow-sm dark:shadow-none"
+      className={
+        embedded
+          ? "flex flex-col gap-4"
+          : "flex flex-col gap-4 rounded-lg bg-surface p-6 text-surface-foreground shadow-sm dark:shadow-none"
+      }
       onSubmit={(event) => {
         void handleSubmit(event);
       }}
@@ -108,40 +121,11 @@ export function ListingForm({
         </p>
       </div>
 
-      <div className="flex flex-col gap-1">
-        <Select
-          aria-label="Crop"
-          onSelectionChange={(key) => {
-            if (key) {
-              setCrop(String(key));
-            }
-          }}
-          selectedKey={crop}
-        >
-          <Label>Crop</Label>
-          <Select.Trigger>
-            <Select.Value placeholder="Select crop" />
-            <Select.Indicator />
-          </Select.Trigger>
-          <Select.Popover>
-            <ListBox>
-              {CROP_TYPES.map((item) => (
-                <ListBox.Item
-                  id={item}
-                  key={item}
-                  textValue={item}
-                >
-                  {item.charAt(0).toUpperCase() + item.slice(1)}
-                  <ListBox.ItemIndicator />
-                </ListBox.Item>
-              ))}
-            </ListBox>
-          </Select.Popover>
-        </Select>
-        {fieldErrors.crop ? (
-          <p className="text-sm text-danger">{fieldErrors.crop}</p>
-        ) : null}
-      </div>
+      <CropPickerGrid
+        error={fieldErrors.crop}
+        onChange={setCrop}
+        value={crop}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
@@ -203,6 +187,19 @@ export function ListingForm({
         </Select>
         {fieldErrors.county ? (
           <p className="text-sm text-danger">{fieldErrors.county}</p>
+        ) : null}
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <Input
+          aria-label="Grade"
+          fullWidth
+          onChange={(event) => setGrade(event.target.value)}
+          placeholder="Grade (optional, e.g. Grade 1)"
+          value={grade}
+        />
+        {fieldErrors.grade ? (
+          <p className="text-sm text-danger">{fieldErrors.grade}</p>
         ) : null}
       </div>
 

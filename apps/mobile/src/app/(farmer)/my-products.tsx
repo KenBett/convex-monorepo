@@ -2,22 +2,21 @@ import { api } from "@repo/backend/convex/_generated/api";
 import type { Id } from "@repo/backend/convex/_generated/dataModel";
 import type { ListingFormInput } from "@repo/types";
 import { useMutation, useQuery } from "convex/react";
-import { Surface, Button } from "heroui-native";
+import { Button, Dialog, Surface, useThemeColor } from "heroui-native";
+import { Plus } from "lucide-react-native";
 import type { JSX } from "react";
 import { useState } from "react";
 import { ActivityIndicator, Alert, Text, View } from "react-native";
 
+import { FarmerListingCard } from "@/components/listing-card";
 import { ListingForm } from "@/components/listing-form";
 import { ScreenShell } from "@/components/screen-shell";
-
-function formatStatus(status: string): string {
-  return status.replace("_", " ");
-}
 
 function listingToFormInput(listing: {
   county: string;
   crop: string;
   description: string;
+  grade?: string;
   pricePerKg: number;
   quantityKg: number;
 }): ListingFormInput {
@@ -25,6 +24,7 @@ function listingToFormInput(listing: {
     county: listing.county as ListingFormInput["county"],
     crop: listing.crop as ListingFormInput["crop"],
     description: listing.description,
+    grade: listing.grade ?? "",
     pricePerKg: listing.pricePerKg,
     quantityKg: listing.quantityKg,
   };
@@ -33,11 +33,12 @@ function listingToFormInput(listing: {
 export default function MyProductsScreen(): JSX.Element {
   const listings = useQuery(api.listings.listingsByFarmer);
   const markSoldOut = useMutation(api.listings.markSoldOut);
+  const foregroundColor = useThemeColor("foreground");
 
   const [editingListingId, setEditingListingId] = useState<Id<"listings"> | null>(
     null,
   );
-  const [showCreateForm, setShowCreateForm] = useState(true);
+  const [createOpen, setCreateOpen] = useState(false);
   const [createFormKey, setCreateFormKey] = useState(0);
   const [actionError, setActionError] = useState<string | null>(null);
   const [markingSoldOutId, setMarkingSoldOutId] = useState<Id<"listings"> | null>(
@@ -88,14 +89,26 @@ export default function MyProductsScreen(): JSX.Element {
         </View>
       ) : (
         <View className="gap-section">
-          {showCreateForm && editingListingId === null ? (
-            <ListingForm
-              key={createFormKey}
-              onSubmitted={() => {
-                setCreateFormKey((current) => current + 1);
-              }}
-            />
-          ) : null}
+          <Dialog isOpen={createOpen} onOpenChange={setCreateOpen}>
+            <Dialog.Portal>
+              <Dialog.Overlay isCloseOnPress onPress={() => setCreateOpen(false)} />
+              <Dialog.Content className="w-full max-h-[85%] rounded-card bg-surface p-card-lg">
+                <View className="mb-3 flex-row items-center justify-end">
+                  <Dialog.Close />
+                </View>
+                <ListingForm
+                  embedded
+                  embeddedLayout="modal"
+                  key={createFormKey}
+                  onCancel={() => setCreateOpen(false)}
+                  onSubmitted={() => {
+                    setCreateOpen(false);
+                    setCreateFormKey((current) => current + 1);
+                  }}
+                />
+              </Dialog.Content>
+            </Dialog.Portal>
+          </Dialog>
 
           {editingListing ? (
             <ListingForm
@@ -106,74 +119,46 @@ export default function MyProductsScreen(): JSX.Element {
             />
           ) : null}
 
-          {!showCreateForm && editingListingId === null ? (
-            <Button size="sm" onPress={() => setShowCreateForm(true)}>
-              Add listing
-            </Button>
-          ) : null}
-
           {actionError ? (
             <Text className="text-caption text-danger">{actionError}</Text>
           ) : null}
 
           <View className="gap-section-title">
-            <Text className="text-section-title">Your listings</Text>
+            <View className="flex-row items-center justify-between gap-3">
+              <Text className="text-section-title">Your listings</Text>
+              {editingListingId === null ? (
+                <Button
+                  accessibilityLabel="Create listing"
+                  className="min-h-touch min-w-touch"
+                  isIconOnly
+                  size="sm"
+                  variant="secondary"
+                  onPress={() => setCreateOpen(true)}
+                >
+                  <Plus color={foregroundColor} size={18} strokeWidth={1.75} />
+                </Button>
+              ) : null}
+            </View>
             {listings.length === 0 ? (
               <Surface variant="default" className="rounded-card p-card-lg">
                 <Text className="text-caption text-muted text-center">
-                  No listings yet. Create your first listing above.
+                  No listings yet. Tap + to create your first listing.
                 </Text>
               </Surface>
             ) : (
-              listings.map((listing) => (
-                <Surface
-                  key={listing._id}
-                  variant="default"
-                  className="gap-3 rounded-card p-card-lg shadow-elevated"
-                >
-                  <View className="flex-row items-start justify-between gap-3">
-                    <View className="flex-1 gap-1">
-                      <Text className="text-emphasis capitalize">{listing.crop}</Text>
-                      <Text className="text-caption text-muted">
-                        {listing.quantityKg} kg · KES {listing.pricePerKg}/kg ·{" "}
-                        {listing.county}
-                      </Text>
-                      <Text className="text-caption">{listing.description}</Text>
-                    </View>
-                    <Text className="text-caption capitalize text-muted">
-                      {formatStatus(listing.status)}
-                    </Text>
-                  </View>
-
-                  <View className="flex-row flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onPress={() => {
-                        setEditingListingId(listing._id);
-                        setShowCreateForm(false);
-                      }}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      isDisabled={
-                        listing.status === "sold_out" ||
-                        markingSoldOutId === listing._id
-                      }
-                      size="sm"
-                      variant="secondary"
-                      onPress={() => handleMarkSoldOut(listing._id, listing.crop)}
-                    >
-                      {listing.status === "sold_out"
-                        ? "Sold out"
-                        : markingSoldOutId === listing._id
-                          ? "Updating..."
-                          : "Mark sold out"}
-                    </Button>
-                  </View>
-                </Surface>
-              ))
+              <View className="flex-row flex-wrap gap-2">
+                {listings.map((listing) => (
+                  <FarmerListingCard
+                    key={listing._id}
+                    isMarkingSoldOut={markingSoldOutId === listing._id}
+                    listing={listing}
+                    onEdit={() => {
+                      setEditingListingId(listing._id);
+                    }}
+                    onMarkSoldOut={() => handleMarkSoldOut(listing._id, listing.crop)}
+                  />
+                ))}
+              </View>
             )}
           </View>
         </View>
