@@ -20,7 +20,10 @@ function getRoleHomePath(role: "farmer" | "buyer"): string {
 }
 
 function isOnRoleRoute(pathname: string, role: "farmer" | "buyer"): boolean {
-  return pathname === getRoleHomePath(role) || pathname.startsWith(`${getRoleHomePath(role)}/`);
+  return (
+    pathname === getRoleHomePath(role) ||
+    pathname.startsWith(`${getRoleHomePath(role)}/`)
+  );
 }
 
 export function RoleGate({ children }: RoleGateProps) {

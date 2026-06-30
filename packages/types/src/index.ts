@@ -1,6 +1,7 @@
 import type { MarketplaceRole } from "./marketplace";
 
 export {
+  BUSINESS_TYPES,
   COUNTIES,
   CROP_TYPES,
   type BusinessType,

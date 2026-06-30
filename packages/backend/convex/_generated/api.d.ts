@@ -13,6 +13,7 @@ import type * as http from "../http.js";
 import type * as knowledge from "../knowledge.js";
 import type * as knowledgeSpeech from "../knowledgeSpeech.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_createAuthUser from "../lib/createAuthUser.js";
 import type * as lib_rag from "../lib/rag.js";
 import type * as lib_roles from "../lib/roles.js";
 import type * as lib_voicePipeline from "../lib/voicePipeline.js";
@@ -32,6 +33,7 @@ declare const fullApi: ApiFromModules<{
   knowledge: typeof knowledge;
   knowledgeSpeech: typeof knowledgeSpeech;
   "lib/auth": typeof lib_auth;
+  "lib/createAuthUser": typeof lib_createAuthUser;
   "lib/rag": typeof lib_rag;
   "lib/roles": typeof lib_roles;
   "lib/voicePipeline": typeof lib_voicePipeline;

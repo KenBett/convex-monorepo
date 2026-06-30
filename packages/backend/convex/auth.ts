@@ -1,6 +1,8 @@
 import Google from "@auth/core/providers/google";
 import { convexAuth } from "@convex-dev/auth/server";
 
+import { createOrUpdateAuthUser } from "./lib/createAuthUser";
+
 const MOBILE_SCHEME = "heroui-native-app://";
 
 function isAllowedRedirect(redirectTo: string): boolean {
@@ -21,6 +23,9 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         return redirectTo;
       }
       throw new Error(`Invalid redirectTo: ${redirectTo}`);
+    },
+    async createOrUpdateUser(ctx, args) {
+      return await createOrUpdateAuthUser(ctx, args);
     },
   },
 });

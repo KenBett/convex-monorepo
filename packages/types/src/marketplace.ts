@@ -28,7 +28,14 @@ export type CropType = (typeof CROP_TYPES)[number];
 export type County = (typeof COUNTIES)[number];
 export type MarketplaceRole = "farmer" | "buyer";
 
-export type BusinessType = "hotel" | "supermarket" | "exporter" | "individual";
+export const BUSINESS_TYPES = [
+  "hotel",
+  "supermarket",
+  "exporter",
+  "individual",
+] as const;
+
+export type BusinessType = (typeof BUSINESS_TYPES)[number];
 
 export type ListingStatus = "active" | "sold_out" | "expired";
 

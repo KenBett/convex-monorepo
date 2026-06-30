@@ -22,11 +22,6 @@ export function AuthGate({ children }: AuthGateProps): JSX.Element {
 
     if (!isAuthenticated && !inAuthGroup) {
       router.replace("/(auth)/sign-in");
-      return;
-    }
-
-    if (isAuthenticated && inAuthGroup) {
-      router.replace("/(tabs)");
     }
   }, [inAuthGroup, isAuthenticated, isLoading, router]);
 
