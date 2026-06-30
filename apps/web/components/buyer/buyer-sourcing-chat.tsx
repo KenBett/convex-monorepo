@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuthToken } from "@convex-dev/auth/react";
-import type { BuyerSourcingStreamData } from "@repo/types";
+import type { BuyerSourcingListingResult, BuyerSourcingStreamData } from "@repo/types";
 import { useChat } from "@ai-sdk/react";
 import { Button, Card } from "@heroui/react";
 import { DefaultChatTransport, isDataUIPart, type UIMessage } from "ai";
@@ -9,6 +9,7 @@ import { Bot, Send, ShoppingBag, UserRound } from "lucide-react";
 import { FormEvent, useMemo, useRef, useState } from "react";
 
 import { BuyerListingCard } from "@/components/buyer/buyer-listing-card";
+import { OrderCheckoutDialog } from "@/components/buyer/order-checkout-dialog";
 import { getBuyerSourcingIntroMessage } from "@/lib/buyer-sourcing-intro";
 
 const BUYER_SOURCING_CHAT_API = "/api/buyer/sourcing";
@@ -37,7 +38,13 @@ function getSourcingData(message: BuyerChatMessage): BuyerSourcingStreamData | n
   return null;
 }
 
-function ChatMessage({ message }: { message: BuyerChatMessage }) {
+function ChatMessage({
+  message,
+  onOrder,
+}: {
+  message: BuyerChatMessage;
+  onOrder: (listing: BuyerSourcingListingResult) => void;
+}) {
   const text = getMessageText(message);
   const sourcing = message.role === "assistant" ? getSourcingData(message) : null;
   const isUser = message.role === "user";
@@ -70,7 +77,7 @@ function ChatMessage({ message }: { message: BuyerChatMessage }) {
           <ol className="grid w-full grid-cols-[repeat(auto-fill,minmax(12.5rem,1fr))] gap-3">
             {sourcing.listings.map((listing) => (
               <li key={listing.listingId}>
-                <BuyerListingCard result={listing} />
+                <BuyerListingCard onOrder={onOrder} result={listing} />
               </li>
             ))}
           </ol>
@@ -111,6 +118,12 @@ export function BuyerSourcingChat() {
   });
 
   const [input, setInput] = useState("");
+  const [checkoutListing, setCheckoutListing] =
+    useState<BuyerSourcingListingResult | null>(null);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [checkoutDefaultQty, setCheckoutDefaultQty] = useState<number | undefined>(
+    undefined,
+  );
   const isBusy = status === "submitted" || status === "streaming";
   const isAuthReady = authToken !== null;
 
@@ -123,6 +136,16 @@ export function BuyerSourcingChat() {
 
     setInput("");
     await sendMessage({ text: trimmed });
+  };
+
+  const handleOrder = (listing: BuyerSourcingListingResult) => {
+    const lastAssistant = [...messages]
+      .reverse()
+      .find((message) => message.role === "assistant");
+    const intent = lastAssistant ? getSourcingData(lastAssistant)?.intent : null;
+    setCheckoutDefaultQty(intent?.minQuantityKg);
+    setCheckoutListing(listing);
+    setCheckoutOpen(true);
   };
 
   return (
@@ -150,7 +173,7 @@ export function BuyerSourcingChat() {
               </div>
             ) : (
               messages.map((message) => (
-                <ChatMessage key={message.id} message={message} />
+                <ChatMessage key={message.id} message={message} onOrder={handleOrder} />
               ))
             )}
           </div>
@@ -189,6 +212,16 @@ export function BuyerSourcingChat() {
           </form>
         </Card.Content>
       </Card>
+
+      <OrderCheckoutDialog
+        defaultQuantityKg={checkoutDefaultQty}
+        listing={checkoutListing}
+        open={checkoutOpen}
+        onClose={() => {
+          setCheckoutOpen(false);
+          setCheckoutListing(null);
+        }}
+      />
     </div>
   );
 }

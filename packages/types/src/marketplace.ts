@@ -46,3 +46,30 @@ export type OrderStatus =
   | "completed"
   | "disputed"
   | "cancelled";
+
+export type OrderCancelledReason =
+  | "user_cancelled"
+  | "timeout"
+  | "phone_unreachable"
+  | "payment_failed"
+  | "insufficient_stock_at_escrow"
+  | "buyer_cancelled";
+
+export interface OrderSummary {
+  _id: string;
+  _creationTime: number;
+  agreedPricePerKg: number;
+  buyerBusinessName: string;
+  cancelledReason?: string;
+  county: string;
+  createdAt: number;
+  crop: string;
+  farmerId: string;
+  listingId: string;
+  mpesaCheckoutRequestId?: string;
+  mpesaPhoneNumber?: string;
+  mpesaReceiptNumber?: string;
+  quantityKg: number;
+  status: OrderStatus;
+  totalKes: number;
+}

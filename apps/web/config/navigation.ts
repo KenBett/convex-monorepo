@@ -1,4 +1,4 @@
-import { Package, ShoppingBag, Tractor, User } from "lucide-react";
+import { Package, ShoppingBag, Tractor, User, ClipboardList } from "lucide-react";
 
 import type { MarketplaceRole } from "@repo/types";
 import { roleHomeSegment } from "@repo/utils";
@@ -6,6 +6,7 @@ import { roleHomeSegment } from "@repo/utils";
 export const FARMER_NAV_ITEMS = [
   { label: "Dashboard", href: "/farmer", icon: Tractor },
   { label: "My Products", href: "/farmer/my-products", icon: Package },
+  { label: "Orders", href: "/farmer/orders", icon: ClipboardList },
   { label: "Profile", href: "/farmer/profile", icon: User },
 ] as const;
 
@@ -38,4 +39,5 @@ export function getPageTitle(pathname: string): string {
 /** Routes that render their own page title block — hide the navbar duplicate. */
 export const ROUTES_WITH_PAGE_HEADER = new Set([
   "/farmer/my-products",
+  "/farmer/orders",
 ]);

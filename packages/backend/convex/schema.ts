@@ -61,10 +61,13 @@ export default defineSchema({
   orders: defineTable({
     agreedPricePerKg: v.number(),
     buyerId: v.id("buyerProfiles"),
+    cancelledReason: v.optional(v.string()),
     createdAt: v.number(),
     farmerId: v.id("farmerProfiles"),
     listingId: v.id("listings"),
     mpesaCheckoutRequestId: v.optional(v.string()),
+    mpesaPhoneNumber: v.optional(v.string()),
+    mpesaReceiptNumber: v.optional(v.string()),
     quantityKg: v.number(),
     status: v.union(
       v.literal("pending"),
@@ -76,6 +79,7 @@ export default defineSchema({
     ),
   })
     .index("by_buyer", ["buyerId"])
+    .index("by_checkout_request_id", ["mpesaCheckoutRequestId"])
     .index("by_farmer", ["farmerId"])
     .index("by_listing", ["listingId"]),
 });

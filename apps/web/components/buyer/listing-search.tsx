@@ -12,11 +12,19 @@ import { Search, ShoppingBag } from "lucide-react";
 import type { FormEvent } from "react";
 import { useState } from "react";
 
+import { OrderCheckoutDialog } from "@/components/buyer/order-checkout-dialog";
+
 function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
-function ListingResultCard({ result }: { result: ListingSearchResult }) {
+function ListingResultCard({
+  onOrder,
+  result,
+}: {
+  onOrder: (result: ListingSearchResult) => void;
+  result: ListingSearchResult;
+}) {
   const description = getBuyerListingDescription(result.description);
   const snippet = getBuyerListingSnippet(result.snippet, description);
 
@@ -43,6 +51,15 @@ function ListingResultCard({ result }: { result: ListingSearchResult }) {
       {snippet ? (
         <p className="line-clamp-2 text-xs leading-5 text-muted">{snippet}</p>
       ) : null}
+      <Button
+        className="w-fit rounded-full bg-accent font-medium text-accent-foreground"
+        size="sm"
+        variant="primary"
+        onPress={() => onOrder(result)}
+      >
+        <ShoppingBag className="h-4 w-4" strokeWidth={1.75} />
+        Order
+      </Button>
     </article>
   );
 }
@@ -55,6 +72,10 @@ export function BuyerListingSearch() {
   const [hasSearched, setHasSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [checkoutListing, setCheckoutListing] = useState<ListingSearchResult | null>(
+    null,
+  );
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   const handleSearch = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -135,7 +156,13 @@ export function BuyerListingSearch() {
                 <ol className="flex flex-col gap-3">
                   {results.map((result) => (
                     <li key={result.listingId}>
-                      <ListingResultCard result={result} />
+                      <ListingResultCard
+                        onOrder={(listing) => {
+                          setCheckoutListing(listing);
+                          setCheckoutOpen(true);
+                        }}
+                        result={result}
+                      />
                     </li>
                   ))}
                 </ol>
@@ -144,6 +171,15 @@ export function BuyerListingSearch() {
           </div>
         </Card.Content>
       </Card>
+
+      <OrderCheckoutDialog
+        listing={checkoutListing}
+        open={checkoutOpen}
+        onClose={() => {
+          setCheckoutOpen(false);
+          setCheckoutListing(null);
+        }}
+      />
     </div>
   );
 }

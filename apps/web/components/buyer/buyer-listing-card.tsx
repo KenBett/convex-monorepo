@@ -7,13 +7,15 @@ import {
   LISTING_CARD_NOISE_DATA_URI,
   LISTING_CARD_NOISE_OPACITY,
 } from "@repo/types";
-import { Chip } from "@heroui/react";
+import { Button, Chip } from "@heroui/react";
 import clsx from "clsx";
 import Image from "next/image";
+import { ShoppingBag } from "lucide-react";
 
 import { CropBadge } from "@/components/farmer/crop-display";
 
 type BuyerListingCardProps = {
+  onOrder?: (result: BuyerSourcingListingResult) => void;
   result: BuyerSourcingListingResult;
 };
 
@@ -32,7 +34,7 @@ function ListingCardNoiseOverlay() {
   );
 }
 
-export function BuyerListingCard({ result }: BuyerListingCardProps) {
+export function BuyerListingCard({ onOrder, result }: BuyerListingCardProps) {
   const theme = getCropTheme(result.crop);
 
   return (
@@ -99,6 +101,18 @@ export function BuyerListingCard({ result }: BuyerListingCardProps) {
         <p className="truncate text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
           {result.cooperativeName}
         </p>
+
+        {onOrder ? (
+          <Button
+            className="mt-1 w-full rounded-full bg-accent text-[11px] font-semibold text-accent-foreground"
+            size="sm"
+            variant="primary"
+            onPress={() => onOrder(result)}
+          >
+            <ShoppingBag className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Order
+          </Button>
+        ) : null}
       </div>
     </article>
   );

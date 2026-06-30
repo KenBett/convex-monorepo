@@ -14,6 +14,7 @@ import type * as lib_auth from "../lib/auth.js";
 import type * as lib_createAuthUser from "../lib/createAuthUser.js";
 import type * as lib_listingImages from "../lib/listingImages.js";
 import type * as lib_listings from "../lib/listings.js";
+import type * as lib_orders from "../lib/orders.js";
 import type * as lib_rag from "../lib/rag.js";
 import type * as lib_roles from "../lib/roles.js";
 import type * as listings from "../listings.js";
@@ -24,6 +25,12 @@ import type * as listings_buyerSourcing from "../listings/buyerSourcing.js";
 import type * as listings_ragDebug from "../listings/ragDebug.js";
 import type * as listings_ragSync from "../listings/ragSync.js";
 import type * as listings_search from "../listings/search.js";
+import type * as orders from "../orders.js";
+import type * as orders_escrow from "../orders/escrow.js";
+import type * as orders_mpesaCallback from "../orders/mpesaCallback.js";
+import type * as orders_mpesaClient from "../orders/mpesaClient.js";
+import type * as orders_mpesaWebhookHttp from "../orders/mpesaWebhookHttp.js";
+import type * as orders_payment from "../orders/payment.js";
 import type * as users from "../users.js";
 
 import type {
@@ -39,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   "lib/createAuthUser": typeof lib_createAuthUser;
   "lib/listingImages": typeof lib_listingImages;
   "lib/listings": typeof lib_listings;
+  "lib/orders": typeof lib_orders;
   "lib/rag": typeof lib_rag;
   "lib/roles": typeof lib_roles;
   listings: typeof listings;
@@ -49,6 +57,12 @@ declare const fullApi: ApiFromModules<{
   "listings/ragDebug": typeof listings_ragDebug;
   "listings/ragSync": typeof listings_ragSync;
   "listings/search": typeof listings_search;
+  orders: typeof orders;
+  "orders/escrow": typeof orders_escrow;
+  "orders/mpesaCallback": typeof orders_mpesaCallback;
+  "orders/mpesaClient": typeof orders_mpesaClient;
+  "orders/mpesaWebhookHttp": typeof orders_mpesaWebhookHttp;
+  "orders/payment": typeof orders_payment;
   users: typeof users;
 }>;
 

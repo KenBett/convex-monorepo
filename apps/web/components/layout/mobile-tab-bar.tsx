@@ -22,12 +22,7 @@ export const MobileTabBar = () => {
         "bg-background pb-[env(safe-area-inset-bottom)]",
       )}
     >
-      <div
-        className={clsx(
-          "grid grid-cols-3",
-          MOBILE_TAB_BAR_HEIGHT_CLASSES,
-        )}
-      >
+      <div className={clsx("flex", MOBILE_TAB_BAR_HEIGHT_CLASSES)}>
         {navItems.map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;
@@ -38,7 +33,7 @@ export const MobileTabBar = () => {
               aria-current={isActive ? "page" : undefined}
               aria-label={item.label}
               className={clsx(
-                "flex items-center justify-center transition-colors",
+                "flex flex-1 items-center justify-center transition-colors",
                 isActive
                   ? "text-foreground"
                   : "text-muted hover:text-foreground",

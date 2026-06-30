@@ -8,6 +8,7 @@ import { useMemo } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 import { FarmerListingCard } from "@/components/listing-card";
+import { FarmerOrdersList } from "@/components/farmer-order-card";
 import { ScreenShell } from "@/components/screen-shell";
 
 type StatCardProps = {
@@ -31,6 +32,7 @@ function StatCard({ icon: Icon, label, value }: StatCardProps): JSX.Element {
 export default function FarmerScreen(): JSX.Element {
   const router = useRouter();
   const listings = useQuery(api.listings.listingsByFarmer);
+  const orders = useQuery(api.orders.ordersByFarmer);
 
   const stats = useMemo(() => {
     if (!listings) {
@@ -128,11 +130,17 @@ export default function FarmerScreen(): JSX.Element {
           )}
         </View>
 
-        <Surface className="gap-2 rounded-[0.875rem] border border-separator p-4">
-          <Text className="text-section-title text-foreground">Recent orders</Text>
-          <Text className="text-caption text-muted">
-            Orders will appear here once buyers start purchasing your produce.
-          </Text>
+        <Surface className="gap-3 rounded-[0.875rem] border border-separator p-4">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-section-title text-foreground">Recent orders</Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push("/(farmer)/orders")}
+            >
+              <Text className="text-sm font-medium text-accent">View all</Text>
+            </Pressable>
+          </View>
+          <FarmerOrdersList limit={3} orders={orders} />
         </Surface>
       </View>
     </ScreenShell>

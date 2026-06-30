@@ -8,6 +8,7 @@ import { useMemo } from "react";
 import clsx from "clsx";
 
 import { FarmerListingCard } from "@/components/farmer/listing-card";
+import { FarmerOrdersPreview } from "@/components/farmer/farmer-orders-client";
 
 type ListingStat = {
   label: string;
@@ -134,12 +135,7 @@ export function FarmerDashboardClient() {
         )}
       </section>
 
-      <section className="flex flex-col gap-2 rounded-[0.875rem] border border-separator bg-surface p-4">
-        <h2 className="text-sm font-semibold text-foreground">Recent orders</h2>
-        <p className="text-sm text-muted">
-          Orders will appear here once buyers start purchasing your produce.
-        </p>
-      </section>
+      <FarmerOrdersPreview />
     </div>
   );
 }

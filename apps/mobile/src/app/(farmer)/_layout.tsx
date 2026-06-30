@@ -21,6 +21,14 @@ export default function FarmerLayout(): JSX.Element {
           title: "Listing",
         }}
       />
+      <Stack.Screen
+        name="orders"
+        options={{
+          headerShown: true,
+          headerBackTitle: "Back",
+          title: "Orders",
+        }}
+      />
     </Stack>
   );
 }

@@ -66,6 +66,43 @@ export const viewer = query({
   },
 });
 
+const buyerProfileSummaryValidator = v.object({
+  businessName: v.string(),
+  county: v.string(),
+  phoneNumber: v.string(),
+});
+
+export const buyerProfile = query({
+  args: {},
+  returns: v.union(buyerProfileSummaryValidator, v.null()),
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      return null;
+    }
+
+    const user = await ctx.db.get("users", userId);
+    if (!user || getMarketplaceRole(user) !== "buyer") {
+      return null;
+    }
+
+    const profile = await ctx.db
+      .query("buyerProfiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+
+    if (!profile) {
+      return null;
+    }
+
+    return {
+      businessName: profile.businessName,
+      county: profile.county,
+      phoneNumber: profile.phoneNumber,
+    };
+  },
+});
+
 export const updateProfile = mutation({
   args: {
     name: v.optional(v.string()),
