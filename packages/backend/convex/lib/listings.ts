@@ -43,6 +43,26 @@ export async function requireFarmerProfile(
   return profile;
 }
 
+export async function requireBuyerProfile(
+  ctx: QueryCtx | MutationCtx,
+): Promise<Doc<"buyerProfiles">> {
+  const user = await getCurrentUser(ctx);
+  if (getMarketplaceRole(user) !== "buyer") {
+    throw new Error("Buyer access required");
+  }
+
+  const profile = await ctx.db
+    .query("buyerProfiles")
+    .withIndex("by_userId", (q) => q.eq("userId", user._id))
+    .unique();
+
+  if (!profile) {
+    throw new Error("Buyer profile not found");
+  }
+
+  return profile;
+}
+
 export function formatListingText(
   listing: Pick<
     Doc<"listings">,

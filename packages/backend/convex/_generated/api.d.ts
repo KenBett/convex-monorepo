@@ -21,6 +21,7 @@ import type * as lib_voicePipeline from "../lib/voicePipeline.js";
 import type * as lib_voiceQueryCache from "../lib/voiceQueryCache.js";
 import type * as listings from "../listings.js";
 import type * as listings_ragSync from "../listings/ragSync.js";
+import type * as listings_search from "../listings/search.js";
 import type * as users from "../users.js";
 import type * as voiceStream from "../voiceStream.js";
 
@@ -44,6 +45,7 @@ declare const fullApi: ApiFromModules<{
   "lib/voiceQueryCache": typeof lib_voiceQueryCache;
   listings: typeof listings;
   "listings/ragSync": typeof listings_ragSync;
+  "listings/search": typeof listings_search;
   users: typeof users;
   voiceStream: typeof voiceStream;
 }>;

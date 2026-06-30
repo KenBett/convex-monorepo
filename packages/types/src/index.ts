@@ -1,4 +1,4 @@
-import type { MarketplaceRole } from "./marketplace";
+import type { ListingStatus, MarketplaceRole } from "./marketplace";
 
 export {
   BUSINESS_TYPES,
@@ -68,4 +68,23 @@ export interface KnowledgeSearchResponse {
 export interface KnowledgeAskResponse {
   answer: string;
   sources: KnowledgeSearchResult[];
+}
+
+export interface ListingSearchResult {
+  cooperativeName: string;
+  county: string;
+  crop: string;
+  description: string;
+  grade?: string;
+  listingId: string;
+  pricePerKg: number;
+  quantityKg: number;
+  score: number;
+  snippet: string;
+  status: ListingStatus;
+  title?: string;
+}
+
+export interface ListingSearchResponse {
+  results: ListingSearchResult[];
 }
