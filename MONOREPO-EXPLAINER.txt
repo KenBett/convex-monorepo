@@ -299,7 +299,7 @@ Sign-in flow (both platforms):
 Route protection:
 
   Web (apps/web):
-    Protected routes:  /, /explore, /profile     (inside app/(app)/)
+    Protected routes:  /farmer/*, /buyer/*, /onboarding
     Public routes:       /sign-in, /sign-up        (inside app/(auth)/)
     AuthGate             Redirects to /sign-in if not logged in
     AuthRedirect         Redirects to / if already logged in (on auth pages)
@@ -310,7 +310,7 @@ Route protection:
       apps/web/src/lib/convex.tsx  (ConvexAuthProvider)
 
   Mobile (apps/mobile):
-    Protected routes:  /(tabs)/*                   (Home, Explore, Profile)
+    Protected routes:  /(farmer)/*, /(buyer)/*, /(onboarding)
     Public routes:     /(auth)/sign-in, sign-up
     AuthGate             Redirects to /(auth)/sign-in if not logged in
     Key files:
@@ -663,28 +663,28 @@ Backend API quick map:
 
   api.users.viewer              query     Current user profile
   api.users.updateProfile       mutation  Update name/image
-  api.knowledge.listDocuments   query     List knowledge documents
-  api.knowledge.search          action    Semantic search
-  api.knowledge.ask             action    RAG question answering
-  api.knowledge.addTextDocument action    Admin: add text to knowledge base
-  api.knowledge.addFileDocument action    Admin: upload file to knowledge base
-  api.knowledge.deleteDocument  mutation  Admin: delete document
+  api.listings.listingsByFarmer       query     Farmer's listings
+  api.listings.createListing          mutation  Create listing (+ RAG sync)
+  api.listings.markSoldOut            mutation  Mark listing sold out (+ RAG sync)
+  api.listings.search.semanticSearch  action    Buyer semantic search
+  api.listings.ragDebug.debugListingIndex  query  Inspect listing RAG index (farmer)
 
 Web routes:
 
-  /           Home (protected)
-  /explore    Knowledge hub (protected)
-  /profile    Account settings (protected)
-  /sign-in    Google sign-in (public)
-  /sign-up    Google sign-up (public)
+  /farmer         Farmer dashboard (protected)
+  /farmer/my-products  Farmer listings CRUD
+  /buyer          Buyer search dashboard (protected)
+  /onboarding     Role onboarding (protected)
+  /sign-in        Google sign-in (public)
+  /sign-up        Google sign-up (public)
 
 Mobile routes:
 
-  /(tabs)/            Home tab (protected)
-  /(tabs)/explore     Knowledge search/ask (protected)
-  /(tabs)/profile     Account settings (protected)
-  /(auth)/sign-in     Google sign-in (public)
-  /(auth)/sign-up     Google sign-up (public)
+  /(farmer)/(tabs)/       Farmer dashboard + My Products + Profile
+  /(buyer)/               Buyer search dashboard
+  /(onboarding)/          Role onboarding
+  /(auth)/sign-in         Google sign-in (public)
+  /(auth)/sign-up         Google sign-up (public)
 
 New project from this template:
 

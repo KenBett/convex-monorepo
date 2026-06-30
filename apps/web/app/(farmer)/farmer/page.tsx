@@ -1,17 +1,11 @@
 import type { Metadata } from "next";
-import { Tractor } from "lucide-react";
+
+import { FarmerDashboardClient } from "@/components/farmer/farmer-dashboard-client";
 
 export const metadata: Metadata = {
   title: "Farmer Dashboard",
 };
 
 export default function FarmerPage() {
-  return (
-    <div className="mx-auto flex w-full max-w-lg flex-col">
-      <div className="flex flex-col items-center gap-4 rounded-lg bg-surface px-10 py-12 text-surface-foreground shadow-sm dark:shadow-none">
-        <Tractor className="h-10 w-10" strokeWidth={1.75} />
-        <p className="font-mono text-sm text-muted">/farmer</p>
-      </div>
-    </div>
-  );
+  return <FarmerDashboardClient />;
 }

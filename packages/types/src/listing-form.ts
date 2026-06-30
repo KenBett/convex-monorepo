@@ -48,3 +48,48 @@ export function listingFormDefaults(): ListingFormInput {
     quantityKg: 0,
   };
 }
+
+export const LISTING_FORM_STEP_COUNT = 3 as const;
+
+export type ListingFormStep = 1 | 2 | 3;
+
+export const LISTING_FORM_STEP_LABELS = [
+  "Choose crop",
+  "Listing details",
+  "Review & create",
+] as const;
+
+const listingFormStepSchemas = {
+  1: listingFormSchema.pick({ crop: true }),
+  2: listingFormSchema.pick({
+    county: true,
+    pricePerKg: true,
+    quantityKg: true,
+  }),
+  3: listingFormSchema.pick({ description: true, grade: true }),
+} as const;
+
+export function validateListingFormStep(
+  step: ListingFormStep,
+  input: Record<string, unknown>,
+):
+  | { success: true }
+  | { success: false; errors: ListingFormFieldErrors } {
+  const result = listingFormStepSchemas[step].safeParse(input);
+  if (result.success) {
+    return { success: true };
+  }
+
+  const errors: ListingFormFieldErrors = {};
+  for (const issue of result.error.issues) {
+    const field = issue.path[0];
+    if (
+      typeof field === "string" &&
+      errors[field as keyof ListingFormInput] === undefined
+    ) {
+      errors[field as keyof ListingFormInput] = issue.message;
+    }
+  }
+
+  return { success: false, errors };
+}

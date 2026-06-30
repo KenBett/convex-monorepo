@@ -13,17 +13,8 @@ export function sleep(ms: number): Promise<void> {
 
 export {
   MARKETPLACE_ROLES,
+  farmerListingDetailHref,
+  farmerListingDetailPath,
   getInitials,
   roleHomeSegment,
 } from "./marketplace-routing";
-
-export { VoiceClientTelemetry } from "./voice-telemetry";
-export {
-  convexSiteUrlFromCloudUrl,
-  createVoiceStreamClient,
-} from "./voice-stream-client";
-export type {
-  VoiceStreamCallbacks,
-  VoiceStreamClient,
-  VoiceTurnRequest,
-} from "./voice-stream-client";

@@ -44,6 +44,21 @@ export const listingsByFarmer = query({
   },
 });
 
+export const getListingById = query({
+  args: { listingId: v.id("listings") },
+  returns: v.union(listingSummaryValidator, v.null()),
+  handler: async (ctx, args) => {
+    const profile = await requireFarmerProfile(ctx);
+    const listing = await ctx.db.get("listings", args.listingId);
+
+    if (!listing || listing.farmerId !== profile._id) {
+      return null;
+    }
+
+    return listing;
+  },
+});
+
 export const createListing = mutation({
   args: {
     county: v.string(),

@@ -73,13 +73,11 @@ export const Sidebar = () => {
                 aria-current={isActive ? "page" : undefined}
                 aria-label={item.label}
                 className={clsx(
-                  "relative flex items-center rounded-lg py-2.5 text-xs font-medium transition-colors",
+                  "flex items-center rounded-lg py-2.5 text-xs font-medium transition-colors",
                   isExpanded ? "gap-2.5 px-3" : "justify-center px-2",
                   isActive
                     ? "bg-default/55 text-foreground"
                     : "text-muted hover:bg-default/35 hover:text-foreground",
-                  isActive &&
-                    "before:absolute before:left-0 before:top-1/2 before:h-5 before:w-0.5 before:-translate-y-1/2 before:rounded-full before:bg-accent",
                 )}
                 href={item.href}
               >
@@ -121,13 +119,11 @@ export const Sidebar = () => {
             aria-current={isProfileActive ? "page" : undefined}
             aria-label="Profile"
             className={clsx(
-              "relative flex items-center rounded-lg py-2 text-xs font-medium transition-colors",
+              "flex items-center rounded-lg py-2 text-xs font-medium transition-colors",
               isExpanded ? "gap-2.5 px-2" : "justify-center px-2",
               isProfileActive
                 ? "bg-default/55 text-foreground"
                 : "text-muted hover:bg-default/35 hover:text-foreground",
-              isProfileActive &&
-                "before:absolute before:left-0 before:top-1/2 before:h-5 before:w-0.5 before:-translate-y-1/2 before:rounded-full before:bg-accent",
             )}
             href={profilePath}
           >

@@ -13,6 +13,16 @@ export function roleHomeSegment(role: MarketplaceRole): MarketplaceRole {
   return role;
 }
 
+/** Web path for a farmer-owned listing detail page. */
+export function farmerListingDetailPath(listingId: string): string {
+  return `/farmer/listings/${listingId}`;
+}
+
+/** Expo Router href for a farmer-owned listing detail screen. */
+export function farmerListingDetailHref(listingId: string): string {
+  return `/(farmer)/listings/${listingId}`;
+}
+
 /** Two-letter initials for avatars, derived from name then email. */
 export function getInitials(
   name: string | undefined,

@@ -280,8 +280,8 @@ flowchart LR
 
 **Routes:**
 
-- Web: `/sign-in`, `/sign-up` (auth) · `/`, `/explore`, `/profile` (protected)
-- Mobile: `/(auth)/sign-in`, `/(auth)/sign-up` (auth) · `/(tabs)` (protected)
+- Web: `/sign-in`, `/sign-up` (auth) · `/farmer/*`, `/buyer/*` (role-based after onboarding)
+- Mobile: `/(auth)/sign-in`, `/(auth)/sign-up` (auth) · `/(farmer)/*`, `/(buyer)/*` (role-based)
 
 ---
 

@@ -92,8 +92,8 @@ export default function MyProductsScreen(): JSX.Element {
           <Dialog isOpen={createOpen} onOpenChange={setCreateOpen}>
             <Dialog.Portal>
               <Dialog.Overlay isCloseOnPress onPress={() => setCreateOpen(false)} />
-              <Dialog.Content className="w-full max-h-[85%] rounded-card bg-surface p-card-lg">
-                <View className="mb-3 flex-row items-center justify-end">
+              <Dialog.Content className="max-h-[92%] w-full rounded-card bg-surface p-card-lg">
+                <View className="mb-2 flex-row items-center justify-end">
                   <Dialog.Close />
                 </View>
                 <ListingForm
@@ -152,6 +152,7 @@ export default function MyProductsScreen(): JSX.Element {
                     key={listing._id}
                     isMarkingSoldOut={markingSoldOutId === listing._id}
                     listing={listing}
+                    listingId={listing._id}
                     onEdit={() => {
                       setEditingListingId(listing._id);
                     }}

@@ -11,6 +11,8 @@ export type CropTheme = {
   iconFillDark: string;
   /** Tinted card background for crop picker tiles */
   cardClass: string;
+  /** Full-card background tint for listing cards (no border) */
+  listingCardBgClass: string;
 };
 
 export const CROP_THEMES: Record<CropType, CropTheme> = {
@@ -23,6 +25,7 @@ export const CROP_THEMES: Record<CropType, CropTheme> = {
     iconFillDark: "#fcd34d",
     cardClass:
       "border-amber-200/80 bg-amber-50/80 dark:border-amber-800/50 dark:bg-amber-950/40",
+    listingCardBgClass: "bg-amber-50 dark:bg-amber-950/40",
   },
   beans: {
     label: "Beans",
@@ -33,6 +36,7 @@ export const CROP_THEMES: Record<CropType, CropTheme> = {
     iconFillDark: "#fdba74",
     cardClass:
       "border-orange-200/80 bg-orange-50/80 dark:border-orange-800/50 dark:bg-orange-950/40",
+    listingCardBgClass: "bg-lime-50 dark:bg-lime-950/40",
   },
   potatoes: {
     label: "Potatoes",
@@ -43,6 +47,7 @@ export const CROP_THEMES: Record<CropType, CropTheme> = {
     iconFillDark: "#d6d3d1",
     cardClass:
       "border-stone-300/80 bg-stone-100/80 dark:border-stone-600/50 dark:bg-stone-900/50",
+    listingCardBgClass: "bg-stone-100 dark:bg-stone-900/50",
   },
   tomatoes: {
     label: "Tomatoes",
@@ -53,6 +58,7 @@ export const CROP_THEMES: Record<CropType, CropTheme> = {
     iconFillDark: "#fda4af",
     cardClass:
       "border-rose-200/80 bg-rose-50/80 dark:border-rose-800/50 dark:bg-rose-950/40",
+    listingCardBgClass: "bg-red-50 dark:bg-rose-950/40",
   },
   onions: {
     label: "Onions",
@@ -63,6 +69,7 @@ export const CROP_THEMES: Record<CropType, CropTheme> = {
     iconFillDark: "#c4b5fd",
     cardClass:
       "border-violet-200/80 bg-violet-50/80 dark:border-violet-800/50 dark:bg-violet-950/40",
+    listingCardBgClass: "bg-purple-50 dark:bg-violet-950/40",
   },
   cabbage: {
     label: "Cabbage",
@@ -73,6 +80,7 @@ export const CROP_THEMES: Record<CropType, CropTheme> = {
     iconFillDark: "#6ee7b7",
     cardClass:
       "border-emerald-200/80 bg-emerald-50/80 dark:border-emerald-800/50 dark:bg-emerald-950/40",
+    listingCardBgClass: "bg-green-50 dark:bg-emerald-950/40",
   },
   avocado: {
     label: "Avocado",
@@ -83,6 +91,7 @@ export const CROP_THEMES: Record<CropType, CropTheme> = {
     iconFillDark: "#bef264",
     cardClass:
       "border-lime-200/80 bg-lime-50/80 dark:border-lime-800/50 dark:bg-lime-950/40",
+    listingCardBgClass: "bg-lime-50 dark:bg-lime-950/40",
   },
   coffee: {
     label: "Coffee",
@@ -93,6 +102,7 @@ export const CROP_THEMES: Record<CropType, CropTheme> = {
     iconFillDark: "#fde68a",
     cardClass:
       "border-amber-300/80 bg-amber-100/70 dark:border-amber-700/50 dark:bg-amber-950/45",
+    listingCardBgClass: "bg-amber-100 dark:bg-amber-950/45",
   },
   tea: {
     label: "Tea",
@@ -103,6 +113,7 @@ export const CROP_THEMES: Record<CropType, CropTheme> = {
     iconFillDark: "#5eead4",
     cardClass:
       "border-teal-200/80 bg-teal-50/80 dark:border-teal-800/50 dark:bg-teal-950/40",
+    listingCardBgClass: "bg-teal-50 dark:bg-teal-950/40",
   },
   wheat: {
     label: "Wheat",
@@ -113,6 +124,7 @@ export const CROP_THEMES: Record<CropType, CropTheme> = {
     iconFillDark: "#fde047",
     cardClass:
       "border-yellow-200/80 bg-yellow-50/80 dark:border-yellow-800/50 dark:bg-yellow-950/40",
+    listingCardBgClass: "bg-yellow-50 dark:bg-yellow-950/40",
   },
 };
 
@@ -123,6 +135,7 @@ const FALLBACK_THEME: CropTheme = {
   iconFill: "#737373",
   iconFillDark: "#a3a3a3",
   cardClass: "border-separator bg-surface",
+  listingCardBgClass: "bg-surface",
 };
 
 export function isCropType(crop: string): crop is CropType {
@@ -138,6 +151,10 @@ export function getCropTheme(crop: string): CropTheme {
     ...FALLBACK_THEME,
     label: crop.charAt(0).toUpperCase() + crop.slice(1),
   };
+}
+
+export function getListingCardBgClass(crop: string): string {
+  return getCropTheme(crop).listingCardBgClass;
 }
 
 export function formatListingStatus(status: string): string {

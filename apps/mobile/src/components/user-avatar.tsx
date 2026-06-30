@@ -26,13 +26,11 @@ function getInitials(name: string | undefined, email: string | undefined) {
 
 const variantStyles = {
   header: {
-    container: "size-10 items-center justify-center rounded-avatar bg-surface shadow-elevated",
-    image: "size-10 rounded-avatar",
+    container: "size-10 items-center justify-center rounded-avatar bg-surface shadow-elevated overflow-hidden",
     text: "text-foreground text-xs font-medium",
   },
   profile: {
-    container: "size-14 items-center justify-center rounded-full bg-default",
-    image: "size-14 rounded-full",
+    container: "size-14 items-center justify-center rounded-full bg-default overflow-hidden",
     text: "text-lg font-semibold text-foreground",
   },
 } as const;
@@ -44,11 +42,13 @@ export function UserAvatar({ variant = "header" }: UserAvatarProps): JSX.Element
 
   if (viewer?.image) {
     return (
-      <Image
-        accessibilityLabel="Profile picture"
-        className={styles.image}
-        source={{ uri: viewer.image }}
-      />
+      <View className={styles.container}>
+        <Image
+          accessibilityLabel="Profile picture"
+          className="size-full"
+          source={{ uri: viewer.image }}
+        />
+      </View>
     );
   }
 

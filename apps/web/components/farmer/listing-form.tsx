@@ -3,15 +3,23 @@
 import { api } from "@repo/backend/convex/_generated/api";
 import type { Id } from "@repo/backend/convex/_generated/dataModel";
 import {
+  COUNTIES,
+  getCropTheme,
+  getListingCardBgClass,
+  LISTING_FORM_STEP_COUNT,
+  LISTING_FORM_STEP_LABELS,
   listingFormDefaults,
   parseListingForm,
+  validateListingFormStep,
+  type CropType,
+  type County,
   type ListingFormFieldErrors,
   type ListingFormInput,
-  COUNTIES,
-  type CropType,
+  type ListingFormStep,
 } from "@repo/types";
-import { CropPickerGrid } from "@/components/farmer/crop-display";
+import { CropBadge, CropPickerGrid } from "@/components/farmer/crop-display";
 import { Button, Input, Label, ListBox, Select } from "@heroui/react";
+import clsx from "clsx";
 import { useMutation } from "convex/react";
 import { FormEvent, useState } from "react";
 
@@ -23,6 +31,260 @@ type ListingFormProps = {
   onSubmitted: () => void;
 };
 
+function StepIndicator({ step }: { step: ListingFormStep }) {
+  return (
+    <div
+      aria-label={`Step ${step} of ${LISTING_FORM_STEP_COUNT}`}
+      className="flex flex-col gap-2"
+      role="progressbar"
+      aria-valuenow={step}
+      aria-valuemin={1}
+      aria-valuemax={LISTING_FORM_STEP_COUNT}
+    >
+      <div className="flex gap-1.5">
+        {Array.from({ length: LISTING_FORM_STEP_COUNT }, (_, index) => {
+          const stepNumber = (index + 1) as ListingFormStep;
+          return (
+            <div
+              key={stepNumber}
+              className={clsx(
+                "h-1 flex-1 rounded-full transition-colors duration-200",
+                stepNumber <= step ? "bg-accent" : "bg-separator",
+              )}
+            />
+          );
+        })}
+      </div>
+      <p className="text-xs text-muted">
+        Step {step} of {LISTING_FORM_STEP_COUNT} · {LISTING_FORM_STEP_LABELS[step - 1]}
+      </p>
+    </div>
+  );
+}
+
+type ReviewSummaryProps = {
+  county: string;
+  crop: CropType;
+  description: string;
+  grade: string;
+  pricePerKg: string;
+  quantityKg: string;
+};
+
+function ListingReviewSummary({
+  county,
+  crop,
+  description,
+  grade,
+  pricePerKg,
+  quantityKg,
+}: ReviewSummaryProps) {
+  const theme = getCropTheme(crop);
+  const bgClass = getListingCardBgClass(crop);
+  const trimmedDescription = description.trim();
+  const parsedQuantity = Number(quantityKg);
+  const parsedPrice = Number(pricePerKg);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Label>Review your listing</Label>
+      <div
+        className={clsx(
+          "flex flex-col gap-3 rounded-xl p-4 shadow-sm",
+          bgClass,
+        )}
+      >
+        <div className="flex items-center gap-2.5">
+          <CropBadge crop={crop} size="md" />
+          <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">
+            {theme.label}
+          </span>
+        </div>
+
+        <div className="flex flex-col gap-0.5">
+          <p className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
+            {Number.isFinite(parsedPrice) && parsedPrice > 0
+              ? `KES ${parsedPrice}`
+              : "—"}
+            <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
+              /kg
+            </span>
+          </p>
+          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+            {Number.isFinite(parsedQuantity) && parsedQuantity > 0
+              ? `${parsedQuantity} kg`
+              : "—"}
+          </p>
+        </div>
+
+        <p className="text-xs text-neutral-600 dark:text-neutral-400">
+          {county}
+          {grade.trim() ? ` · ${grade.trim()}` : ""}
+        </p>
+
+        {trimmedDescription.length > 0 ? (
+          <p className="border-l-2 border-neutral-300/60 pl-2.5 text-xs italic leading-relaxed text-neutral-600 dark:border-neutral-600/50 dark:text-neutral-400">
+            &ldquo;{trimmedDescription}&rdquo;
+          </p>
+        ) : (
+          <p className="text-xs italic text-neutral-500 dark:text-neutral-500">
+            No description yet
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+type FormFieldsProps = {
+  county: County;
+  crop: CropType;
+  description: string;
+  fieldErrors: ListingFormFieldErrors;
+  grade: string;
+  onCountyChange: (county: County) => void;
+  onCropChange: (crop: CropType) => void;
+  onDescriptionChange: (value: string) => void;
+  onGradeChange: (value: string) => void;
+  onPriceChange: (value: string) => void;
+  onQuantityChange: (value: string) => void;
+  pricePerKg: string;
+  quantityKg: string;
+  cropPickerVariant?: "compact" | "expanded";
+  showReview?: boolean;
+};
+
+function ListingFormFields({
+  county,
+  crop,
+  cropPickerVariant = "compact",
+  description,
+  fieldErrors,
+  grade,
+  onCountyChange,
+  onCropChange,
+  onDescriptionChange,
+  onGradeChange,
+  onPriceChange,
+  onQuantityChange,
+  pricePerKg,
+  quantityKg,
+  showReview = false,
+}: FormFieldsProps) {
+  return (
+    <>
+      <CropPickerGrid
+        error={fieldErrors.crop}
+        onChange={onCropChange}
+        value={crop}
+        variant={cropPickerVariant}
+      />
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-1">
+          <Input
+            aria-label="Quantity in kg"
+            fullWidth
+            onChange={(event) => onQuantityChange(event.target.value)}
+            placeholder="Quantity (kg)"
+            required
+            type="number"
+            value={quantityKg}
+          />
+          {fieldErrors.quantityKg ? (
+            <p className="text-sm text-danger">{fieldErrors.quantityKg}</p>
+          ) : null}
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <Input
+            aria-label="Price per kg"
+            fullWidth
+            onChange={(event) => onPriceChange(event.target.value)}
+            placeholder="Price per kg (KES)"
+            required
+            type="number"
+            value={pricePerKg}
+          />
+          {fieldErrors.pricePerKg ? (
+            <p className="text-sm text-danger">{fieldErrors.pricePerKg}</p>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <Select
+          aria-label="County"
+          placeholder="Select county"
+          onSelectionChange={(key) => {
+            if (key) {
+              onCountyChange(String(key) as County);
+            }
+          }}
+          selectedKey={county}
+        >
+          <Label>County</Label>
+          <Select.Trigger>
+            <Select.Value />
+            <Select.Indicator />
+          </Select.Trigger>
+          <Select.Popover>
+            <ListBox>
+              {COUNTIES.map((item) => (
+                <ListBox.Item id={item} key={item} textValue={item}>
+                  {item}
+                  <ListBox.ItemIndicator />
+                </ListBox.Item>
+              ))}
+            </ListBox>
+          </Select.Popover>
+        </Select>
+        {fieldErrors.county ? (
+          <p className="text-sm text-danger">{fieldErrors.county}</p>
+        ) : null}
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <Input
+          aria-label="Grade"
+          fullWidth
+          onChange={(event) => onGradeChange(event.target.value)}
+          placeholder="Grade (optional, e.g. Grade 1)"
+          value={grade}
+        />
+        {fieldErrors.grade ? (
+          <p className="text-sm text-danger">{fieldErrors.grade}</p>
+        ) : null}
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <Input
+          aria-label="Description"
+          fullWidth
+          onChange={(event) => onDescriptionChange(event.target.value)}
+          placeholder="Description"
+          required
+          value={description}
+        />
+        {fieldErrors.description ? (
+          <p className="text-sm text-danger">{fieldErrors.description}</p>
+        ) : null}
+      </div>
+
+      {showReview ? (
+        <ListingReviewSummary
+          county={county}
+          crop={crop}
+          description={description}
+          grade={grade}
+          pricePerKg={pricePerKg}
+          quantityKg={quantityKg}
+        />
+      ) : null}
+    </>
+  );
+}
+
 export function ListingForm({
   embedded = false,
   initialValues,
@@ -32,8 +294,10 @@ export function ListingForm({
 }: ListingFormProps) {
   const createListing = useMutation(api.listings.createListing);
   const updateListing = useMutation(api.listings.updateListing);
+  const useWizard = !listingId && embedded;
 
   const defaults = initialValues ?? listingFormDefaults();
+  const [step, setStep] = useState<ListingFormStep>(1);
   const [crop, setCrop] = useState<CropType>(defaults.crop);
   const [county, setCounty] = useState(defaults.county);
   const [quantityKg, setQuantityKg] = useState(
@@ -48,18 +312,20 @@ export function ListingForm({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const formValues = {
+    crop,
+    county,
+    description,
+    grade,
+    pricePerKg,
+    quantityKg,
+  };
+
+  const handleSubmit = async (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
     setSubmitError(null);
 
-    const parsed = parseListingForm({
-      crop,
-      county,
-      description,
-      grade,
-      pricePerKg,
-      quantityKg,
-    });
+    const parsed = parseListingForm(formValues);
 
     if (!parsed.success) {
       setFieldErrors(parsed.errors);
@@ -101,134 +367,268 @@ export function ListingForm({
     }
   };
 
+  const handleNext = () => {
+    setSubmitError(null);
+    const result = validateListingFormStep(step, formValues);
+    if (!result.success) {
+      setFieldErrors(result.errors);
+      return;
+    }
+
+    setFieldErrors({});
+    setStep((current) => Math.min(current + 1, 3) as ListingFormStep);
+  };
+
+  const handleBack = () => {
+    setFieldErrors({});
+    setStep((current) => Math.max(current - 1, 1) as ListingFormStep);
+  };
+
+  const shellClass = embedded
+    ? "flex min-h-0 flex-1 flex-col gap-5"
+    : "flex flex-col gap-5 rounded-lg bg-surface p-6 text-surface-foreground shadow-sm dark:shadow-none";
+
+  if (!useWizard) {
+    return (
+      <form
+        className={shellClass}
+        onSubmit={(event) => {
+          void handleSubmit(event);
+        }}
+      >
+        <div className="flex flex-col gap-1">
+          <h2 className="text-lg font-semibold tracking-tight">
+            {listingId ? "Edit listing" : "Create listing"}
+          </h2>
+          <p className="text-sm text-muted">
+            Listings sync live across mobile and web.
+          </p>
+        </div>
+
+        <ListingFormFields
+          county={county}
+          crop={crop}
+          description={description}
+          fieldErrors={fieldErrors}
+          grade={grade}
+          onCountyChange={setCounty}
+          onCropChange={setCrop}
+          onDescriptionChange={setDescription}
+          onGradeChange={setGrade}
+          onPriceChange={setPricePerKg}
+          onQuantityChange={setQuantityKg}
+          pricePerKg={pricePerKg}
+          quantityKg={quantityKg}
+        />
+
+        {submitError ? <p className="text-sm text-danger">{submitError}</p> : null}
+
+        <div className="flex flex-wrap gap-3">
+          {onCancel ? (
+            <Button type="button" variant="secondary" onPress={onCancel}>
+              Cancel
+            </Button>
+          ) : null}
+          <Button isDisabled={isSubmitting} type="submit">
+            {isSubmitting ? "Saving..." : listingId ? "Save changes" : "Create listing"}
+          </Button>
+        </div>
+      </form>
+    );
+  }
+
   return (
-    <form
-      className={
-        embedded
-          ? "flex flex-col gap-4"
-          : "flex flex-col gap-4 rounded-lg bg-surface p-6 text-surface-foreground shadow-sm dark:shadow-none"
-      }
-      onSubmit={(event) => {
-        void handleSubmit(event);
-      }}
-    >
+    <div className={shellClass}>
       <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-semibold tracking-tight">
-          {listingId ? "Edit listing" : "Create listing"}
-        </h2>
+        <h2 className="text-lg font-semibold tracking-tight">Create listing</h2>
         <p className="text-sm text-muted">
           Listings sync live across mobile and web.
         </p>
       </div>
 
-      <CropPickerGrid
-        error={fieldErrors.crop}
-        onChange={setCrop}
-        value={crop}
-      />
+      <StepIndicator step={step} />
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1">
-          <Input
-            aria-label="Quantity in kg"
-            fullWidth
-            onChange={(event) => setQuantityKg(event.target.value)}
-            placeholder="Quantity (kg)"
-            required
-            type="number"
-            value={quantityKg}
-          />
-          {fieldErrors.quantityKg ? (
-            <p className="text-sm text-danger">{fieldErrors.quantityKg}</p>
-          ) : null}
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <Input
-            aria-label="Price per kg"
-            fullWidth
-            onChange={(event) => setPricePerKg(event.target.value)}
-            placeholder="Price per kg (KES)"
-            required
-            type="number"
-            value={pricePerKg}
-          />
-          {fieldErrors.pricePerKg ? (
-            <p className="text-sm text-danger">{fieldErrors.pricePerKg}</p>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-1">
-        <Select
-          aria-label="County"
-          onSelectionChange={(key) => {
-            if (key) {
-              setCounty(String(key));
-            }
-          }}
-          selectedKey={county}
-        >
-          <Label>County</Label>
-          <Select.Trigger>
-            <Select.Value placeholder="Select county" />
-            <Select.Indicator />
-          </Select.Trigger>
-          <Select.Popover>
-            <ListBox>
-              {COUNTIES.map((item) => (
-                <ListBox.Item id={item} key={item} textValue={item}>
-                  {item}
-                  <ListBox.ItemIndicator />
-                </ListBox.Item>
-              ))}
-            </ListBox>
-          </Select.Popover>
-        </Select>
-        {fieldErrors.county ? (
-          <p className="text-sm text-danger">{fieldErrors.county}</p>
+      <div className="flex min-h-0 flex-1 flex-col gap-5">
+        {step === 1 ? (
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <h3 className="text-base font-medium text-foreground">
+                What are you selling?
+              </h3>
+              <p className="text-sm text-muted">
+                Pick the crop for this listing. You can change it before submitting.
+              </p>
+            </div>
+            <CropPickerGrid
+              error={fieldErrors.crop}
+              onChange={setCrop}
+              value={crop}
+              variant="expanded"
+            />
+          </div>
         ) : null}
-      </div>
 
-      <div className="flex flex-col gap-1">
-        <Input
-          aria-label="Grade"
-          fullWidth
-          onChange={(event) => setGrade(event.target.value)}
-          placeholder="Grade (optional, e.g. Grade 1)"
-          value={grade}
-        />
-        {fieldErrors.grade ? (
-          <p className="text-sm text-danger">{fieldErrors.grade}</p>
+        {step === 2 ? (
+          <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-1">
+              <h3 className="text-base font-medium text-foreground">
+                Listing details
+              </h3>
+              <p className="text-sm text-muted">
+                Quantity, price, and county help buyers find your produce.
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1">
+                <Input
+                  aria-label="Quantity in kg"
+                  fullWidth
+                  onChange={(event) => setQuantityKg(event.target.value)}
+                  placeholder="Quantity (kg)"
+                  required
+                  type="number"
+                  value={quantityKg}
+                />
+                {fieldErrors.quantityKg ? (
+                  <p className="text-sm text-danger">{fieldErrors.quantityKg}</p>
+                ) : null}
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <Input
+                  aria-label="Price per kg"
+                  fullWidth
+                  onChange={(event) => setPricePerKg(event.target.value)}
+                  placeholder="Price per kg (KES)"
+                  required
+                  type="number"
+                  value={pricePerKg}
+                />
+                {fieldErrors.pricePerKg ? (
+                  <p className="text-sm text-danger">{fieldErrors.pricePerKg}</p>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <Select
+                aria-label="County"
+                placeholder="Select county"
+                onSelectionChange={(key) => {
+                  if (key) {
+                    setCounty(String(key) as County);
+                  }
+                }}
+                selectedKey={county}
+              >
+                <Label>County</Label>
+                <Select.Trigger>
+                  <Select.Value />
+                  <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover>
+                  <ListBox>
+                    {COUNTIES.map((item) => (
+                      <ListBox.Item id={item} key={item} textValue={item}>
+                        {item}
+                        <ListBox.ItemIndicator />
+                      </ListBox.Item>
+                    ))}
+                  </ListBox>
+                </Select.Popover>
+              </Select>
+              {fieldErrors.county ? (
+                <p className="text-sm text-danger">{fieldErrors.county}</p>
+              ) : null}
+            </div>
+          </div>
         ) : null}
-      </div>
 
-      <div className="flex flex-col gap-1">
-        <Input
-          aria-label="Description"
-          fullWidth
-          onChange={(event) => setDescription(event.target.value)}
-          placeholder="Description"
-          required
-          value={description}
-        />
-        {fieldErrors.description ? (
-          <p className="text-sm text-danger">{fieldErrors.description}</p>
+        {step === 3 ? (
+          <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-1">
+              <h3 className="text-base font-medium text-foreground">
+                Final details
+              </h3>
+              <p className="text-sm text-muted">
+                Add optional grade info and a description, then review before posting.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <Input
+                aria-label="Grade"
+                fullWidth
+                onChange={(event) => setGrade(event.target.value)}
+                placeholder="Grade (optional, e.g. Grade 1)"
+                value={grade}
+              />
+              {fieldErrors.grade ? (
+                <p className="text-sm text-danger">{fieldErrors.grade}</p>
+              ) : null}
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <Input
+                aria-label="Description"
+                fullWidth
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder="Describe quality, harvest timing, delivery options..."
+                required
+                value={description}
+              />
+              {fieldErrors.description ? (
+                <p className="text-sm text-danger">{fieldErrors.description}</p>
+              ) : null}
+            </div>
+
+            <ListingReviewSummary
+              county={county}
+              crop={crop}
+              description={description}
+              grade={grade}
+              pricePerKg={pricePerKg}
+              quantityKg={quantityKg}
+            />
+          </div>
         ) : null}
+
+        {submitError ? <p className="text-sm text-danger">{submitError}</p> : null}
       </div>
 
-      {submitError ? <p className="text-sm text-danger">{submitError}</p> : null}
-
-      <div className="flex flex-wrap gap-3">
-        {onCancel ? (
-          <Button type="button" variant="secondary" onPress={onCancel}>
-            Cancel
+      <div className="flex items-center gap-3 border-t border-separator pt-4">
+        {step === 1 ? (
+          onCancel ? (
+            <Button className="flex-1" type="button" variant="secondary" onPress={onCancel}>
+              Cancel
+            </Button>
+          ) : (
+            <div className="flex-1" />
+          )
+        ) : (
+          <Button className="flex-1" type="button" variant="secondary" onPress={handleBack}>
+            Back
           </Button>
-        ) : null}
-        <Button isDisabled={isSubmitting} type="submit">
-          {isSubmitting ? "Saving..." : listingId ? "Save changes" : "Create listing"}
-        </Button>
+        )}
+
+        {step < 3 ? (
+          <Button className="flex-1" type="button" onPress={handleNext}>
+            Continue
+          </Button>
+        ) : (
+          <Button
+            className="flex-1"
+            isDisabled={isSubmitting}
+            type="button"
+            onPress={() => {
+              void handleSubmit();
+            }}
+          >
+            {isSubmitting ? "Creating..." : "Create listing"}
+          </Button>
+        )}
       </div>
-    </form>
+    </div>
   );
 }

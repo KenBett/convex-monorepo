@@ -8,6 +8,37 @@ Work through phases in order: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7.
 
 ---
 
+## STAGE A — Stabilize (prerequisite)
+
+Before building new features, confirm the repo builds cleanly and listing RAG works end-to-end.
+
+**Build checks:** `bun run typecheck` (root), `bun run build` (apps/web), `bun run typecheck` (apps/mobile).
+
+**RAG verification (automated):** From `packages/backend`, run:
+
+```bash
+bunx convex run listings/ragDebug:runStageARagVerification "{}" --push
+```
+
+**Verified 2026-06-30** — result:
+
+```json
+{
+  "indexed": true,
+  "foundWhenActive": true,
+  "foundWhenSoldOut": false,
+  "searchQuery": "STAGE_A_RAG_VERIFICATION potatoes Nairobi",
+  "activeResultCount": 1,
+  "soldOutResultCount": 0
+}
+```
+
+This creates a `potatoes` listing in Nairobi with description marker `STAGE_A_RAG_VERIFICATION`, syncs to RAG, confirms semantic search returns it while active, marks it sold out, re-syncs, and confirms buyer hydration excludes it.
+
+**Manual inspection:** Farmers can call `api.listings.ragDebug.debugListingIndex` from the Convex dashboard while signed in.
+
+---
+
 ## PHASE 0 — Repo Audit (no code changes in this phase)
 
 Before writing anything, inspect the repo and report back on each of these:

@@ -1,0 +1,294 @@
+import { v } from "convex/values";
+
+import { internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
+import {
+  internalAction,
+  internalMutation,
+  internalQuery,
+  query,
+  type ActionCtx,
+} from "../_generated/server";
+import { requireFarmerProfile } from "../lib/listings";
+import {
+  GLOBAL_NAMESPACE,
+  VECTOR_SCORE_THRESHOLD,
+  rag,
+  type RagEntryMetadata,
+} from "../lib/rag";
+
+/** Grep-friendly marker for Stage A RAG verification listings. */
+export const STAGE_A_RAG_MARKER = "STAGE_A_RAG_VERIFICATION";
+
+const listingIndexRowValidator = v.object({
+  _id: v.id("listings"),
+  county: v.string(),
+  crop: v.string(),
+  ragDocumentId: v.optional(v.string()),
+  status: v.union(
+    v.literal("active"),
+    v.literal("sold_out"),
+    v.literal("expired"),
+  ),
+});
+
+const ragEntryValidator = v.object({
+  entryId: v.string(),
+  listingId: v.optional(v.id("listings")),
+  status: v.string(),
+  title: v.optional(v.string()),
+});
+
+export const debugListingIndex = query({
+  args: {},
+  returns: v.object({
+    listings: v.array(listingIndexRowValidator),
+    ragEntries: v.array(ragEntryValidator),
+    ragNamespace: v.union(
+      v.object({
+        namespace: v.string(),
+        namespaceId: v.string(),
+        status: v.string(),
+      }),
+      v.null(),
+    ),
+    ragReadyEntryCount: v.number(),
+  }),
+  handler: async (ctx) => {
+    const profile = await requireFarmerProfile(ctx);
+
+    const listings = await ctx.db
+      .query("listings")
+      .withIndex("by_farmer", (q) => q.eq("farmerId", profile._id))
+      .order("desc")
+      .collect();
+
+    const namespace = await rag.getNamespace(ctx, {
+      namespace: GLOBAL_NAMESPACE,
+    });
+
+    if (!namespace) {
+      return {
+        listings: listings.map((listing) => ({
+          _id: listing._id,
+          county: listing.county,
+          crop: listing.crop,
+          ragDocumentId: listing.ragDocumentId,
+          status: listing.status,
+        })),
+        ragEntries: [],
+        ragNamespace: null,
+        ragReadyEntryCount: 0,
+      };
+    }
+
+    const listResult = await rag.list(ctx, {
+      limit: 100,
+      namespaceId: namespace.namespaceId,
+      status: "ready",
+    });
+
+    const ragEntries = listResult.page.flatMap((entry) => {
+      const metadata = entry.metadata as RagEntryMetadata | undefined;
+      if (metadata?.sourceType !== "listing") {
+        return [];
+      }
+
+      return [
+        {
+          entryId: entry.entryId,
+          listingId: metadata.listingId,
+          status: entry.status,
+          title: entry.title,
+        },
+      ];
+    });
+
+    return {
+      listings: listings.map((listing) => ({
+        _id: listing._id,
+        county: listing.county,
+        crop: listing.crop,
+        ragDocumentId: listing.ragDocumentId,
+        status: listing.status,
+      })),
+      ragEntries,
+      ragNamespace: {
+        namespace: GLOBAL_NAMESPACE,
+        namespaceId: namespace.namespaceId,
+        status: namespace.status,
+      },
+      ragReadyEntryCount: ragEntries.length,
+    };
+  },
+});
+
+export const seedStageAListing = internalMutation({
+  args: {},
+  returns: v.id("listings"),
+  handler: async (ctx) => {
+    const farmer = await ctx.db.query("farmerProfiles").first();
+    if (!farmer) {
+      throw new Error("No farmer profile found. Complete farmer onboarding first.");
+    }
+
+    const listings = await ctx.db
+      .query("listings")
+      .withIndex("by_farmer", (q) => q.eq("farmerId", farmer._id))
+      .collect();
+
+    for (const listing of listings) {
+      if (listing.description.includes(STAGE_A_RAG_MARKER)) {
+        await ctx.db.delete("listings", listing._id);
+      }
+    }
+
+    return await ctx.db.insert("listings", {
+      county: "Nairobi",
+      crop: "potatoes",
+      description: `${STAGE_A_RAG_MARKER}: distinctive potatoes listing for semantic search e2e test.`,
+      farmerId: farmer._id,
+      pricePerKg: 50,
+      quantityKg: 50,
+      status: "active",
+    });
+  },
+});
+
+export const markStageAListingSoldOut = internalMutation({
+  args: { listingId: v.id("listings") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch("listings", args.listingId, { status: "sold_out" });
+    return null;
+  },
+});
+
+export const getListingRagState = internalQuery({
+  args: { listingId: v.id("listings") },
+  returns: v.union(
+    v.object({
+      ragDocumentId: v.optional(v.string()),
+      status: v.union(
+        v.literal("active"),
+        v.literal("sold_out"),
+        v.literal("expired"),
+      ),
+    }),
+    v.null(),
+  ),
+  handler: async (ctx, args) => {
+    const listing = await ctx.db.get("listings", args.listingId);
+    if (!listing) {
+      return null;
+    }
+
+    return {
+      ragDocumentId: listing.ragDocumentId,
+      status: listing.status,
+    };
+  },
+});
+
+const stageAResultValidator = v.object({
+  activeResultCount: v.number(),
+  foundWhenActive: v.boolean(),
+  foundWhenSoldOut: v.boolean(),
+  indexed: v.boolean(),
+  listingId: v.id("listings"),
+  searchQuery: v.string(),
+  soldOutResultCount: v.number(),
+});
+
+export const runStageARagVerification = internalAction({
+  args: {},
+  returns: stageAResultValidator,
+  handler: async (ctx): Promise<{
+    activeResultCount: number;
+    foundWhenActive: boolean;
+    foundWhenSoldOut: boolean;
+    indexed: boolean;
+    listingId: Id<"listings">;
+    searchQuery: string;
+    soldOutResultCount: number;
+  }> => {
+    const listingId: Id<"listings"> = await ctx.runMutation(
+      internal.listings.ragDebug.seedStageAListing,
+      {},
+    );
+
+    await ctx.runAction(internal.listings.ragSync.syncListingToRag, {
+      listingId,
+    });
+
+    const afterSync: {
+      ragDocumentId?: string;
+      status: "active" | "expired" | "sold_out";
+    } | null = await ctx.runQuery(internal.listings.ragDebug.getListingRagState, {
+      listingId,
+    });
+
+    const searchQuery = "STAGE_A_RAG_VERIFICATION potatoes Nairobi";
+    const activeResults = await searchActiveListings(ctx, searchQuery, listingId);
+
+    await ctx.runMutation(internal.listings.ragDebug.markStageAListingSoldOut, {
+      listingId,
+    });
+    await ctx.runAction(internal.listings.ragSync.syncListingToRag, {
+      listingId,
+    });
+
+    const soldOutResults = await searchActiveListings(ctx, searchQuery, listingId);
+
+    return {
+      activeResultCount: activeResults.length,
+      foundWhenActive: activeResults.includes(listingId),
+      foundWhenSoldOut: soldOutResults.includes(listingId),
+      indexed: Boolean(afterSync?.ragDocumentId),
+      listingId,
+      searchQuery,
+      soldOutResultCount: soldOutResults.length,
+    };
+  },
+});
+
+async function searchActiveListings(
+  ctx: ActionCtx,
+  queryText: string,
+  targetListingId: Id<"listings">,
+): Promise<Array<Id<"listings">>> {
+  const response = await rag.search(ctx, {
+    chunkContext: { after: 1, before: 1 },
+    limit: 32,
+    namespace: GLOBAL_NAMESPACE,
+    query: queryText,
+    vectorScoreThreshold: VECTOR_SCORE_THRESHOLD,
+  });
+
+  const activeListingIds: Array<Id<"listings">> = [];
+
+  for (const result of response.results) {
+    const entry = response.entries.find((item) => item.entryId === result.entryId);
+    const metadata = entry?.metadata as RagEntryMetadata | undefined;
+    if (metadata?.sourceType !== "listing") {
+      continue;
+    }
+
+    const hydrated = await ctx.runQuery(internal.listings.search.hydrateSearchCandidates, {
+      candidates: [
+        {
+          listingId: metadata.listingId,
+          score: result.score,
+          snippet: result.content.map((chunk) => chunk.text).join("\n"),
+          title: entry?.title,
+        },
+      ],
+    });
+
+    for (const row of hydrated) {
+      activeListingIds.push(row.listingId);
+    }
+  }
+
+  return activeListingIds.filter((id) => id === targetListingId);
+}

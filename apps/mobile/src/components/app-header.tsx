@@ -23,7 +23,7 @@ export function AppHeader({ title }: AppHeaderProps): JSX.Element {
         accessibilityLabel="Go to profile"
         accessibilityRole="button"
         className="min-h-touch min-w-touch items-center justify-center"
-        onPress={() => router.push("/(tabs)/profile")}
+        onPress={() => router.push("/(farmer)/(tabs)/profile")}
       >
         <UserAvatar variant="header" />
       </Pressable>

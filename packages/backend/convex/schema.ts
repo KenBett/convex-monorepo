@@ -17,23 +17,6 @@ export default defineSchema({
   })
     .index("email", ["email"])
     .index("phone", ["phone"]),
-  documents: defineTable({
-    createdAt: v.number(),
-    error: v.optional(v.string()),
-    filename: v.optional(v.string()),
-    ragEntryId: v.optional(v.string()),
-    sourceType: v.union(v.literal("text"), v.literal("file")),
-    status: v.union(
-      v.literal("processing"),
-      v.literal("ready"),
-      v.literal("error"),
-    ),
-    storageId: v.optional(v.id("_storage")),
-    title: v.string(),
-    uploadedBy: v.id("users"),
-  })
-    .index("by_status", ["status"])
-    .index("by_uploadedBy", ["uploadedBy"]),
   farmerProfiles: defineTable({
     cooperativeName: v.string(),
     county: v.string(),

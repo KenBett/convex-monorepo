@@ -2,9 +2,11 @@ import {
   CROP_TYPES,
   getCropIconDefinition,
   getCropTheme,
+  getListingCardBgClass,
   type CropType,
 } from "@repo/types";
-import { Label } from "heroui-native";
+import { Label, useThemeColor } from "heroui-native";
+import { Check } from "lucide-react-native";
 import type { JSX } from "react";
 import { Pressable, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
@@ -13,17 +15,19 @@ import { useAppTheme } from "@/hooks/use-app-theme";
 
 const BADGE_SIZE_CLASS = {
   sm: "h-9 w-9",
-  md: "h-10 w-10",
+  md: "h-11 w-11",
+  lg: "h-12 w-12",
 } as const;
 
 const ICON_SIZE = {
   sm: 18,
   md: 20,
+  lg: 24,
 } as const;
 
 type CropBadgeProps = {
   crop: string;
-  size?: "sm" | "md";
+  size?: "sm" | "md" | "lg";
 };
 
 export function CropIcon({
@@ -85,17 +89,22 @@ type CropPickerGridProps = {
   error?: string;
   onChange: (crop: CropType) => void;
   value: CropType;
+  variant?: "compact" | "expanded";
 };
 
 export function CropPickerGrid({
   error,
   onChange,
   value,
+  variant = "compact",
 }: CropPickerGridProps): JSX.Element {
+  const backgroundColor = useThemeColor("background");
+  const expanded = variant === "expanded";
+
   return (
-    <View className="gap-section-title">
-      <Label>Crop</Label>
-      <View className="flex-row flex-wrap gap-2">
+    <View className={expanded ? "gap-3" : "gap-section-title"}>
+      {!expanded ? <Label>Crop</Label> : null}
+      <View className={`flex-row flex-wrap ${expanded ? "gap-3" : "gap-2"}`}>
         {CROP_TYPES.map((crop) => {
           const theme = getCropTheme(crop);
           const selected = value === crop;
@@ -105,15 +114,32 @@ export function CropPickerGrid({
               key={crop}
               accessibilityRole="radio"
               accessibilityState={{ checked: selected }}
-              className={`w-[23%] items-center gap-1.5 rounded-lg border p-2 ${cropCardClassName(crop)} ${
-                selected ? "border-foreground border-2" : ""
+              className={`relative items-center rounded-xl border ${
+                expanded ? "w-[30%] gap-2.5 p-4" : "w-[23%] gap-1.5 p-2"
+              } ${cropCardClassName(crop)} ${
+                selected
+                  ? `${getListingCardBgClass(crop)} border-transparent shadow-sm`
+                  : expanded
+                    ? "opacity-85"
+                    : ""
               }`}
               onPress={() => {
                 onChange(crop);
               }}
             >
-              <CropBadge crop={crop} size="sm" />
-              <Text className="text-center text-xs font-medium">{theme.label}</Text>
+              {selected ? (
+                <View className="absolute right-2 top-2 h-5 w-5 items-center justify-center rounded-full bg-foreground/90">
+                  <Check color={backgroundColor} size={12} strokeWidth={2.5} />
+                </View>
+              ) : null}
+              <CropBadge crop={crop} size={expanded ? "lg" : "sm"} />
+              <Text
+                className={`text-center font-medium ${
+                  expanded ? "text-sm" : "text-xs"
+                }`}
+              >
+                {theme.label}
+              </Text>
             </Pressable>
           );
         })}

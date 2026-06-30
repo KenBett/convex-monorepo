@@ -1,51 +1,26 @@
-import { Tabs } from "expo-router";
+import { Stack } from "expo-router";
 import { useThemeColor } from "heroui-native";
-import { useCallback, type ComponentProps, type JSX } from "react";
-
-import { PremiumTabBar } from "@/components/premium-tab-bar";
-import type { PremiumTabBarProps } from "@/components/premium-tab-bar.types";
-
-type TabBarRenderer = NonNullable<ComponentProps<typeof Tabs>["tabBar"]>;
+import type { JSX } from "react";
 
 export default function FarmerLayout(): JSX.Element {
   const backgroundColor = useThemeColor("background");
-  const renderTabBar = useCallback<TabBarRenderer>(
-    (props) => <PremiumTabBar {...(props as PremiumTabBarProps)} />,
-    [],
-  );
 
   return (
-    <Tabs
-      tabBar={renderTabBar}
+    <Stack
       screenOptions={{
+        contentStyle: { backgroundColor },
         headerShown: false,
-        sceneStyle: { backgroundColor, flex: 1 },
       }}
     >
-      <Tabs.Screen
-        name="index"
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen
+        name="listings/[id]"
         options={{
-          title: "Dashboard",
-          tabBarAccessibilityLabel: "Dashboard tab",
-          tabBarLabel: "Dashboard",
+          headerShown: true,
+          headerBackTitle: "Back",
+          title: "Listing",
         }}
       />
-      <Tabs.Screen
-        name="my-products"
-        options={{
-          title: "My Products",
-          tabBarAccessibilityLabel: "My Products tab",
-          tabBarLabel: "My Products",
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          tabBarAccessibilityLabel: "Profile tab",
-          tabBarLabel: "Profile",
-        }}
-      />
-    </Tabs>
+    </Stack>
   );
 }

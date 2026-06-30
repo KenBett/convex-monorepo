@@ -157,8 +157,8 @@ export function MyProductsClient() {
       <Modal state={createModalState}>
         <Modal.Backdrop>
           <Modal.Container scroll="inside" size="lg">
-            <Modal.Dialog>
-              <Modal.Body>
+            <Modal.Dialog className="p-6">
+              <Modal.Body className="gap-0 p-0">
                 <ListingForm
                   embedded
                   key={createFormKey}
@@ -237,6 +237,7 @@ export function MyProductsClient() {
                 key={listing._id}
                 isMarkingSoldOut={markingSoldOutId === listing._id}
                 listing={listing}
+                listingId={listing._id}
                 onEdit={() => {
                   setEditingListingId(listing._id);
                 }}
