@@ -66,10 +66,50 @@ export const viewer = query({
   },
 });
 
+const farmerProfileSummaryValidator = v.object({
+  cooperativeName: v.string(),
+  county: v.string(),
+  mpesaNumber: v.string(),
+  phoneNumber: v.string(),
+});
+
 const buyerProfileSummaryValidator = v.object({
   businessName: v.string(),
+  businessType: businessTypeValidator,
   county: v.string(),
   phoneNumber: v.string(),
+});
+
+export const farmerProfile = query({
+  args: {},
+  returns: v.union(farmerProfileSummaryValidator, v.null()),
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      return null;
+    }
+
+    const user = await ctx.db.get("users", userId);
+    if (!user || getMarketplaceRole(user) !== "farmer") {
+      return null;
+    }
+
+    const profile = await ctx.db
+      .query("farmerProfiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+
+    if (!profile) {
+      return null;
+    }
+
+    return {
+      cooperativeName: profile.cooperativeName,
+      county: profile.county,
+      mpesaNumber: profile.mpesaNumber,
+      phoneNumber: profile.phoneNumber,
+    };
+  },
 });
 
 export const buyerProfile = query({
@@ -97,6 +137,7 @@ export const buyerProfile = query({
 
     return {
       businessName: profile.businessName,
+      businessType: profile.businessType,
       county: profile.county,
       phoneNumber: profile.phoneNumber,
     };
@@ -113,7 +154,7 @@ export const updateProfile = mutation({
     const userId = await requireAuthUserId(ctx);
     const updates: Partial<Doc<"users">> = {};
     if (args.name !== undefined) {
-      updates.name = args.name;
+      updates.name = args.name.trim() || undefined;
     }
     if (args.image !== undefined) {
       updates.image = args.image;
@@ -121,6 +162,66 @@ export const updateProfile = mutation({
     if (Object.keys(updates).length > 0) {
       await ctx.db.patch("users", userId, updates);
     }
+    return null;
+  },
+});
+
+export const updateFarmerProfile = mutation({
+  args: farmerProfileInputValidator,
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await requireAuthUserId(ctx);
+    const user = await ctx.db.get("users", userId);
+    if (!user || getMarketplaceRole(user) !== "farmer") {
+      throw new Error("Farmer profile not found");
+    }
+
+    assertValidCounty(args.county);
+
+    const profile = await ctx.db
+      .query("farmerProfiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+    if (!profile) {
+      throw new Error("Farmer profile not found");
+    }
+
+    await ctx.db.patch("farmerProfiles", profile._id, {
+      cooperativeName: args.cooperativeName.trim(),
+      county: args.county,
+      mpesaNumber: args.mpesaNumber.trim(),
+      phoneNumber: args.phoneNumber.trim(),
+    });
+    return null;
+  },
+});
+
+export const updateBuyerProfile = mutation({
+  args: buyerProfileInputValidator,
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await requireAuthUserId(ctx);
+    const user = await ctx.db.get("users", userId);
+    if (!user || getMarketplaceRole(user) !== "buyer") {
+      throw new Error("Buyer profile not found");
+    }
+
+    assertValidCounty(args.county);
+
+    const profile = await ctx.db
+      .query("buyerProfiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+    if (!profile) {
+      throw new Error("Buyer profile not found");
+    }
+
+    await ctx.db.patch("buyerProfiles", profile._id, {
+      businessName: args.businessName.trim(),
+      businessType: args.businessType,
+      county: args.county,
+      phoneNumber: args.phoneNumber.trim(),
+    });
     return null;
   },
 });

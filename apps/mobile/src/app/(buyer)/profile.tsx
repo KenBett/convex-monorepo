@@ -5,6 +5,7 @@ import { Moon, Smartphone, Sun } from "lucide-react-native";
 import { Text, View } from "react-native";
 
 import { ProfileAccountSection } from "@/components/profile-account-section";
+import { ProfileDetailsSection } from "@/components/profile-details-section";
 import { ScreenShell } from "@/components/screen-shell";
 import type { ThemePreference } from "@/hooks/use-app-theme";
 import { useAppTheme } from "@/hooks/use-app-theme";
@@ -32,6 +33,7 @@ export default function BuyerProfileScreen(): JSX.Element {
   return (
     <ScreenShell title="Profile">
       <ProfileAccountSection />
+      <ProfileDetailsSection />
       <View className="gap-section-title">
         <Text className="text-section-title">Appearance</Text>
         <ListGroup>
