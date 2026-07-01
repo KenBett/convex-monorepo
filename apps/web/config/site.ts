@@ -1,4 +1,5 @@
 export const siteConfig = {
-  name: "B3TT",
-  description: "B3TT is better than vibe coding",
+  name: "Vunr",
+  description:
+    "Connect buyers and farmers through intelligent produce sourcing.",
 };

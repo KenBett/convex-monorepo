@@ -18,6 +18,7 @@
     "typescript": "^5.0.0"
   },
   "overrides": {
+    "ai": "^7.0.8",
     "convex": "1.41.0"
   }
 }

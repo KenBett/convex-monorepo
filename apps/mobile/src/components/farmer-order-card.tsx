@@ -7,6 +7,8 @@ import type { JSX } from "react";
 import { useState } from "react";
 import { Text, View } from "react-native";
 
+import { AppEmptyState } from "@/components/app-empty-state";
+
 export type FarmerOrderSummary = {
   _id: Id<"orders">;
   buyerBusinessName: string;
@@ -101,7 +103,14 @@ export function FarmerOrdersList({
   const visibleOrders = limit !== undefined ? orders.slice(0, limit) : orders;
 
   if (visibleOrders.length === 0) {
-    return <Text className="text-caption text-muted">{emptyMessage}</Text>;
+    return (
+      <AppEmptyState
+        description={emptyMessage}
+        illustration="empty-orders"
+        illustrationSize={100}
+        title="No orders yet"
+      />
+    );
   }
 
   return (

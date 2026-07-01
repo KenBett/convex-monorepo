@@ -29,17 +29,25 @@ export type FarmerListingCardData = {
 };
 
 type FarmerListingCardProps = {
+  compact?: boolean;
   listing: FarmerListingCardData;
   listingId: Id<"listings">;
 };
 
-function ListingStatusPill({ status }: { status: ListingStatus }) {
+function ListingStatusPill({
+  compact = false,
+  status,
+}: {
+  compact?: boolean;
+  status: ListingStatus;
+}) {
   const isActive = status === "active";
 
   return (
     <span
       className={clsx(
-        "inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium leading-none shadow-sm ring-1 ring-black/5",
+        "inline-flex shrink-0 items-center gap-1 rounded-full font-medium leading-none shadow-sm ring-1 ring-black/5",
+        compact ? "px-1 py-0.5 text-[9px]" : "px-1.5 py-0.5 text-[10px]",
         isActive
           ? "bg-white/95 text-emerald-800 dark:bg-stone-900/95 dark:text-emerald-300"
           : "bg-white/95 text-stone-700 dark:bg-stone-900/95 dark:text-stone-300",
@@ -72,6 +80,7 @@ function ListingCardNoiseOverlay() {
 }
 
 export function FarmerListingCard({
+  compact = false,
   listing,
   listingId,
 }: FarmerListingCardProps) {
@@ -94,7 +103,8 @@ export function FarmerListingCard({
   return (
     <article
       className={clsx(
-        "group relative grid aspect-square cursor-pointer grid-rows-[1fr_auto] overflow-hidden rounded-[0.875rem]",
+        "group relative grid aspect-square cursor-pointer grid-rows-[1fr_auto] overflow-hidden",
+        compact ? "rounded-lg" : "rounded-[0.875rem]",
         "shadow-sm transition-[box-shadow,transform] duration-200",
         "hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
         bgClass,
@@ -112,38 +122,63 @@ export function FarmerListingCard({
             unoptimized
             alt={`${theme.label} listing photo`}
             className="object-cover"
-            sizes="(max-width: 768px) 50vw, 240px"
+            sizes={compact ? "120px" : "(max-width: 768px) 50vw, 240px"}
             src={listing.imageUrl}
           />
         ) : (
           <div className="flex h-full items-center justify-center bg-black/4 dark:bg-black/20">
-            <CropBadge crop={listing.crop} size="lg" />
+            <CropBadge crop={listing.crop} size={compact ? "sm" : "lg"} />
           </div>
         )}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-linear-to-t from-black/20 to-transparent" />
-        <div className="absolute right-2 top-2 z-10">
-          <ListingStatusPill status={listing.status} />
+        <div className={clsx("absolute z-10", compact ? "right-1.5 top-1.5" : "right-2 top-2")}>
+          <ListingStatusPill compact={compact} status={listing.status} />
         </div>
       </div>
 
       <ListingCardNoiseOverlay />
 
-      <div className="relative z-10 flex min-h-0 flex-col gap-1 px-2.5 pb-2.5 pt-2">
+      <div
+        className={clsx(
+          "relative z-10 flex min-h-0 flex-col",
+          compact ? "gap-0.5 px-2 pb-2 pt-1.5" : "gap-1 px-2.5 pb-2.5 pt-2",
+        )}
+      >
         <div className="flex min-w-0 items-center gap-1.5">
           <CropBadge crop={listing.crop} size="sm" />
-          <h2 className="truncate text-xs font-semibold capitalize text-neutral-900 dark:text-neutral-50">
+          <h2
+            className={clsx(
+              "truncate font-semibold capitalize text-neutral-900 dark:text-neutral-50",
+              compact ? "text-[10px]" : "text-xs",
+            )}
+          >
             {theme.label}
           </h2>
         </div>
 
-        <p className="text-base font-semibold leading-none tracking-tight text-neutral-900 dark:text-neutral-50">
+        <p
+          className={clsx(
+            "font-semibold leading-none tracking-tight text-neutral-900 dark:text-neutral-50",
+            compact ? "text-sm" : "text-base",
+          )}
+        >
           KES {listing.pricePerKg}
-          <span className="text-[11px] font-medium text-neutral-600 dark:text-neutral-400">
+          <span
+            className={clsx(
+              "font-medium text-neutral-600 dark:text-neutral-400",
+              compact ? "text-[10px]" : "text-[11px]",
+            )}
+          >
             /kg
           </span>
         </p>
 
-        <p className="truncate text-[11px] text-neutral-600 dark:text-neutral-400">
+        <p
+          className={clsx(
+            "truncate text-neutral-600 dark:text-neutral-400",
+            compact ? "text-[10px]" : "text-[11px]",
+          )}
+        >
           {listing.quantityKg} kg
           {listing.grade ? ` · ${listing.grade}` : ""}
           {" · "}

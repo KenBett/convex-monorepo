@@ -463,14 +463,9 @@ export function ListingForm({
           void handleSubmit(event);
         }}
       >
-        <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold tracking-tight">
-            {listingId ? "Edit listing" : "Create listing"}
-          </h2>
-          <p className="text-sm text-muted">
-            Listings sync live across mobile and web.
-          </p>
-        </div>
+        <h2 className="text-lg font-semibold tracking-tight">
+          {listingId ? "Edit listing" : "Create listing"}
+        </h2>
 
         <ListingFormFields
           county={county}
@@ -515,11 +510,8 @@ export function ListingForm({
 
   return (
     <div className={shellClass}>
-      <div className="shrink-0 flex flex-col gap-1">
+      <div className="shrink-0">
         <h2 className="text-lg font-semibold tracking-tight">Create listing</h2>
-        <p className="text-sm text-muted">
-          Listings sync live across mobile and web.
-        </p>
       </div>
 
       <div className="shrink-0">
@@ -529,15 +521,9 @@ export function ListingForm({
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto">
         {step === 1 ? (
           <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              <h3 className="text-base font-medium text-foreground">
-                What are you selling?
-              </h3>
-              <p className="text-sm text-muted">
-                Pick the crop for this listing. You can change it before
-                submitting.
-              </p>
-            </div>
+            <h3 className="text-base font-medium text-foreground">
+              What are you selling?
+            </h3>
             <CropPickerGrid
               error={fieldErrors.crop}
               value={crop}
@@ -549,17 +535,12 @@ export function ListingForm({
 
         {step === 2 ? (
           <div className="flex flex-col gap-5">
-            <div className="flex flex-col gap-1">
-              <h3 className="text-base font-medium text-foreground">
-                Listing details
-              </h3>
-              <p className="text-sm text-muted">
-                Add a photo, then quantity, price, and county so buyers can find
-                your produce.
-              </p>
-            </div>
+            <h3 className="text-base font-medium text-foreground">
+              Listing details
+            </h3>
 
             <ListingImagePicker
+              hideLabel
               error={fieldErrors.imageStorageId}
               initialPreviewUrl={imagePreviewUrl}
               value={imageStorageId}

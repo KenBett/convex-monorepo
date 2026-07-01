@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { BuyerSourcingChat } from "@/components/buyer/buyer-sourcing-chat";
 
 export const metadata: Metadata = {
-  title: "Buyer Dashboard",
+  title: "Find produce",
 };
 
 export default function BuyerPage() {

@@ -1,0 +1,7 @@
+**/node_modules
+**/.next
+**/.turbo
+apps/mobile
+.git
+**/*.log
+**/.env.local

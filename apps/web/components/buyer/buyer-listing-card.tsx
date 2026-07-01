@@ -20,6 +20,7 @@ import { ShoppingBag } from "lucide-react";
 import { CropBadge } from "@/components/farmer/crop-display";
 
 type BuyerListingCardProps = {
+  forceLight?: boolean;
   liveStatus?: ChatListingLiveStatus;
   onOrder?: (result: BuyerSourcingListingResult) => void;
   result: BuyerSourcingListingResult;
@@ -41,6 +42,7 @@ function ListingCardNoiseOverlay() {
 }
 
 export function BuyerListingCard({
+  forceLight = false,
   liveStatus,
   onOrder,
   result,
@@ -73,7 +75,12 @@ export function BuyerListingCard({
             src={result.imageUrl}
           />
         ) : (
-          <div className="flex h-full items-center justify-center bg-black/4 dark:bg-black/20">
+          <div
+            className={clsx(
+              "flex h-full items-center justify-center bg-black/4",
+              !forceLight && "dark:bg-black/20",
+            )}
+          >
             <CropBadge crop={result.crop} size="lg" />
           </div>
         )}
@@ -81,7 +88,10 @@ export function BuyerListingCard({
         <div className="absolute right-2 top-2 z-10">
           {isUnavailable ? (
             <Chip
-              className="h-auto bg-white/95 px-1.5 py-0.5 shadow-sm ring-1 ring-black/5 dark:bg-stone-900/95"
+              className={clsx(
+                "h-auto bg-white/95 px-1.5 py-0.5 shadow-sm ring-1 ring-black/5",
+                !forceLight && "dark:bg-stone-900/95",
+              )}
               size="sm"
               variant="secondary"
             >
@@ -93,7 +103,10 @@ export function BuyerListingCard({
             </Chip>
           ) : (
             <Chip
-              className="h-auto bg-white/95 px-1.5 py-0.5 shadow-sm ring-1 ring-black/5 dark:bg-stone-900/95"
+              className={clsx(
+                "h-auto bg-white/95 px-1.5 py-0.5 shadow-sm ring-1 ring-black/5",
+                !forceLight && "dark:bg-stone-900/95",
+              )}
               size="sm"
               variant="secondary"
             >
@@ -117,26 +130,51 @@ export function BuyerListingCard({
       <div className="relative z-10 flex min-h-0 flex-col gap-1 px-2.5 pb-2.5 pt-2">
         <div className="flex min-w-0 items-center gap-1.5">
           <CropBadge crop={result.crop} size="sm" />
-          <h3 className="truncate text-xs font-semibold capitalize text-neutral-900 dark:text-neutral-50">
+          <h3
+            className={clsx(
+              "truncate text-xs font-semibold capitalize text-neutral-900",
+              !forceLight && "dark:text-neutral-50",
+            )}
+          >
             {theme.label}
           </h3>
         </div>
 
-        <p className="text-base font-semibold leading-none tracking-tight text-neutral-900 dark:text-neutral-50">
+        <p
+          className={clsx(
+            "text-base font-semibold leading-none tracking-tight text-neutral-900",
+            !forceLight && "dark:text-neutral-50",
+          )}
+        >
           KES {result.pricePerKg}
-          <span className="text-[11px] font-medium text-neutral-600 dark:text-neutral-400">
+          <span
+            className={clsx(
+              "text-[11px] font-medium text-neutral-600",
+              !forceLight && "dark:text-neutral-400",
+            )}
+          >
             /kg
           </span>
         </p>
 
-        <p className="truncate text-[11px] text-neutral-600 dark:text-neutral-400">
+        <p
+          className={clsx(
+            "truncate text-[11px] text-neutral-600",
+            !forceLight && "dark:text-neutral-400",
+          )}
+        >
           {result.quantityKg} kg
           {result.grade ? ` · ${result.grade}` : ""}
           {" · "}
           {result.county}
         </p>
 
-        <p className="truncate text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+        <p
+          className={clsx(
+            "truncate text-[11px] font-medium text-neutral-700",
+            !forceLight && "dark:text-neutral-300",
+          )}
+        >
           {result.cooperativeName}
         </p>
 

@@ -30,6 +30,8 @@ import {
   View,
 } from "react-native";
 
+import { AppIllustration } from "@/components/app-illustration";
+
 type OnboardingStep = "role" | "profile";
 
 type SelectOption = {
@@ -271,7 +273,10 @@ export function OnboardingFlow(): JSX.Element {
             <RadioGroup.Item value="farmer">
               {({ isSelected }) => (
                 <>
-                  <Label>I&apos;m a Farmer</Label>
+                  <View className="flex-1 flex-row items-center gap-3">
+                    <AppIllustration name="onboarding-farmer" size={48} />
+                    <Label>I&apos;m a Farmer</Label>
+                  </View>
                   <Radio variant="secondary">
                     <Radio.Indicator
                       className={
@@ -292,7 +297,10 @@ export function OnboardingFlow(): JSX.Element {
             <RadioGroup.Item value="buyer">
               {({ isSelected }) => (
                 <>
-                  <Label>I&apos;m a Buyer</Label>
+                  <View className="flex-1 flex-row items-center gap-3">
+                    <AppIllustration name="onboarding-buyer" size={48} />
+                    <Label>I&apos;m a Buyer</Label>
+                  </View>
                   <Radio variant="secondary">
                     <Radio.Indicator
                       className={

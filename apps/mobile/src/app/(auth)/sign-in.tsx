@@ -4,11 +4,15 @@ import type { JSX } from "react";
 import { Text, View } from "react-native";
 
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
+import { AppIllustration } from "@/components/app-illustration";
 
 export default function SignInScreen(): JSX.Element {
   return (
     <View className="bg-background flex-1 items-center justify-center px-6">
       <Surface variant="default" className="w-full max-w-sm gap-6 rounded-card p-8 shadow-elevated">
+        <View className="items-center">
+          <AppIllustration name="auth-welcome" size={120} />
+        </View>
         <Text className="text-center text-2xl font-semibold text-foreground">
           Welcome back
         </Text>

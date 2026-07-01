@@ -45,9 +45,9 @@ export function ThemeListBox() {
 
         return (
           <ListBox.Item key={option.id} id={option.id} textValue={option.label}>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 text-neutral-700 dark:text-neutral-400">
               <Icon className="h-4 w-4 shrink-0" />
-              <span>{option.label}</span>
+              <span className="font-medium">{option.label}</span>
             </div>
             <ListBox.ItemIndicator />
           </ListBox.Item>

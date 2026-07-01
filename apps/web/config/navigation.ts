@@ -17,7 +17,7 @@ export const FARMER_NAV_ITEMS = [
 ] as const;
 
 export const BUYER_NAV_ITEMS = [
-  { label: "Dashboard", href: "/buyer", icon: ShoppingBag },
+  { label: "Find produce", href: "/buyer", icon: ShoppingBag },
   { label: "Profile", href: "/buyer/profile", icon: User },
 ] as const;
 
@@ -33,6 +33,14 @@ export function getNavItemsForRole(role: MarketplaceRole | undefined) {
 
 export function getRoleHomePath(role: MarketplaceRole): string {
   return `/${roleHomeSegment(role)}`;
+}
+
+export function getOrdersPathForRole(
+  role: MarketplaceRole | undefined,
+): string | null {
+  if (role === "farmer") return "/farmer/orders";
+
+  return null;
 }
 
 export function getPageTitle(pathname: string): string {

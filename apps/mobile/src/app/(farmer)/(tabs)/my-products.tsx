@@ -6,6 +6,7 @@ import type { JSX } from "react";
 import { useState } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 
+import { AppEmptyState } from "@/components/app-empty-state";
 import { FarmerListingCard } from "@/components/listing-card";
 import { ListingForm } from "@/components/listing-form";
 import { ScreenShell } from "@/components/screen-shell";
@@ -62,9 +63,20 @@ export default function MyProductsScreen(): JSX.Element {
             </View>
             {listings.length === 0 ? (
               <Surface variant="default" className="rounded-card p-card-lg">
-                <Text className="text-caption text-muted text-center">
-                  No listings yet. Tap + to create your first listing.
-                </Text>
+                <AppEmptyState
+                  action={
+                    <Button
+                      size="sm"
+                      onPress={() => setCreateOpen(true)}
+                    >
+                      Add listing
+                    </Button>
+                  }
+                  description="Tap + or add your first listing to get started."
+                  illustration="empty-listings"
+                  illustrationSize={120}
+                  title="No listings yet"
+                />
               </Surface>
             ) : (
               <View className="flex-row flex-wrap gap-2">

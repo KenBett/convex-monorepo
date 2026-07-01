@@ -52,13 +52,13 @@ export const Sidebar = () => {
           "dark:shadow-[3px_0_18px_-6px_rgba(0,0,0,0.45)]",
         )}
       >
-        <div className="flex h-14 shrink-0 items-center justify-center border-b border-separator px-2">
+        <div className="flex h-14 shrink-0 items-center justify-center px-2">
           <NextLink
             aria-label="Home"
             className="flex items-center"
             href={homePath}
           >
-            <Logo size={28} />
+            <Logo className="text-accent" size={28} />
           </NextLink>
         </div>
 
@@ -80,7 +80,7 @@ export const Sidebar = () => {
                   "flex items-center rounded-lg py-2.5 text-xs font-medium transition-colors",
                   isExpanded ? "gap-2.5 px-3" : "justify-center px-2",
                   isActive
-                    ? "bg-default/55 text-foreground"
+                    ? "bg-accent/10 text-accent"
                     : "text-muted hover:bg-default/35 hover:text-foreground",
                 )}
                 href={item.href}
@@ -115,7 +115,7 @@ export const Sidebar = () => {
 
         <div
           className={clsx(
-            "shrink-0 border-t border-separator p-3",
+            "shrink-0 p-3",
             isExpanded ? "items-stretch" : "flex justify-center",
           )}
         >
@@ -126,7 +126,7 @@ export const Sidebar = () => {
               "flex items-center rounded-lg py-2 text-xs font-medium transition-colors",
               isExpanded ? "gap-2.5 px-2" : "justify-center px-2",
               isProfileActive
-                ? "bg-default/55 text-foreground"
+                ? "bg-accent/10 text-accent"
                 : "text-muted hover:bg-default/35 hover:text-foreground",
             )}
             href={profilePath}

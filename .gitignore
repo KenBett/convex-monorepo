@@ -5,6 +5,7 @@ dist
 .next
 .turbo
 .expo
+.vercel
 convex/_generated
 *.tsbuildinfo
 .DS_Store

@@ -1,5 +1,6 @@
 "use client";
 
+import { AppEmptyState } from "@repo/illustrations";
 import { useEffect } from "react";
 
 interface ErrorProps {
@@ -14,17 +15,22 @@ export default function Error({ error, reset }: ErrorProps) {
   }, [error]);
 
   return (
-    <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
-      <h2 className="text-2xl font-semibold text-foreground">
-        Something went wrong!
-      </h2>
-      <button
-        className="rounded-lg bg-default px-4 py-2 text-sm font-semibold text-default-foreground transition-colors hover:bg-default/80"
-        type="button"
-        onClick={() => reset()}
-      >
-        Try again
-      </button>
+    <div className="flex flex-col items-center justify-center px-6 py-16">
+      <AppEmptyState
+        action={
+          <button
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition-opacity hover:opacity-90"
+            type="button"
+            onClick={() => reset()}
+          >
+            Try again
+          </button>
+        }
+        description="An unexpected error occurred. Please try again."
+        illustration="error"
+        illustrationSize={160}
+        title="Something went wrong"
+      />
     </div>
   );
 }

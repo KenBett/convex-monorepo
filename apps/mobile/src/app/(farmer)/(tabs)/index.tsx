@@ -9,6 +9,7 @@ import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 import { FarmerListingCard } from "@/components/listing-card";
 import { FarmerOrdersList } from "@/components/farmer-order-card";
+import { AppEmptyState } from "@/components/app-empty-state";
 import { ScreenShell } from "@/components/screen-shell";
 
 type StatCardProps = {
@@ -116,16 +117,21 @@ export default function FarmerScreen(): JSX.Element {
               ))}
             </View>
           ) : (
-            <Surface className="items-center gap-4 rounded-[0.875rem] border border-dashed border-separator p-6">
-              <Text className="text-center text-caption text-muted">
-                No active listings yet. Add your first crop so buyers can find you.
-              </Text>
-              <Button
-                size="sm"
-                onPress={() => router.push("/(farmer)/(tabs)/my-products")}
-              >
-                Go to My Products
-              </Button>
+            <Surface className="rounded-[0.875rem] border border-dashed border-separator p-card-lg">
+              <AppEmptyState
+                action={
+                  <Button
+                    size="sm"
+                    onPress={() => router.push("/(farmer)/(tabs)/my-products")}
+                  >
+                    Go to My Products
+                  </Button>
+                }
+                description="Add your first crop so buyers can find you."
+                illustration="empty-dashboard"
+                illustrationSize={110}
+                title="No active listings yet"
+              />
             </Surface>
           )}
         </View>

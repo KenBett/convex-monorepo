@@ -4,6 +4,7 @@
 
 @source '../../node_modules/heroui-native/lib';
 @source './src/**/*.{tsx,ts}';
+@source '../../packages/illustrations/src/**/*.{tsx,ts}';
 
 @layer theme {
   :root {
@@ -77,6 +78,10 @@
       --warning: oklch(78.19% 0.159 72.33);
       --warning-foreground: oklch(21.03% 0.0059 72.33);
       --link: var(--foreground);
+
+      --illustration-primary: var(--accent);
+      --illustration-highlight: var(--muted);
+      --illustration-muted: color-mix(in oklch, var(--muted) 35%, transparent);
 
       --surface-shadow:
         0 1px 2px 0 rgba(0, 0, 0, 0.06), 0 4px 12px -2px rgba(0, 0, 0, 0.08);
@@ -158,6 +163,10 @@
       --surface-tertiary: #1c1c1c;
       --surface-tertiary-foreground: oklch(100% 0 0);
       --link: var(--foreground);
+
+      --illustration-primary: var(--accent);
+      --illustration-highlight: var(--muted);
+      --illustration-muted: color-mix(in oklch, var(--muted) 35%, transparent);
 
       --surface-shadow: 0 0 0 0 transparent inset;
       --overlay-shadow: 0 0 1px 0 rgba(255, 255, 255, 0.2) inset;

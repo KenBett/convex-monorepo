@@ -1,4 +1,5 @@
 import { api } from "@repo/backend/convex/_generated/api";
+import type { Id } from "@repo/backend/convex/_generated/dataModel";
 import { buildBuyerChatRequestContext } from "@repo/backend/convex/listings/buyerChatMessages";
 import {
   createUIMessageStream,
@@ -41,7 +42,7 @@ function mapListingForContext(
     county: listing.county,
     crop: listing.crop,
     grade: listing.grade,
-    listingId: listing.listingId,
+    listingId: listing.listingId as Id<"listings">,
     pricePerKg: listing.pricePerKg,
     quantityKg: listing.quantityKg,
     status: listing.status,
@@ -61,11 +62,11 @@ function toChatContextPayload(messages: UIMessage[]) {
     return base;
   }
 
-  const crops = [
-    ...new Set(
+  const crops = Array.from(
+    new Set(
       context.previousSourcing.listings.map((listing) => listing.crop),
     ),
-  ];
+  );
 
   return {
     ...base,

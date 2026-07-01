@@ -1,8 +1,9 @@
 "use client";
 
+import { AppEmptyState } from "@repo/illustrations";
 import { api } from "@repo/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
-import { Package, Plus, Scale, ShoppingBag, Tag } from "lucide-react";
+import { Plus, Package, Scale, ShoppingBag, Tag } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button, useOverlayState } from "@heroui/react";
 import { Modal } from "@heroui/react/modal";
@@ -10,6 +11,7 @@ import clsx from "clsx";
 
 import { FarmerListingCard } from "@/components/farmer/listing-card";
 import { ListingForm } from "@/components/farmer/listing-form";
+import { MyProductsSkeleton } from "@/components/farmer/my-products-skeleton";
 
 type ListingStat = {
   label: string;
@@ -21,8 +23,7 @@ function ListingStatCard({ label, value, icon: Icon }: ListingStat) {
   return (
     <div
       className={clsx(
-        "flex flex-col gap-2 rounded-[0.875rem] border border-separator bg-surface p-4 text-surface-foreground",
-        "shadow-[0_1px_3px_oklch(0%_0_0/0.05)] dark:shadow-[0_1px_4px_oklch(0%_0_0/0.28)]",
+        "flex flex-col gap-2 rounded-[0.875rem] bg-surface p-4 text-surface-foreground shadow-sm dark:shadow-none",
       )}
     >
       <div className="flex items-center gap-2 text-muted">
@@ -40,31 +41,27 @@ function ListingsEmptyState({ onAddListing }: { onAddListing: () => void }) {
   return (
     <div
       className={clsx(
-        "flex flex-col items-center gap-5 rounded-[0.875rem] border border-dashed border-separator bg-surface px-6 py-14 text-center",
+        "rounded-[0.875rem] border border-dashed border-separator bg-surface px-6 py-10",
         "shadow-[0_1px_3px_oklch(0%_0_0/0.05)] dark:shadow-[0_1px_4px_oklch(0%_0_0/0.28)]",
       )}
     >
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-default/45">
-        <Package className="h-5 w-5 text-muted" strokeWidth={1.75} />
-      </div>
-      <div className="flex max-w-sm flex-col gap-1.5">
-        <h2 className="text-base font-semibold text-foreground">
-          No listings yet
-        </h2>
-        <p className="text-sm leading-relaxed text-muted">
-          Add your first crop listing so buyers can discover your produce across
-          web and mobile.
-        </p>
-      </div>
-      <Button
-        className="rounded-full bg-accent px-5 font-medium text-accent-foreground"
-        size="sm"
-        variant="primary"
-        onPress={onAddListing}
-      >
-        <Plus className="h-4 w-4" strokeWidth={1.75} />
-        Add listing
-      </Button>
+      <AppEmptyState
+        action={
+          <Button
+            className="rounded-full bg-accent px-5 font-medium text-accent-foreground"
+            size="sm"
+            variant="primary"
+            onPress={onAddListing}
+          >
+            <Plus className="h-4 w-4" strokeWidth={1.75} />
+            Add listing
+          </Button>
+        }
+        description="Add your first crop listing so buyers can discover your produce across web and mobile."
+        illustration="empty-listings"
+        illustrationSize={150}
+        title="No listings yet"
+      />
     </div>
   );
 }
@@ -98,11 +95,7 @@ export function MyProductsClient() {
   }, [listings]);
 
   if (listings === undefined) {
-    return (
-      <div className="mx-auto flex w-full max-w-4xl items-center justify-center py-16">
-        <p className="text-sm text-muted">Loading listings...</p>
-      </div>
-    );
+    return <MyProductsSkeleton />;
   }
 
   return (

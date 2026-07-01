@@ -35,7 +35,7 @@ export const MobileTabBar = () => {
               className={clsx(
                 "flex flex-1 items-center justify-center transition-colors",
                 isActive
-                  ? "text-foreground"
+                  ? "text-accent"
                   : "text-muted hover:text-foreground",
               )}
               href={item.href}

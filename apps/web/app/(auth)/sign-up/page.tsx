@@ -11,8 +11,8 @@ export const metadata: Metadata = {
 
 export default function SignUpPage() {
   return (
-    <div className="flex flex-col gap-6 rounded-xl bg-surface p-8 text-surface-foreground shadow-sm dark:shadow-none">
-      <div className="flex flex-col gap-1 text-center">
+    <div className="flex flex-col gap-6 rounded-[0.875rem] bg-surface p-6 shadow-sm dark:shadow-none">
+      <div className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold tracking-tight">
           Create your account
         </h1>
@@ -23,7 +23,7 @@ export default function SignUpPage() {
 
       <GoogleSignInButton label="Sign up with Google" />
 
-      <p className="text-center text-sm text-muted">
+      <p className="text-sm text-muted">
         Already have an account?{" "}
         <Link className="font-medium text-foreground underline" href="/sign-in">
           Sign in

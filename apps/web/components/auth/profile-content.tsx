@@ -117,7 +117,7 @@ export function ProfileContent() {
   const displayName = viewer?.name ?? viewer?.email ?? "Account";
   const initials = getInitials(viewer?.name, viewer?.email);
   const isProfileLoading =
-    viewer === undefined ||
+    !viewer ||
     (viewer.role === "farmer" && farmerProfile === undefined) ||
     (viewer.role === "buyer" && buyerProfile === undefined);
 

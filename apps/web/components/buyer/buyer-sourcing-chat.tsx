@@ -13,21 +13,18 @@ import { useAuthToken } from "@convex-dev/auth/react";
 import { api } from "@repo/backend/convex/_generated/api";
 import type { Id } from "@repo/backend/convex/_generated/dataModel";
 import { useChat } from "@ai-sdk/react";
+import { getInitials } from "@repo/utils";
 import { useQuery } from "convex/react";
-import { Button, Card } from "@heroui/react";
+import { Avatar, Button, Card } from "@heroui/react";
 import { DefaultChatTransport, isDataUIPart, type UIMessage } from "ai";
-import {
-  ClipboardList,
-  MessageSquarePlus,
-  UserRound,
-} from "lucide-react";
+import { ClipboardList, MessageSquarePlus } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
+import { siteConfig } from "@/config/site";
+
 import { BuyerListingCard } from "@/components/buyer/buyer-listing-card";
-import {
-  SourcingAgentIcon,
-  SourcingSendIcon,
-} from "@/components/buyer/sourcing-agent-icon";
+import { SourcingSendIcon } from "@/components/buyer/sourcing-agent-icon";
+import { VunrLogo } from "@/components/marketing/vunr-logo";
 import { SourcingChatEmptyState } from "@/components/buyer/sourcing-chat-empty-state";
 import {
   OrderDraftConfirmDialog,
@@ -50,12 +47,13 @@ import {
 
 const BUYER_SOURCING_CHAT_API = "/api/buyer/sourcing";
 
-const SURFACE_ELEVATION = "bg-surface shadow-sm dark:shadow-none";
+const defaultAvatarInitials = siteConfig.name.slice(0, 2).toUpperCase();
 
-const ELEVATED_SURFACE = `rounded-[0.875rem] ${SURFACE_ELEVATION} text-surface-foreground`;
+const ASSISTANT_BUBBLE =
+  "rounded-[0.875rem] bg-background text-foreground shadow-sm";
 
 const COMPOSER_SURFACE =
-  "rounded-[1.125rem] border border-separator bg-background shadow-sm transition-shadow duration-200 focus-within:border-foreground/15 focus-within:shadow-md dark:shadow-none dark:focus-within:shadow-none";
+  "rounded-[1.125rem] bg-background shadow-sm transition-shadow duration-200 focus-within:shadow-md";
 
 const COMPOSER_INPUT =
   "min-h-20 w-full resize-none bg-transparent px-4 py-3.5 pr-14 text-sm leading-6 text-foreground outline-none placeholder:text-muted";
@@ -187,16 +185,45 @@ function resolveLiveStatus(
   return liveStatusMap.get(listing.listingId) ?? listing.status;
 }
 
+function LoadingBubble({ phase }: { phase: BuyerChatStatusPhase }) {
+  return (
+    <div className={`px-4 py-3 ${ASSISTANT_BUBBLE}`}>
+      <div className="flex items-center gap-3">
+        <span className="flex items-center gap-1">
+          {[0, 150, 300].map((delayMs) => (
+            <span
+              key={delayMs}
+              className="h-2 w-2 animate-bounce rounded-full bg-muted"
+              style={{ animationDelay: `${delayMs}ms` }}
+            />
+          ))}
+        </span>
+        <span className="text-sm text-muted">{formatStatusPhase(phase)}</span>
+      </div>
+    </div>
+  );
+}
+
 function ChatMessage({
   message,
   liveStatusMap,
+  loadingPhase,
   onOpenOrderDraft,
   onOrder,
+  showLoading = false,
+  userDisplayName,
+  userImage,
+  userInitials,
 }: {
   message: BuyerChatMessage;
   liveStatusMap: Map<string, ChatListingLiveStatus>;
+  loadingPhase?: BuyerChatStatusPhase;
   onOpenOrderDraft: (orderDraft: BuyerOrderDraft) => void;
   onOrder: (listing: BuyerSourcingListingResult) => void;
+  showLoading?: boolean;
+  userDisplayName: string;
+  userImage?: string;
+  userInitials: string;
 }) {
   const text = getMessageText(message);
   const sourcing =
@@ -216,11 +243,16 @@ function ChatMessage({
       (listing) => resolveLiveStatus(listing, liveStatusMap) !== "deleted",
     ) ?? [];
 
+  const hasVisibleContent =
+    Boolean(assistantIntro) ||
+    Boolean(orderDraftData) ||
+    visibleListings.length > 0;
+
   return (
     <div className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
       {!isUser ? (
         <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-sm dark:shadow-none">
-          <SourcingAgentIcon className="h-4 w-4" size={16} />
+          <VunrLogo className="h-4 w-4" size={16} />
         </div>
       ) : null}
 
@@ -233,8 +265,12 @@ function ChatMessage({
           </div>
         ) : null}
 
+        {!isUser && showLoading && !hasVisibleContent && loadingPhase ? (
+          <LoadingBubble phase={loadingPhase} />
+        ) : null}
+
         {!isUser && assistantIntro ? (
-          <div className={`px-4 py-3 text-sm leading-6 ${ELEVATED_SURFACE}`}>
+          <div className={`px-4 py-3 text-sm leading-6 ${ASSISTANT_BUBBLE}`}>
             <p>{assistantIntro}</p>
           </div>
         ) : null}
@@ -268,11 +304,16 @@ function ChatMessage({
       </div>
 
       {isUser ? (
-        <div
-          className={`mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${SURFACE_ELEVATION}`}
-        >
-          <UserRound className="h-4 w-4 text-muted" strokeWidth={1.75} />
-        </div>
+        <Avatar className="mt-1 shrink-0 shadow-sm dark:shadow-none" size="sm">
+          {userImage ? (
+            <Avatar.Image
+              alt={userDisplayName}
+              referrerPolicy="no-referrer"
+              src={userImage}
+            />
+          ) : null}
+          <Avatar.Fallback>{userInitials}</Avatar.Fallback>
+        </Avatar>
       ) : null}
     </div>
   );
@@ -282,23 +323,10 @@ function ChatLoadingIndicator({ phase }: { phase: BuyerChatStatusPhase }) {
   return (
     <div aria-live="polite" className="flex justify-start gap-3" role="status">
       <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-sm dark:shadow-none">
-        <SourcingAgentIcon className="h-4 w-4" size={16} />
+        <VunrLogo className="h-4 w-4" size={16} />
       </div>
 
-      <div className={`px-4 py-3 ${ELEVATED_SURFACE}`}>
-        <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1">
-            {[0, 150, 300].map((delayMs) => (
-              <span
-                key={delayMs}
-                className="h-2 w-2 animate-bounce rounded-full bg-muted"
-                style={{ animationDelay: `${delayMs}ms` }}
-              />
-            ))}
-          </span>
-          <span className="text-sm text-muted">{formatStatusPhase(phase)}</span>
-        </div>
-      </div>
+      <LoadingBubble phase={phase} />
     </div>
   );
 }
@@ -386,6 +414,12 @@ export function BuyerSourcingChat() {
     [isBusy, messages],
   );
   const isAuthReady = authToken !== null;
+  const userDisplayName = viewer?.name ?? viewer?.email ?? "You";
+  const userInitials = getInitials(
+    viewer?.name,
+    viewer?.email,
+    defaultAvatarInitials,
+  );
 
   const chatListingIds = useMemo(
     () => collectChatListingIds(messages),
@@ -412,7 +446,9 @@ export function BuyerSourcingChat() {
       return;
     }
 
-    const replyToLatestUser = getAssistantReplyToLatestUser(messages);
+    const replyToLatestUser = getAssistantReplyToLatestUser(
+      messages as UIMessage[],
+    ) as BuyerChatMessage | null;
 
     if (!replyToLatestUser) {
       return;
@@ -537,57 +573,59 @@ export function BuyerSourcingChat() {
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-sm dark:shadow-none">
-            <SourcingAgentIcon className="h-5 w-5" size={20} />
-          </div>
-          <div>
-            <p className="text-eyebrow">Buyer workspace</p>
-            <h1 className="text-2xl font-semibold tracking-[-0.02em]">
-              Find produce
-            </h1>
-          </div>
-        </div>
-
-        {messages.length > 0 ? (
+      {messages.length > 0 ? (
+        <div className="flex justify-end">
           <Button
             aria-label="Start a new chat"
+            className="bg-background text-foreground shadow-sm hover:bg-surface-secondary dark:bg-white dark:text-foreground dark:shadow-none dark:hover:bg-white/90"
             isDisabled={!isAuthReady}
             size="sm"
             type="button"
-            variant="secondary"
+            variant="ghost"
             onPress={handleNewChat}
           >
             <MessageSquarePlus className="h-4 w-4" strokeWidth={1.75} />
             New chat
           </Button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       <Card className="w-full rounded-card bg-surface text-surface-foreground shadow-sm dark:shadow-none">
-        <Card.Content className="flex min-h-112 flex-col gap-4 px-5 py-5 sm:px-6">
+        <Card.Content
+          className={`flex flex-col gap-4 px-5 py-5 sm:px-6${messages.length > 0 ? " min-h-112" : ""}`}
+        >
           <div
             ref={chatScrollRef}
             className="flex flex-1 flex-col gap-4 overflow-y-auto"
           >
             {messages.length === 0 ? (
-              <SourcingChatEmptyState
-                onSelectPrompt={(prompt) => setInput(prompt)}
-              />
+              <SourcingChatEmptyState />
             ) : (
-              messages.map((message) => (
+              messages.map((message, index) => (
                 <ChatMessage
                   key={message.id}
                   liveStatusMap={liveStatusMap}
+                  loadingPhase={statusPhase}
                   message={message}
+                  showLoading={
+                    isBusy &&
+                    index === messages.length - 1 &&
+                    message.role === "assistant"
+                  }
+                  userDisplayName={userDisplayName}
+                  userImage={viewer?.image}
+                  userInitials={userInitials}
                   onOpenOrderDraft={handleOpenOrderDraft}
                   onOrder={handleOrder}
                 />
               ))
             )}
 
-            {isBusy ? <ChatLoadingIndicator phase={statusPhase} /> : null}
+            {isBusy &&
+            (messages.length === 0 ||
+              messages[messages.length - 1]?.role === "user") ? (
+              <ChatLoadingIndicator phase={statusPhase} />
+            ) : null}
           </div>
 
           {error ? (

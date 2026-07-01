@@ -1,4 +1,5 @@
 import { RouteGuard } from "@/components/auth/route-guard";
+import { LandingPage } from "@/components/marketing/landing-page";
 
 function RoutingSpinner() {
   return (
@@ -9,5 +10,9 @@ function RoutingSpinner() {
 }
 
 export default function IndexPage() {
-  return <RouteGuard fallback={<RoutingSpinner />} mode="index" />;
+  return (
+    <RouteGuard fallback={<RoutingSpinner />} mode="index">
+      <LandingPage />
+    </RouteGuard>
+  );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { AppEmptyState } from "@repo/illustrations";
 import { api } from "@repo/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
 import { Package, Scale, ShoppingBag } from "lucide-react";
@@ -20,8 +21,7 @@ function ListingStatCard({ label, value, icon: Icon }: ListingStat) {
   return (
     <div
       className={clsx(
-        "flex flex-col gap-2 rounded-[0.875rem] border border-separator bg-surface p-4 text-surface-foreground",
-        "shadow-[0_1px_3px_oklch(0%_0_0/0.05)] dark:shadow-[0_1px_4px_oklch(0%_0_0/0.28)]",
+        "flex flex-col gap-2 rounded-[0.875rem] bg-surface p-4 text-surface-foreground shadow-sm dark:shadow-none",
       )}
     >
       <div className="flex items-center gap-2 text-muted">
@@ -58,7 +58,7 @@ export function FarmerDashboardClient() {
       activeCount: activeListings.length,
       soldOutCount: soldOutListings.length,
       totalKgAvailable,
-      activePreview: activeListings.slice(0, 3),
+      activePreview: activeListings.slice(0, 8),
     };
   }, [listings]);
 
@@ -72,15 +72,6 @@ export function FarmerDashboardClient() {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-lg font-semibold tracking-tight text-foreground">
-          Farmer dashboard
-        </h1>
-        <p className="text-sm text-muted">
-          Your active listings and marketplace overview.
-        </p>
-      </div>
-
       {stats ? (
         <div className="grid gap-3 sm:grid-cols-3">
           <ListingStatCard
@@ -115,9 +106,10 @@ export function FarmerDashboardClient() {
         </div>
 
         {stats && stats.activePreview.length > 0 ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-2.5 sm:gap-3">
             {stats.activePreview.map((listing) => (
               <FarmerListingCard
+                compact
                 key={listing._id}
                 listing={listing}
                 listingId={listing._id}
@@ -127,19 +119,23 @@ export function FarmerDashboardClient() {
         ) : (
           <div
             className={clsx(
-              "flex flex-col items-center gap-4 rounded-[0.875rem] border border-dashed border-separator bg-surface px-6 py-10 text-center",
+              "rounded-[0.875rem] border border-dashed border-separator bg-surface px-6 py-8",
             )}
           >
-            <p className="text-sm text-muted">
-              No active listings yet. Add your first crop so buyers can find
-              you.
-            </p>
-            <Link
-              className="inline-flex items-center justify-center rounded-full bg-accent px-5 py-2 text-sm font-medium text-accent-foreground"
-              href="/farmer/my-products"
-            >
-              Go to My Products
-            </Link>
+            <AppEmptyState
+              action={
+                <Link
+                  className="inline-flex items-center justify-center rounded-full bg-accent px-5 py-2 text-sm font-medium text-accent-foreground"
+                  href="/farmer/my-products"
+                >
+                  Go to My Products
+                </Link>
+              }
+              description="Add your first crop so buyers can find you."
+              illustration="empty-dashboard"
+              illustrationSize={140}
+              title="No active listings yet"
+            />
           </div>
         )}
       </section>

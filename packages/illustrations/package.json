@@ -1,0 +1,32 @@
+{
+  "name": "@repo/illustrations",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./src/index.web.tsx",
+  "types": "./src/types.ts",
+  "exports": {
+    ".": {
+      "react-native": "./src/index.native.tsx",
+      "default": "./src/index.web.tsx"
+    },
+    "./types": "./src/types.ts"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": ">=19",
+    "react-native": ">=0.85",
+    "react-native-svg": ">=15"
+  },
+  "peerDependenciesMeta": {
+    "react-native": { "optional": true },
+    "react-native-svg": { "optional": true }
+  },
+  "devDependencies": {
+    "@svgr/cli": "^8.1.0",
+    "svgo": "^3.3.2",
+    "typescript": "^5.9.3"
+  }
+}

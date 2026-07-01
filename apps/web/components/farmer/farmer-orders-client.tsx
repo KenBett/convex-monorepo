@@ -2,12 +2,17 @@
 
 import type { Id } from "@repo/backend/convex/_generated/dataModel";
 
+import { AppEmptyState } from "@repo/illustrations";
 import { api } from "@repo/backend/convex/_generated/api";
 import { formatOrderStatus, getCropTheme } from "@repo/types";
 import { useMutation, useQuery } from "convex/react";
 import { Button, Chip, Table } from "@heroui/react";
+import clsx from "clsx";
+import { MapPin, Scale, Store } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+
+import { CropIcon } from "@/components/farmer/crop-display";
 
 type FarmerOrderSummary = {
   _id: Id<"orders">;
@@ -18,6 +23,16 @@ type FarmerOrderSummary = {
   status: string;
   totalKes: number;
 };
+
+const ORDER_CHIP_CLASS =
+  "inline-flex h-auto w-fit shrink-0 flex-nowrap items-center whitespace-nowrap px-2 py-0.5";
+
+const ORDER_CHIP_LABEL_CLASS =
+  "inline-flex shrink-0 flex-nowrap items-center gap-1.5 whitespace-nowrap";
+
+/** Light mode: flat white chip with shadow instead of secondary/soft fill */
+const ORDER_CHIP_LIGHT_SURFACE =
+  "bg-background shadow-sm dark:bg-default dark:shadow-none";
 
 function statusChipVariant(status: string): "primary" | "secondary" | "soft" {
   if (status === "escrowed") {
@@ -97,18 +112,103 @@ function FarmerOrdersTable({ orders }: { orders: FarmerOrderSummary[] }) {
 
               return (
                 <Table.Row key={order._id}>
-                  <Table.Cell className="font-medium capitalize text-foreground">
-                    {theme.label}
-                  </Table.Cell>
-                  <Table.Cell className="text-muted">
-                    {order.buyerBusinessName}
-                  </Table.Cell>
-                  <Table.Cell>{order.quantityKg} kg</Table.Cell>
-                  <Table.Cell>KES {order.totalKes}</Table.Cell>
-                  <Table.Cell>{order.county}</Table.Cell>
                   <Table.Cell>
-                    <Chip size="sm" variant={statusChipVariant(order.status)}>
-                      <Chip.Label>{formatOrderStatus(order.status)}</Chip.Label>
+                    <Chip
+                      className={clsx(ORDER_CHIP_CLASS, ORDER_CHIP_LIGHT_SURFACE)}
+                      size="sm"
+                      variant="secondary"
+                    >
+                      <Chip.Label
+                        className={clsx(
+                          ORDER_CHIP_LABEL_CLASS,
+                          "font-medium capitalize",
+                          theme.iconColorClass,
+                        )}
+                      >
+                        <CropIcon
+                          className={clsx("h-3.5 w-3.5 shrink-0", theme.iconColorClass)}
+                          crop={order.crop}
+                        />
+                        {theme.label}
+                      </Chip.Label>
+                    </Chip>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Chip
+                      className={clsx(ORDER_CHIP_CLASS, ORDER_CHIP_LIGHT_SURFACE)}
+                      size="sm"
+                      variant="soft"
+                    >
+                      <Chip.Label className={ORDER_CHIP_LABEL_CLASS}>
+                        <Store
+                          aria-hidden
+                          className="h-3 w-3 shrink-0 text-muted"
+                          strokeWidth={1.75}
+                        />
+                        {order.buyerBusinessName}
+                      </Chip.Label>
+                    </Chip>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Chip
+                      className={clsx(ORDER_CHIP_CLASS, ORDER_CHIP_LIGHT_SURFACE)}
+                      size="sm"
+                      variant="secondary"
+                    >
+                      <Chip.Label className={ORDER_CHIP_LABEL_CLASS}>
+                        <Scale
+                          aria-hidden
+                          className="h-3 w-3 shrink-0 text-muted"
+                          strokeWidth={1.75}
+                        />
+                        {order.quantityKg} kg
+                      </Chip.Label>
+                    </Chip>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Chip
+                      className={clsx(
+                        ORDER_CHIP_CLASS,
+                        ORDER_CHIP_LIGHT_SURFACE,
+                        "dark:bg-accent/12",
+                      )}
+                      size="sm"
+                      variant="soft"
+                    >
+                      <Chip.Label className="whitespace-nowrap font-medium text-accent">
+                        KES {order.totalKes}
+                      </Chip.Label>
+                    </Chip>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Chip
+                      className={clsx(ORDER_CHIP_CLASS, ORDER_CHIP_LIGHT_SURFACE)}
+                      size="sm"
+                      variant="soft"
+                    >
+                      <Chip.Label className={ORDER_CHIP_LABEL_CLASS}>
+                        <MapPin
+                          aria-hidden
+                          className="h-3 w-3 shrink-0 text-muted"
+                          strokeWidth={1.75}
+                        />
+                        {order.county}
+                      </Chip.Label>
+                    </Chip>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Chip
+                      className={clsx(
+                        ORDER_CHIP_CLASS,
+                        statusChipVariant(order.status) !== "primary" &&
+                          ORDER_CHIP_LIGHT_SURFACE,
+                      )}
+                      size="sm"
+                      variant={statusChipVariant(order.status)}
+                    >
+                      <Chip.Label className="whitespace-nowrap">
+                        {formatOrderStatus(order.status)}
+                      </Chip.Label>
                     </Chip>
                   </Table.Cell>
                   <Table.Cell>
@@ -147,7 +247,14 @@ export function FarmerOrdersList({
   const visibleOrders = limit !== undefined ? orders.slice(0, limit) : orders;
 
   if (visibleOrders.length === 0) {
-    return <p className="text-sm text-muted">{emptyMessage}</p>;
+    return (
+      <AppEmptyState
+        description={emptyMessage}
+        illustration="empty-orders"
+        illustrationSize={120}
+        title="No orders yet"
+      />
+    );
   }
 
   return <FarmerOrdersTable orders={visibleOrders} />;
@@ -158,14 +265,9 @@ export function FarmerOrdersClient() {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-lg font-semibold tracking-tight text-foreground">
-          Orders
-        </h1>
-        <p className="text-sm text-muted">
-          Live orders from buyers — updates automatically when payment clears.
-        </p>
-      </div>
+      <h1 className="text-lg font-semibold tracking-tight text-foreground">
+        Orders
+      </h1>
 
       <FarmerOrdersList orders={orders} />
     </div>

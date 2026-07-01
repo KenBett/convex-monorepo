@@ -16,7 +16,7 @@ export const ONBOARDING_PATH = "/onboarding";
  * - `guest`: auth screens; authenticated users are bounced to their home.
  * - `onboarding`: the onboarding screen; already-onboarded users go home.
  * - `role`: a role dashboard; requires auth + onboarding + a matching role.
- * - `index`: the `/` entry; always routes the viewer to their correct place.
+ * - `index`: the `/` entry; guests see the landing page, authed users go home.
  */
 export type RoutePolicy =
   | { mode: "guest" }
@@ -55,7 +55,7 @@ export function useViewerRouting(policy: RoutePolicy): ViewerRouting {
     }
 
     if (!isAuthenticated || viewer === null || viewer === undefined) {
-      if (policy.mode === "guest") {
+      if (policy.mode === "guest" || policy.mode === "index") {
         return { phase: "ready", redirectTo: null };
       }
 

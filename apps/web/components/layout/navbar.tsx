@@ -6,12 +6,12 @@ import { getInitials } from "@repo/utils";
 import { Avatar, Tooltip } from "@heroui/react";
 import { useQuery } from "convex/react";
 import clsx from "clsx";
-import { LogOut } from "lucide-react";
+import { Bell, LogOut } from "lucide-react";
 import NextLink from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
-import { getPageTitle, ROUTES_WITH_PAGE_HEADER } from "@/config/navigation";
+import { getPageTitle, getOrdersPathForRole, ROUTES_WITH_PAGE_HEADER } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
 import {
   CONTENT_CONTAINER_CLASSES,
@@ -39,6 +39,7 @@ export const Navbar = () => {
       : viewer?.role === "buyer"
         ? "/buyer/profile"
         : "/onboarding";
+  const ordersPath = getOrdersPathForRole(viewer?.role);
   const displayName = viewer?.name ?? viewer?.email ?? "Account";
   const initials = getInitials(viewer?.name, viewer?.email, avatarInitials);
 
@@ -96,26 +97,50 @@ export const Navbar = () => {
           ) : null}
         </div>
 
-        <Tooltip delay={0}>
-          <button
-            aria-label="Sign out"
-            className={clsx(
-              "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
-              "border border-separator bg-background text-muted",
-              "transition-colors hover:bg-default/40 hover:text-foreground",
-              "disabled:cursor-not-allowed disabled:opacity-60",
-            )}
-            disabled={isSigningOut}
-            type="button"
-            onClick={() => void handleSignOut()}
-          >
-            <LogOut className="h-3.5 w-3.5" />
-          </button>
-          <Tooltip.Content showArrow placement="bottom">
-            <Tooltip.Arrow />
-            <p>{isSigningOut ? "Signing out…" : "Sign out"}</p>
-          </Tooltip.Content>
-        </Tooltip>
+        <div className="flex items-center gap-2">
+          {ordersPath ? (
+            <Tooltip delay={0}>
+              <NextLink
+                aria-current={pathname === ordersPath ? "page" : undefined}
+                aria-label="Orders"
+                className={clsx(
+                  "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
+                  "border border-separator bg-background text-muted",
+                  "transition-colors hover:bg-default/40 hover:text-foreground",
+                  pathname === ordersPath && "bg-accent/10 text-accent",
+                )}
+                href={ordersPath}
+              >
+                <Bell className="h-3.5 w-3.5" />
+              </NextLink>
+              <Tooltip.Content showArrow placement="bottom">
+                <Tooltip.Arrow />
+                <p>Orders</p>
+              </Tooltip.Content>
+            </Tooltip>
+          ) : null}
+
+          <Tooltip delay={0}>
+            <button
+              aria-label="Sign out"
+              className={clsx(
+                "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
+                "border border-separator bg-background text-muted",
+                "transition-colors hover:bg-default/40 hover:text-foreground",
+                "disabled:cursor-not-allowed disabled:opacity-60",
+              )}
+              disabled={isSigningOut}
+              type="button"
+              onClick={() => void handleSignOut()}
+            >
+              <LogOut className="h-3.5 w-3.5" />
+            </button>
+            <Tooltip.Content showArrow placement="bottom">
+              <Tooltip.Arrow />
+              <p>{isSigningOut ? "Signing out…" : "Sign out"}</p>
+            </Tooltip.Content>
+          </Tooltip>
+        </div>
       </header>
     </nav>
   );

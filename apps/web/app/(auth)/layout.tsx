@@ -1,12 +1,6 @@
 import { RouteGuard } from "@/components/auth/route-guard";
-
-function AuthSpinner() {
-  return (
-    <div className="flex min-h-dvh items-center justify-center bg-background">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-foreground" />
-    </div>
-  );
-}
+import { AuthSplitLayout } from "@/components/auth/auth-split-layout";
+import { AuthSplitLayoutSkeleton } from "@/components/auth/auth-split-layout-skeleton";
 
 export default function AuthLayout({
   children,
@@ -14,10 +8,8 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <RouteGuard fallback={<AuthSpinner />} mode="guest">
-      <div className="flex min-h-dvh items-center justify-center bg-background px-4 py-12">
-        <div className="w-full max-w-sm">{children}</div>
-      </div>
+    <RouteGuard fallback={<AuthSplitLayoutSkeleton />} mode="guest">
+      <AuthSplitLayout>{children}</AuthSplitLayout>
     </RouteGuard>
   );
 }

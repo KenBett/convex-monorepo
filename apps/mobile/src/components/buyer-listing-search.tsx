@@ -8,6 +8,7 @@ import { useState } from "react";
 import { ActivityIndicator, Image, Text, View } from "react-native";
 
 import { ScreenShell } from "@/components/screen-shell";
+import { AppEmptyState } from "@/components/app-empty-state";
 
 function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
@@ -116,12 +117,12 @@ export function BuyerListingSearch(): JSX.Element {
           ) : null}
 
           {hasSearched && results.length === 0 ? (
-            <View className="items-center gap-2 py-6">
-              <Text className="text-emphasis text-foreground">No matching listings</Text>
-              <Text className="text-center text-caption text-muted">
-                Try a different crop, county, or quantity.
-              </Text>
-            </View>
+            <AppEmptyState
+              description="Try a different crop, county, or quantity."
+              illustration="empty-search"
+              illustrationSize={110}
+              title="No matching listings"
+            />
           ) : null}
 
           {results.length > 0 ? (

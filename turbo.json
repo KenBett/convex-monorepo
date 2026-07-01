@@ -1,5 +1,10 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalEnv": [
+    "NEXT_PUBLIC_APP_URL",
+    "NEXT_PUBLIC_CONVEX_URL",
+    "OPENAI_API_KEY"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -12,6 +17,10 @@
     "lint": {},
     "typecheck": {
       "dependsOn": ["^typecheck"]
+    },
+    "@repo/illustrations#build": {
+      "inputs": ["assets/**/*.svg", "src/registry.ts"],
+      "outputs": []
     }
   }
 }
