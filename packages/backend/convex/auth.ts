@@ -22,7 +22,7 @@ function getAllowedRedirectPrefixes(): string[] {
     }
   }
 
-  return [...prefixes];
+  return Array.from(prefixes);
 }
 
 function isAllowedRedirect(redirectTo: string): boolean {
