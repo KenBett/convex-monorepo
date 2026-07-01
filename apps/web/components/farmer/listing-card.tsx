@@ -189,17 +189,6 @@ export function FarmerListingCard({
           {" · "}
           {listing.county}
         </p>
-
-        {listing.description.trim() ? (
-          <p
-            className={clsx(
-              "line-clamp-2 leading-snug text-neutral-500 dark:text-neutral-400",
-              compact ? "text-[10px]" : "text-[11px]",
-            )}
-          >
-            {listing.description.trim()}
-          </p>
-        ) : null}
       </div>
     </article>
   );

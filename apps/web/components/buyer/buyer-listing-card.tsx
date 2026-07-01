@@ -7,7 +7,6 @@ import type {
 
 import {
   formatListingStatus,
-  getBuyerListingDescription,
   getCropTheme,
   getListingCardBgClass,
   LISTING_CARD_NOISE_DATA_URI,
@@ -52,7 +51,6 @@ export function BuyerListingCard({
   result,
 }: BuyerListingCardProps) {
   const theme = getCropTheme(result.crop);
-  const description = getBuyerListingDescription(result.description);
   const resolvedStatus = liveStatus ?? result.status;
   const isUnavailable =
     resolvedStatus === "sold_out" ||
@@ -219,17 +217,6 @@ export function BuyerListingCard({
         >
           {result.cooperativeName}
         </p>
-
-        {description ? (
-          <p
-            className={clsx(
-              "line-clamp-2 text-[10px] leading-snug text-neutral-500",
-              !forceLight && "dark:text-neutral-400",
-            )}
-          >
-            {description}
-          </p>
-        ) : null}
 
         {showInlineOrder ? (
           <Button

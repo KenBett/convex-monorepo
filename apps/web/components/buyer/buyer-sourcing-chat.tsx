@@ -321,11 +321,12 @@ function getVisibleSearchGroups(
   sourcing: BuyerSourcingStreamData,
   liveStatusMap: Map<string, ChatListingLiveStatus>,
 ): VisibleSearchGroup[] {
-  if ((sourcing.searchGroups?.length ?? 0) <= 1) {
+  const searchGroups = sourcing.searchGroups ?? [];
+  if (searchGroups.length <= 1) {
     return [];
   }
 
-  return sourcing.searchGroups
+  return searchGroups
     .map((group, index) => ({
       key: `${index}-${group.intent.crop ?? "group"}`,
       label: formatSearchGroupLabel(group),

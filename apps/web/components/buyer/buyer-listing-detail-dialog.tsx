@@ -80,6 +80,7 @@ export function BuyerListingDetailDialog({
     resolvedStatus === "deleted";
   const canOrder = !isUnavailable && resolvedStatus === "active";
   const showReadMore =
+    description !== null &&
     description.length > DESCRIPTION_READ_MORE_THRESHOLD;
 
   const handleOrder = () => {
