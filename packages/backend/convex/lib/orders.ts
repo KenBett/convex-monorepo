@@ -35,19 +35,16 @@ export async function toOrderSummary(
   const listing = await ctx.db.get("listings", order.listingId);
   const buyer = await ctx.db.get("buyerProfiles", order.buyerId);
 
-  if (!listing || !buyer) {
-    throw new Error("Order references missing listing or buyer profile");
-  }
-
   return {
     _creationTime: order._creationTime,
     _id: order._id,
     agreedPricePerKg: order.agreedPricePerKg,
-    buyerBusinessName: buyer.businessName,
+    buyerBusinessName:
+      order.buyerBusinessName ?? buyer?.businessName ?? "Unknown buyer",
     cancelledReason: order.cancelledReason,
-    county: listing.county,
+    county: order.county ?? listing?.county ?? "—",
     createdAt: order.createdAt,
-    crop: listing.crop,
+    crop: order.crop ?? listing?.crop ?? "unknown",
     farmerId: order.farmerId,
     listingId: order.listingId,
     mpesaCheckoutRequestId: order.mpesaCheckoutRequestId,

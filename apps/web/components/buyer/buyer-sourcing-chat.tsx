@@ -17,16 +17,18 @@ import { useQuery } from "convex/react";
 import { Button, Card } from "@heroui/react";
 import { DefaultChatTransport, isDataUIPart, type UIMessage } from "ai";
 import {
-  Bot,
   ClipboardList,
   MessageSquarePlus,
-  Send,
-  ShoppingBag,
   UserRound,
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { BuyerListingCard } from "@/components/buyer/buyer-listing-card";
+import {
+  SourcingAgentIcon,
+  SourcingSendIcon,
+} from "@/components/buyer/sourcing-agent-icon";
+import { SourcingChatEmptyState } from "@/components/buyer/sourcing-chat-empty-state";
 import {
   OrderDraftConfirmDialog,
   type ConfirmedOrderLine,
@@ -52,7 +54,11 @@ const SURFACE_ELEVATION = "bg-surface shadow-sm dark:shadow-none";
 
 const ELEVATED_SURFACE = `rounded-[0.875rem] ${SURFACE_ELEVATION} text-surface-foreground`;
 
-const INPUT_SURFACE = `rounded-[0.875rem] border-0 ${SURFACE_ELEVATION} text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent/30`;
+const COMPOSER_SURFACE =
+  "rounded-[1.125rem] border border-separator bg-background shadow-sm transition-shadow duration-200 focus-within:border-foreground/15 focus-within:shadow-md dark:shadow-none dark:focus-within:shadow-none";
+
+const COMPOSER_INPUT =
+  "min-h-20 w-full resize-none bg-transparent px-4 py-3.5 pr-14 text-sm leading-6 text-foreground outline-none placeholder:text-muted";
 
 type BuyerChatMessage = UIMessage<
   unknown,
@@ -213,10 +219,8 @@ function ChatMessage({
   return (
     <div className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
       {!isUser ? (
-        <div
-          className={`mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${SURFACE_ELEVATION}`}
-        >
-          <Bot className="h-4 w-4 text-muted" strokeWidth={1.75} />
+        <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-sm dark:shadow-none">
+          <SourcingAgentIcon className="h-4 w-4" size={16} />
         </div>
       ) : null}
 
@@ -277,10 +281,8 @@ function ChatMessage({
 function ChatLoadingIndicator({ phase }: { phase: BuyerChatStatusPhase }) {
   return (
     <div aria-live="polite" className="flex justify-start gap-3" role="status">
-      <div
-        className={`mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${SURFACE_ELEVATION}`}
-      >
-        <Bot className="h-4 w-4 text-muted" strokeWidth={1.75} />
+      <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-sm dark:shadow-none">
+        <SourcingAgentIcon className="h-4 w-4" size={16} />
       </div>
 
       <div className={`px-4 py-3 ${ELEVATED_SURFACE}`}>
@@ -536,10 +538,13 @@ export function BuyerSourcingChat() {
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
       <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <ShoppingBag className="h-8 w-8 text-muted" strokeWidth={1.75} />
+        <div className="flex items-center gap-3.5">
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-sm dark:shadow-none">
+            <SourcingAgentIcon className="h-5 w-5" size={20} />
+          </div>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
+            <p className="text-eyebrow">Buyer workspace</p>
+            <h1 className="text-2xl font-semibold tracking-[-0.02em]">
               Find produce
             </h1>
           </div>
@@ -567,23 +572,9 @@ export function BuyerSourcingChat() {
             className="flex flex-1 flex-col gap-4 overflow-y-auto"
           >
             {messages.length === 0 ? (
-              <div
-                className={`flex flex-1 flex-col items-center justify-center gap-3 px-6 py-12 text-center ${ELEVATED_SURFACE}`}
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-background">
-                  <Bot className="h-5 w-5 text-muted" strokeWidth={1.75} />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <p className="text-sm font-medium tracking-tight text-foreground">
-                    Start a sourcing request
-                  </p>
-                  <p className="max-w-sm text-xs leading-relaxed text-muted">
-                    Try &quot;50kg maize in Nakuru under 50 shillings per
-                    kg&quot; or &quot;Order 5kg beans from Kenato cooperative
-                    grade 5&quot;
-                  </p>
-                </div>
-              </div>
+              <SourcingChatEmptyState
+                onSelectPrompt={(prompt) => setInput(prompt)}
+              />
             ) : (
               messages.map((message) => (
                 <ChatMessage
@@ -607,25 +598,40 @@ export function BuyerSourcingChat() {
           ) : null}
 
           <form className="flex flex-col gap-3 pt-2" onSubmit={handleSubmit}>
-            <textarea
-              aria-label="Sourcing request"
-              className={`min-h-24 w-full resize-none px-4 py-3 text-sm leading-6 transition-shadow duration-200 ${INPUT_SURFACE}`}
-              placeholder="e.g. Order 5kg maize and 3kg beans from Kenato cooperative"
-              rows={3}
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-            />
-            <div className="flex items-center gap-2">
-              <Button
-                className="rounded-full bg-accent px-5 font-medium text-accent-foreground focus-visible:outline-none focus-visible:opacity-80"
-                isDisabled={isBusy || !isAuthReady || input.trim().length === 0}
-                size="sm"
+            <div className={`relative ${COMPOSER_SURFACE}`}>
+              <textarea
+                aria-label="Sourcing request"
+                className={COMPOSER_INPUT}
+                placeholder="Describe what you need — crop, quantity, location, or cooperative…"
+                rows={3}
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (
+                    event.key === "Enter" &&
+                    !event.shiftKey &&
+                    !isBusy &&
+                    isAuthReady &&
+                    input.trim().length > 0
+                  ) {
+                    event.preventDefault();
+                    event.currentTarget.form?.requestSubmit();
+                  }
+                }}
+              />
+              <button
+                aria-label={isBusy ? "Working on request" : "Send request"}
+                className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full bg-accent text-accent-foreground transition-opacity disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+                disabled={isBusy || !isAuthReady || input.trim().length === 0}
                 type="submit"
-                variant="primary"
               >
-                <Send className="h-4 w-4" strokeWidth={1.75} />
-                {isBusy ? "Working…" : "Send"}
-              </Button>
+                <SourcingSendIcon size={16} />
+              </button>
+            </div>
+            <div className="flex items-center justify-between gap-3 px-1">
+              <p className="text-xs text-muted">
+                Press Enter to send · Shift+Enter for a new line
+              </p>
               {isBusy ? (
                 <Button
                   size="sm"

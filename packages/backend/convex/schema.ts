@@ -60,9 +60,12 @@ export default defineSchema({
     .index("by_status", ["status"]),
   orders: defineTable({
     agreedPricePerKg: v.number(),
+    buyerBusinessName: v.optional(v.string()),
     buyerId: v.id("buyerProfiles"),
     cancelledReason: v.optional(v.string()),
+    county: v.optional(v.string()),
     createdAt: v.number(),
+    crop: v.optional(v.string()),
     farmerId: v.id("farmerProfiles"),
     listingId: v.id("listings"),
     mpesaCheckoutRequestId: v.optional(v.string()),

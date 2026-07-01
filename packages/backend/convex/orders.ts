@@ -56,8 +56,11 @@ export const createOrder = mutation({
 
     return await ctx.db.insert("orders", {
       agreedPricePerKg: listing.pricePerKg,
+      buyerBusinessName: buyerProfile.businessName,
       buyerId: buyerProfile._id,
+      county: listing.county,
       createdAt: Date.now(),
+      crop: listing.crop,
       farmerId: listing.farmerId,
       listingId: args.listingId,
       quantityKg: args.quantityKg,
