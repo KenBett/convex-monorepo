@@ -158,6 +158,14 @@ const ORDER_INTENT_PATTERN =
 const PRONOUN_ORDER_PATTERN =
   /\b(?:order|buy|get)\s+(?:it|that|this)\b|\bi want(?:\s+to)?\s+(?:order|buy)\s+(?:it|that|this)\b/i;
 
+const ORDER_ALL_PATTERN =
+  /\b(?:order|buy|purchase|get|take)\s+(?:all(?:\s+of\s+(?:them|these|those))?|everything|the\s+whole\s+(?:lot|list|batch))\b/i;
+
+/** True when the buyer wants every listing currently shown, not a specific subset. */
+export function userMessageHasOrderAllIntent(message: string): boolean {
+  return ORDER_ALL_PATTERN.test(message.trim());
+}
+
 /** True when the buyer message is trying to place an order, not browse new listings. */
 export function userMessageHasOrderIntent(message: string): boolean {
   const trimmed = message.trim();
@@ -166,12 +174,32 @@ export function userMessageHasOrderIntent(message: string): boolean {
   }
 
   return (
+    userMessageHasOrderAllIntent(trimmed) ||
     /\d+\s*(?:kg|kilos?|kgs?)\b/i.test(trimmed) ||
     /\b(?:the )?(?:first|second|third|fourth|fifth)\b/i.test(trimmed) ||
     /\b(?:that|this|the)\s+one\b/i.test(trimmed) ||
     /\border\s+the\b/i.test(trimmed) ||
     PRONOUN_ORDER_PATTERN.test(trimmed)
   );
+}
+
+/**
+ * One order line per listing currently shown, resolved directly by position (`listingRef`) so no
+ * fuzzy crop/grade matching is needed. Quantity is left at 0 — the buyer fills in each line in the
+ * order review dialog before confirming.
+ */
+export function buildOrderAllLines(
+  previousListings: Array<{ crop: string }>,
+): BuyerOrderLineRequest[] {
+  return previousListings.map((listing, index) => {
+    assertValidCrop(listing.crop);
+
+    return {
+      crop: listing.crop as CropType,
+      listingRef: index + 1,
+      quantityKg: 0,
+    };
+  });
 }
 
 export function extractQuantityKgFromText(text: string): number | undefined {

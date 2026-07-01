@@ -33,6 +33,49 @@ export function assertPositiveNumber(value: number, field: string): void {
   }
 }
 
+function normalizeCooperativeName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\b(cooperative|co-op|society|group)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Fuzzy substring match used to resolve a buyer's cooperative hint to a listing's cooperative name. */
+export function matchesCooperative(listingName: string, query?: string): boolean {
+  if (!query) {
+    return true;
+  }
+
+  const normalizedListing = normalizeCooperativeName(listingName);
+  const normalizedQuery = normalizeCooperativeName(query);
+
+  return (
+    normalizedListing.includes(normalizedQuery) ||
+    normalizedQuery.includes(normalizedListing)
+  );
+}
+
+/**
+ * Strict-but-fuzzy grade match: a query is only satisfied when the listing has a grade
+ * and the two values overlap (e.g. "grade 2" matches "Grade 2 (Premium)"). Used as a hard
+ * filter in both search and order resolution so grade requests never silently pass through.
+ */
+export function matchesGrade(listingGrade?: string, query?: string): boolean {
+  if (!query) {
+    return true;
+  }
+
+  if (!listingGrade) {
+    return false;
+  }
+
+  const listing = listingGrade.toLowerCase();
+  const gradeQuery = query.toLowerCase().replace(/^grade\s*/i, "");
+
+  return listing.includes(gradeQuery) || gradeQuery.includes(listing);
+}
+
 export async function requireFarmerProfile(
   ctx: QueryCtx | MutationCtx,
 ): Promise<Doc<"farmerProfiles">> {

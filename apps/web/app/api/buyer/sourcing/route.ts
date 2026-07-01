@@ -1,5 +1,6 @@
-import { api } from "@repo/backend/convex/_generated/api";
 import type { Id } from "@repo/backend/convex/_generated/dataModel";
+
+import { api } from "@repo/backend/convex/_generated/api";
 import { buildBuyerChatRequestContext } from "@repo/backend/convex/listings/buyerChatMessages";
 import {
   createUIMessageStream,
@@ -25,22 +26,22 @@ function getBearerToken(request: Request): string | null {
   return token.length > 0 ? token : null;
 }
 
-function mapListingForContext(
-  listing: {
-    cooperativeName: string;
-    county: string;
-    crop: string;
-    grade?: string;
-    listingId: string;
-    pricePerKg: number;
-    quantityKg: number;
-    status: "active" | "expired" | "sold_out";
-  },
-) {
+function mapListingForContext(listing: {
+  cooperativeName: string;
+  county: string;
+  crop: string;
+  description?: string;
+  grade?: string;
+  listingId: string;
+  pricePerKg: number;
+  quantityKg: number;
+  status: "active" | "expired" | "sold_out";
+}) {
   return {
     cooperativeName: listing.cooperativeName,
     county: listing.county,
     crop: listing.crop,
+    description: listing.description,
     grade: listing.grade,
     listingId: listing.listingId as Id<"listings">,
     pricePerKg: listing.pricePerKg,
@@ -53,7 +54,8 @@ function toChatContextPayload(messages: UIMessage[]) {
   const context = buildBuyerChatRequestContext(messages);
 
   const base = {
-    conversationListings: context.conversationListings.map(mapListingForContext),
+    conversationListings:
+      context.conversationListings.map(mapListingForContext),
     conversationTranscript: context.conversationTranscript,
     latestUserMessage: context.latestUserMessage,
   };
@@ -63,9 +65,7 @@ function toChatContextPayload(messages: UIMessage[]) {
   }
 
   const crops = Array.from(
-    new Set(
-      context.previousSourcing.listings.map((listing) => listing.crop),
-    ),
+    new Set(context.previousSourcing.listings.map((listing) => listing.crop)),
   );
 
   return {
@@ -79,23 +79,23 @@ function toChatContextPayload(messages: UIMessage[]) {
   };
 }
 
-function toStreamListings(
-  results: Array<{
-    cooperativeName: string;
-    county: string;
-    crop: string;
-    description: string;
-    grade?: string;
-    imageUrl: string | null;
-    listingId: string;
-    pricePerKg: number;
-    quantityKg: number;
-    score: number;
-    snippet: string;
-    status: "active" | "expired" | "sold_out";
-    title?: string;
-  }>,
-) {
+type StreamListingSource = {
+  cooperativeName: string;
+  county: string;
+  crop: string;
+  description: string;
+  grade?: string;
+  imageUrl: string | null;
+  listingId: string;
+  pricePerKg: number;
+  quantityKg: number;
+  score: number;
+  snippet: string;
+  status: "active" | "expired" | "sold_out";
+  title?: string;
+};
+
+function toStreamListings(results: StreamListingSource[]) {
   return results.map((listing) => ({
     cooperativeName: listing.cooperativeName,
     county: listing.county,
@@ -113,38 +113,48 @@ function toStreamListings(
   }));
 }
 
-function toStreamOrderDraft(
-  orderDraft: {
-    lines: Array<{
-      issue?: "ambiguous" | "insufficient_stock" | "not_active" | "not_found";
-      listing?: {
-        cooperativeName: string;
-        county: string;
-        crop: string;
-        description: string;
-        grade?: string;
-        imageUrl: string | null;
-        listingId: string;
-        pricePerKg: number;
-        quantityKg: number;
-        score: number;
-        snippet: string;
-        status: "active" | "expired" | "sold_out";
-        title?: string;
-      };
-      quantityKg: number;
-      request: {
-        cooperativeName?: string;
-        county?: string;
-        crop: string;
-        grade?: string;
-        listingRef?: number;
-        quantityKg: number;
-      };
-    }>;
-    summaryText: string;
-  },
+function toStreamSearchGroups(
+  searchGroups: Array<{
+    intent: unknown;
+    results: StreamListingSource[];
+  }>,
 ) {
+  return searchGroups.map((group) => ({
+    intent: group.intent,
+    listings: toStreamListings(group.results),
+  }));
+}
+
+function toStreamOrderDraft(orderDraft: {
+  lines: Array<{
+    issue?: "ambiguous" | "insufficient_stock" | "not_active" | "not_found";
+    listing?: {
+      cooperativeName: string;
+      county: string;
+      crop: string;
+      description: string;
+      grade?: string;
+      imageUrl: string | null;
+      listingId: string;
+      pricePerKg: number;
+      quantityKg: number;
+      score: number;
+      snippet: string;
+      status: "active" | "expired" | "sold_out";
+      title?: string;
+    };
+    quantityKg: number;
+    request: {
+      cooperativeName?: string;
+      county?: string;
+      crop: string;
+      grade?: string;
+      listingRef?: number;
+      quantityKg: number;
+    };
+  }>;
+  summaryText: string;
+}) {
   return {
     lines: orderDraft.lines.map((line) => ({
       issue: line.issue,
@@ -218,6 +228,7 @@ export async function POST(request: Request) {
               intent: turnResult.intent,
               listings: toStreamListings(turnResult.results),
               meta: turnResult.meta,
+              searchGroups: toStreamSearchGroups(turnResult.searchGroups),
             },
           });
         }

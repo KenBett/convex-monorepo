@@ -1,0 +1,383 @@
+{
+  "_meta": {
+    "purpose": "Manual listing seed data for Offtake OS. Upload a Pinterest image in the farmer app, then create each listing via createListing.",
+    "validCrops": [
+      "maize",
+      "beans",
+      "potatoes",
+      "tomatoes",
+      "onions",
+      "cabbage",
+      "avocado",
+      "coffee",
+      "tea",
+      "wheat"
+    ],
+    "validCounties": [
+      "Nairobi",
+      "Kiambu",
+      "Nakuru",
+      "Uasin Gishu",
+      "Meru",
+      "Nyeri",
+      "Kisumu",
+      "Machakos",
+      "Bungoma",
+      "Kakamega"
+    ],
+    "createListingFields": {
+      "crop": "required — must match validCrops exactly",
+      "county": "required — must match validCounties exactly",
+      "description": "required — non-empty string",
+      "grade": "optional — e.g. Grade 1, Export, Organic",
+      "pricePerKg": "required — positive number (KES per kg)",
+      "quantityKg": "required — positive number",
+      "imageStorageId": "required — get this after uploading photo in the app (generateListingImageUploadUrl → upload → paste storage id)"
+    },
+    "workflow": [
+      "1. Log in as a farmer on web or mobile.",
+      "2. For each listing below, search Pinterest using pinterestImageSearch (or similar keywords).",
+      "3. Download a clear product photo (prefer bright, uncluttered produce shots).",
+      "4. In the listing form, upload the image and copy the imageStorageId.",
+      "5. Fill in crop, county, quantity, price, description, and optional grade.",
+      "6. Submit — listing syncs to RAG automatically."
+    ]
+  },
+  "listings": [
+    {
+      "id": 1,
+      "crop": "maize",
+      "county": "Uasin Gishu",
+      "grade": "Grade 1",
+      "quantityKg": 3500,
+      "pricePerKg": 38,
+      "description": "Dryland maize harvested this season from Eldoret belt farms. Well-sorted cobs, low moisture, suitable for millers and feed blenders. Bulk sacks available; can arrange pickup from depot.",
+      "pinterestImageSearch": "yellow maize cobs kenya harvest",
+      "imageStorageId": ""
+    },
+    {
+      "id": 2,
+      "crop": "maize",
+      "county": "Nakuru",
+      "grade": "Grade 2",
+      "quantityKg": 1200,
+      "pricePerKg": 32,
+      "description": "Mixed-grade maize suitable for posho mills and local wholesalers. Some broken grains; priced accordingly. Fast-moving stock from cooperative members.",
+      "pinterestImageSearch": "maize grain sacks africa farm",
+      "imageStorageId": ""
+    },
+    {
+      "id": 3,
+      "crop": "maize",
+      "county": "Bungoma",
+      "grade": "Grade 1",
+      "quantityKg": 800,
+      "pricePerKg": 40,
+      "description": "Freshly dried maize from western Kenya highlands. Clean, fumigation-ready for export-oriented buyers. Minimum order 500 kg.",
+      "pinterestImageSearch": "dried maize kernels close up",
+      "imageStorageId": ""
+    },
+    {
+      "id": 4,
+      "crop": "beans",
+      "county": "Meru",
+      "grade": "Grade 1",
+      "quantityKg": 600,
+      "pricePerKg": 145,
+      "description": "Rose coco beans, hand-picked and sun-dried. Uniform size, minimal splits. Popular with supermarkets and school feeding programs in central Kenya.",
+      "pinterestImageSearch": "rose coco beans kenya",
+      "imageStorageId": ""
+    },
+    {
+      "id": 5,
+      "crop": "beans",
+      "county": "Nakuru",
+      "grade": "Export",
+      "quantityKg": 2000,
+      "pricePerKg": 165,
+      "description": "Navy beans cleaned and bagged for export. Meets basic moisture and defect thresholds. Certificate of origin available on request for registered exporters.",
+      "pinterestImageSearch": "navy beans white bulk",
+      "imageStorageId": ""
+    },
+    {
+      "id": 6,
+      "crop": "beans",
+      "county": "Machakos",
+      "grade": "Grade 2",
+      "quantityKg": 450,
+      "pricePerKg": 118,
+      "description": "Mixed bean lot — kidney and yellow beans blend. Ideal for hotels and institutional kitchens. Priced for volume buyers; delivery within eastern corridor.",
+      "pinterestImageSearch": "kidney beans yellow beans mix",
+      "imageStorageId": ""
+    },
+    {
+      "id": 7,
+      "crop": "potatoes",
+      "county": "Meru",
+      "grade": "Grade 1",
+      "quantityKg": 1500,
+      "pricePerKg": 42,
+      "description": "Shangi potatoes from Meru slopes. Firm flesh, good shelf life, washed and graded. Supplying chips makers and fresh-market traders weekly.",
+      "pinterestImageSearch": "shangi potatoes kenya fresh",
+      "imageStorageId": ""
+    },
+    {
+      "id": 8,
+      "crop": "potatoes",
+      "county": "Nakuru",
+      "grade": "Grade 1",
+      "quantityKg": 3000,
+      "pricePerKg": 36,
+      "description": "Large-tuber potatoes suitable for crisps and wholesale markets. Stored in ventilated crates; low sprouting. Naivasha–Nakuru corridor pickup.",
+      "pinterestImageSearch": "potato harvest crates farm",
+      "imageStorageId": ""
+    },
+    {
+      "id": 9,
+      "crop": "potatoes",
+      "county": "Nyeri",
+      "grade": "Organic",
+      "quantityKg": 350,
+      "pricePerKg": 55,
+      "description": "Small-farm organic potatoes, no synthetic pesticides. Irregular sizing but excellent flavor for upscale restaurants and farmers markets in Nairobi.",
+      "pinterestImageSearch": "organic potatoes rustic basket",
+      "imageStorageId": ""
+    },
+    {
+      "id": 10,
+      "crop": "tomatoes",
+      "county": "Machakos",
+      "grade": "Grade 1",
+      "quantityKg": 900,
+      "pricePerKg": 65,
+      "description": "Ripe round tomatoes from greenhouse blocks near Isinya. Uniform color, firm skin, ideal for supermarkets. Daily harvest during peak season.",
+      "pinterestImageSearch": "red tomatoes greenhouse harvest",
+      "imageStorageId": ""
+    },
+    {
+      "id": 11,
+      "crop": "tomatoes",
+      "county": "Machakos",
+      "grade": "Grade 1",
+      "quantityKg": 1200,
+      "pricePerKg": 58,
+      "description": "Vine-ripened tomatoes for fresh sale and sauce production. Sorted by size; rejects removed. Reliable supply for Nairobi wholesale buyers.",
+      "pinterestImageSearch": "fresh tomatoes crate market",
+      "imageStorageId": ""
+    },
+    {
+      "id": 12,
+      "crop": "tomatoes",
+      "county": "Kiambu",
+      "grade": "Cherry",
+      "quantityKg": 180,
+      "pricePerKg": 120,
+      "description": "Sweet cherry tomatoes in punnets-ready quality. Targeting hotels and premium retail. Limited weekly volume; pre-order recommended.",
+      "pinterestImageSearch": "cherry tomatoes punnet",
+      "imageStorageId": ""
+    },
+    {
+      "id": 13,
+      "crop": "onions",
+      "county": "Machakos",
+      "grade": "Grade 1",
+      "quantityKg": 2200,
+      "pricePerKg": 72,
+      "description": "Red creole onions, well cured and dry. Long storage potential for traders stocking ahead of school term demand. Bulk nets and sacks.",
+      "pinterestImageSearch": "red onions bulk sacks",
+      "imageStorageId": ""
+    },
+    {
+      "id": 14,
+      "crop": "onions",
+      "county": "Nairobi",
+      "grade": "Grade 1",
+      "quantityKg": 500,
+      "pricePerKg": 85,
+      "description": "Spring onions and bulb onions mixed lot for restaurant suppliers in Nairobi CBD. Morning delivery slots available for registered buyers.",
+      "pinterestImageSearch": "spring onions fresh bundle",
+      "imageStorageId": ""
+    },
+    {
+      "id": 15,
+      "crop": "onions",
+      "county": "Kakamega",
+      "grade": "Grade 2",
+      "quantityKg": 800,
+      "pricePerKg": 60,
+      "description": "Small-sized onions suitable for local markets and informal traders. Some skin blemishes; fully edible. Western Kenya cooperative aggregate.",
+      "pinterestImageSearch": "onion harvest field africa",
+      "imageStorageId": ""
+    },
+    {
+      "id": 16,
+      "crop": "cabbage",
+      "county": "Meru",
+      "grade": "Grade 1",
+      "quantityKg": 1400,
+      "pricePerKg": 28,
+      "description": "Glory cabbage heads, tight cores, minimal pest damage. Steady supply for Nakuru and Nairobi route traders. Packed in woven sacks.",
+      "pinterestImageSearch": "green cabbage heads farm",
+      "imageStorageId": ""
+    },
+    {
+      "id": 17,
+
+      "crop": "cabbage",
+      "county": "Nyeri",
+      "grade": "Grade 1",
+      "quantityKg": 600,
+      "pricePerKg": 30,
+      "description": "Fresh cabbage from highland farms. Crisp leaves, good for coleslaw processors and fresh markets. Harvested within 48 hours of dispatch.",
+      "pinterestImageSearch": "cabbage field harvest",
+      "imageStorageId": ""
+    },
+    {
+      "id": 18,
+
+      "crop": "cabbage",
+
+      "county": "Kiambu",
+      "grade": "Chinese",
+      "quantityKg": 400,
+      "pricePerKg": 35,
+      "description": "Chinese cabbage (napa) for Asian restaurants and specialty grocers. Tender leaves, hydro-cooled where possible. Growing demand in Nairobi.",
+      "pinterestImageSearch": "napa cabbage chinese",
+      "imageStorageId": ""
+    },
+    {
+      "id": 19,
+      "crop": "avocado",
+
+      "county": "Kiambu",
+      "grade": "Export",
+      "quantityKg": 2500,
+      "pricePerKg": 95,
+      "description": "Hass avocados, export sizing 16–20 count. Oil content testing available. Packhouse sorting; suitable for EU-oriented exporters with own logistics.",
+      "pinterestImageSearch": "hass avocado harvest kenya",
+      "imageStorageId": ""
+    },
+    {
+      "id": 20,
+      "crop": "avocado",
+      
+      "county": "Kiambu",
+      "grade": "Grade 1",
+      "quantityKg": 800,
+      "pricePerKg": 78,
+      "description": "Local-market Hass and Fuerte mix. Ready-to-ripen fruit for supermarkets and juice bars. Brix spot-checks on request.",
+      "pinterestImageSearch": "avocado fruit crate green",
+      "imageStorageId": ""
+    },
+    {
+      "id": 21,
+      "crop": "avocado",
+      "county": "Kisumu",
+      "grade": "Organic",
+      "quantityKg": 300,
+      "pricePerKg": 110,
+      "description": "Smallholder organic avocados from western Kenya. Variable sizing but rich flavor. Ideal for health-food retailers and direct hotel supply.",
+      "pinterestImageSearch": "organic avocado basket",
+      "imageStorageId": ""
+    },
+    {
+      "id": 22,
+      "crop": "coffee",
+      "county": "Nyeri",
+      "grade": "AA",
+      "quantityKg": 120,
+      "pricePerKg": 320,
+      "description": "Nyeri AA green coffee, fully washed. Cupping notes: citrus, blackcurrant, bright acidity. Microlot from member farmers; sample available for serious buyers.",
+      "pinterestImageSearch": "green coffee beans kenya nyeri",
+      "imageStorageId": ""
+    },
+    {
+      "id": 23,
+      "crop": "coffee",
+      "county": "Meru",
+      "grade": "AB",
+      "quantityKg": 450,
+      "pricePerKg": 280,
+      "description": "Meru AB green coffee for roasters and exporters. Consistent screen size, moisture within export band. Warehouse storage in Nairobi on arrangement.",
+      "pinterestImageSearch": "arabica coffee beans green",
+      "imageStorageId": ""
+    },
+    {
+      "id": 24,
+      "crop": "coffee",
+      "county": "Kiambu",
+      "grade": "PB",
+      "quantityKg": 200,
+      "pricePerKg": 250,
+      "description": "Peaberry lot from central Kenya estates. Distinct round beans favored by specialty roasters. Limited quantity; first-come allocation.",
+      "pinterestImageSearch": "coffee peaberry beans",
+      "imageStorageId": ""
+    },
+    {
+      "id": 25,
+      "crop": "tea",
+      "county": "Uasin Gishu",
+      "grade": "BP1",
+      "quantityKg": 500,
+      "pricePerKg": 85,
+      "description": "Black CTC tea BP1 grade from Rift Valley factories. Brisk liquor, suitable for blenders and packet tea brands. Factory dispatch documents included.",
+      "pinterestImageSearch": "black tea leaves kenya",
+      "imageStorageId": ""
+    },
+    {
+      "id": 26,
+      "crop": "tea",
+      "county": "Nakuru",
+      "grade": "PF1",
+      "quantityKg": 1000,
+      "pricePerKg": 72,
+      "description": "PF1 tea for domestic market packers. Clean leaf, good color. Regular monthly volumes for contracted buyers.",
+      "pinterestImageSearch": "kenyan black tea bulk",
+      "imageStorageId": ""
+    },
+    {
+      "id": 27,
+      "crop": "tea",
+      "county": "Meru",
+      "grade": "Orthodox",
+      "quantityKg": 150,
+      "pricePerKg": 140,
+      "description": "Orthodox whole-leaf tea from small Meru processors. Floral aroma, hand-rolled batches. Niche supply for boutique tea brands.",
+      "pinterestImageSearch": "orthodox whole leaf tea",
+      "imageStorageId": ""
+    },
+    {
+      "id": 28,
+      "crop": "wheat",
+      "county": "Uasin Gishu",
+      "grade": "Grade 1",
+      "quantityKg": 4000,
+      "pricePerKg": 48,
+      "description": "Milling wheat from North Rift. Protein suitable for bread flour blends. Bulk tonnage; loader access at farm gate.",
+      "pinterestImageSearch": "wheat grain field harvest golden",
+      "imageStorageId": ""
+    },
+    {
+      "id": 29,
+      "crop": "wheat",
+      "county": "Nakuru",
+      "grade": "Grade 2",
+      "quantityKg": 1800,
+      "pricePerKg": 42,
+      "description": "Feed-grade wheat with slightly higher moisture. Cost-effective for animal feed millers. Stored in silo bags; moisture certificate on request.",
+      "pinterestImageSearch": "wheat grain sacks storage",
+      "imageStorageId": ""
+    },
+    {
+      "id": 30,
+      "crop": "wheat",
+      "county": "Nakuru",
+      "grade": "Grade 1",
+      "quantityKg": 900,
+      "pricePerKg": 50,
+      "description": "Clean wheat for bakers and millers in the Rift. Low foreign matter, tested germination where applicable. Flexible delivery to Nakuru town.",
+      "pinterestImageSearch": "wheat ears close up farm",
+      "imageStorageId": ""
+    }
+  ]
+}

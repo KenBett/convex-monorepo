@@ -54,19 +54,25 @@ function AuthBrandPanelSkeleton({ compact = false }: { compact?: boolean }) {
         </div>
       </div>
 
-      <div className="relative max-w-md skeleton--shimmer">
+      <div className="relative flex flex-1 flex-col items-center justify-center px-2 py-8">
         <Skeleton
           animationType="none"
-          className={`h-3 w-48 rounded-md ${BRAND_SKELETON}`}
+          className={`size-[220px] shrink-0 rounded-2xl ${BRAND_SKELETON} skeleton--shimmer`}
         />
-        <Skeleton
-          animationType="none"
-          className={`mt-3 h-9 w-full max-w-sm rounded-md ${BRAND_SKELETON}`}
-        />
-        <Skeleton
-          animationType="none"
-          className={`mt-2 h-9 w-4/5 max-w-xs rounded-md ${BRAND_SKELETON}`}
-        />
+        <div className="mt-8 w-full max-w-md skeleton--shimmer">
+          <Skeleton
+            animationType="none"
+            className={`mx-auto h-3 w-48 rounded-md ${BRAND_SKELETON}`}
+          />
+          <Skeleton
+            animationType="none"
+            className={`mx-auto mt-3 h-9 w-full max-w-sm rounded-md ${BRAND_SKELETON}`}
+          />
+          <Skeleton
+            animationType="none"
+            className={`mx-auto mt-2 h-9 w-4/5 max-w-xs rounded-md ${BRAND_SKELETON}`}
+          />
+        </div>
       </div>
 
       <Skeleton
@@ -82,7 +88,10 @@ function AuthFormCardSkeleton() {
     <div className="flex flex-col gap-6 rounded-[0.875rem] bg-surface p-6 shadow-sm dark:shadow-none">
       <div className="flex flex-col gap-2 skeleton--shimmer">
         <Skeleton animationType="none" className="h-8 w-44 rounded-md" />
-        <Skeleton animationType="none" className="h-4 w-full max-w-xs rounded-md" />
+        <Skeleton
+          animationType="none"
+          className="h-4 w-full max-w-xs rounded-md"
+        />
       </div>
 
       <Skeleton animationType="none" className="h-10 w-full rounded-full" />

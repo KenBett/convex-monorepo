@@ -138,6 +138,7 @@ export {
   type BuyerChatStatusPhase,
   type BuyerChatStatusStreamData,
   type BuyerOrderLineRequest,
+  type BuyerSearchGroup,
   type BuyerSearchIntent,
   type BuyerSourcingListingResult,
   type BuyerSourcingMeta,

@@ -12,6 +12,7 @@ export type BuyerSearchIntentPreviousContext = {
   intent: {
     county?: string;
     crop?: string;
+    grade?: string;
     maxPricePerKg?: number;
     minQuantityKg?: number;
   };
@@ -99,6 +100,13 @@ function inheritPreviousIntent(
   if (!nextIntent.county && previousContext.intent.county) {
     nextIntent.county = coerceCounty(previousContext.intent.county);
   }
+  if (
+    !nextIntent.grade &&
+    nextIntent.refinePreviousResults &&
+    previousContext.intent.grade
+  ) {
+    nextIntent.grade = previousContext.intent.grade;
+  }
   if (!nextIntent.minQuantityKg && previousContext.intent.minQuantityKg) {
     nextIntent.minQuantityKg = previousContext.intent.minQuantityKg;
   }
@@ -156,6 +164,7 @@ export function fallbackBuyerSearchIntent(
     {
       crop: null,
       county: null,
+      grade: null,
       maxPricePerKg: null,
       minQuantityKg: null,
       searchText: query,
@@ -174,10 +183,12 @@ export const SEARCH_INTENT_TOOL_RULES = `When calling searchListings, populate s
 - If no crop is in the latest message, inherit from previous search context only when refining those same results.
 - When the buyer asks about a different crop than earlier results, set refinePreviousResults: false and run a fresh search.
 - Counties must be one of: ${COUNTIES.join(", ")} when mentioned.
+- Grade is a strict filter: extract phrases like "grade 2", "Grade A", "premium grade" into grade (store just the grade value, e.g. "2" or "A"); when the buyer says "only" grade N, that grade is required — never return other grades for that crop.
 - Put remaining descriptive terms in searchText (quantity hints, quality, urgency).
 - searchText must never be empty.
 - minQuantityKg and maxPricePerKg when clearly stated; otherwise omit.
 - refinePreviousResults: true when referring to earlier results ("cheaper one", "show me one").
 - pricePreference: "cheapest" or "most_expensive" when refining by price.
 - resultLimit: 1 when the buyer asks for a single option.
-- For brand-new searches with explicit crop or location, refinePreviousResults: false.`;
+- For brand-new searches with explicit crop or location, refinePreviousResults: false.
+- crop AND county AND grade are all strict, exact filters when set — a search for one crop/county/grade combination must never return listings for a different crop, a different county, or a different grade.`;

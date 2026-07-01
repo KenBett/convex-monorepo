@@ -6,6 +6,7 @@ export type BuyerSearchPricePreference = "cheapest" | "most_expensive";
 export type ParsedBuyerSearchIntent = {
   county: (typeof COUNTIES)[number] | null;
   crop: (typeof CROP_TYPES)[number] | null;
+  grade: string | null;
   maxPricePerKg: number | null;
   minQuantityKg: number | null;
   pricePreference: BuyerSearchPricePreference | null;
@@ -25,6 +26,9 @@ export const buyerSearchIntentParseSchema = jsonSchema<ParsedBuyerSearchIntent>(
     county: {
       type: ["string", "null"],
       enum: [...COUNTIES, null],
+    },
+    grade: {
+      type: ["string", "null"],
     },
     maxPricePerKg: {
       type: ["number", "null"],
@@ -49,6 +53,7 @@ export const buyerSearchIntentParseSchema = jsonSchema<ParsedBuyerSearchIntent>(
   required: [
     "crop",
     "county",
+    "grade",
     "maxPricePerKg",
     "minQuantityKg",
     "searchText",
@@ -73,6 +78,7 @@ export function toBuyerSearchIntent(
   };
   if (parsed.crop != null) intent.crop = parsed.crop;
   if (parsed.county != null) intent.county = parsed.county;
+  if (parsed.grade != null) intent.grade = parsed.grade;
   if (parsed.maxPricePerKg != null) intent.maxPricePerKg = parsed.maxPricePerKg;
   if (parsed.minQuantityKg != null) intent.minQuantityKg = parsed.minQuantityKg;
   if (parsed.refinePreviousResults) intent.refinePreviousResults = true;

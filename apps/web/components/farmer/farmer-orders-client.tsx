@@ -114,7 +114,10 @@ function FarmerOrdersTable({ orders }: { orders: FarmerOrderSummary[] }) {
                 <Table.Row key={order._id}>
                   <Table.Cell>
                     <Chip
-                      className={clsx(ORDER_CHIP_CLASS, ORDER_CHIP_LIGHT_SURFACE)}
+                      className={clsx(
+                        ORDER_CHIP_CLASS,
+                        ORDER_CHIP_LIGHT_SURFACE,
+                      )}
                       size="sm"
                       variant="secondary"
                     >
@@ -126,7 +129,10 @@ function FarmerOrdersTable({ orders }: { orders: FarmerOrderSummary[] }) {
                         )}
                       >
                         <CropIcon
-                          className={clsx("h-3.5 w-3.5 shrink-0", theme.iconColorClass)}
+                          className={clsx(
+                            "h-3.5 w-3.5 shrink-0",
+                            theme.iconColorClass,
+                          )}
                           crop={order.crop}
                         />
                         {theme.label}
@@ -135,7 +141,10 @@ function FarmerOrdersTable({ orders }: { orders: FarmerOrderSummary[] }) {
                   </Table.Cell>
                   <Table.Cell>
                     <Chip
-                      className={clsx(ORDER_CHIP_CLASS, ORDER_CHIP_LIGHT_SURFACE)}
+                      className={clsx(
+                        ORDER_CHIP_CLASS,
+                        ORDER_CHIP_LIGHT_SURFACE,
+                      )}
                       size="sm"
                       variant="soft"
                     >
@@ -151,7 +160,10 @@ function FarmerOrdersTable({ orders }: { orders: FarmerOrderSummary[] }) {
                   </Table.Cell>
                   <Table.Cell>
                     <Chip
-                      className={clsx(ORDER_CHIP_CLASS, ORDER_CHIP_LIGHT_SURFACE)}
+                      className={clsx(
+                        ORDER_CHIP_CLASS,
+                        ORDER_CHIP_LIGHT_SURFACE,
+                      )}
                       size="sm"
                       variant="secondary"
                     >
@@ -182,7 +194,10 @@ function FarmerOrdersTable({ orders }: { orders: FarmerOrderSummary[] }) {
                   </Table.Cell>
                   <Table.Cell>
                     <Chip
-                      className={clsx(ORDER_CHIP_CLASS, ORDER_CHIP_LIGHT_SURFACE)}
+                      className={clsx(
+                        ORDER_CHIP_CLASS,
+                        ORDER_CHIP_LIGHT_SURFACE,
+                      )}
                       size="sm"
                       variant="soft"
                     >

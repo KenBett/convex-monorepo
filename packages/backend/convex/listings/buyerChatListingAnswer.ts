@@ -1,5 +1,5 @@
+import { matchesCooperative } from "../lib/listings";
 import type { BuyerChatPreviousListing } from "./buyerOrderResolve";
-import { matchesCooperative } from "./buyerOrderResolve";
 import { extractCropFromQuery } from "./buyerSearchIntentNormalize";
 
 export type ListingMetadataField =
@@ -40,6 +40,13 @@ const LISTING_REF_PATTERNS: Array<{ pattern: RegExp; ref: number }> = [
   { pattern: /\b(?:the )?(?:fourth|4th)\b/i, ref: 4 },
   { pattern: /\b(?:the )?(?:fifth|5th)\b/i, ref: 5 },
 ];
+
+/**
+ * Matches singular demonstrative pronouns ("this one", "that one", "this", "that", "it")
+ * that refer to the most recently shown single listing rather than an ordinal position.
+ */
+const SINGULAR_PRONOUN_PATTERN =
+  /\b(?:this|that)(?:\s+one)?\b|\bit\b/i;
 
 /** True when the buyer is asking about listing metadata, not searching or ordering. */
 export function userMessageIsListingQuestion(message: string): boolean {
@@ -105,8 +112,16 @@ export function resolveReferencedListings(
     return listing ? [listing] : [];
   }
 
-  let candidates =
-    conversationListings.length > 0 ? conversationListings : previousListings;
+  // "this one / that one / it" — buyer refers to the most recently shown card(s),
+  // not everything shown in the whole conversation. Fall back to previousListings
+  // so a single-card result stays single-card, rather than expanding to all 3+
+  // listings accumulated across earlier turns.
+  const hasSingularPronoun =
+    listingRef === undefined && SINGULAR_PRONOUN_PATTERN.test(query);
+
+  let candidates = hasSingularPronoun
+    ? (previousListings.length > 0 ? previousListings : conversationListings)
+    : (conversationListings.length > 0 ? conversationListings : previousListings);
 
   if (crop) {
     candidates = candidates.filter((listing) => listing.crop === crop);
@@ -139,7 +154,7 @@ function formatFieldValue(
     case "status":
       return listing.status;
     case "description":
-      return "See the listing card for full details.";
+      return listing.description?.trim() || "No description available.";
     default:
       return "unknown";
   }
@@ -199,6 +214,9 @@ function formatListingAnswer(
       }
       if (field === "cooperative") {
         return `The ${label} is sold by ${value}.`;
+      }
+      if (field === "description") {
+        return value;
       }
       return `The ${formatFieldLabel(field)} for ${label} is ${value}.`;
     }

@@ -17,6 +17,7 @@ import {
 export const buyerSearchIntentValidator = v.object({
   county: v.optional(v.string()),
   crop: v.optional(v.string()),
+  grade: v.optional(v.string()),
   maxPricePerKg: v.optional(v.number()),
   minQuantityKg: v.optional(v.number()),
   pricePreference: v.optional(

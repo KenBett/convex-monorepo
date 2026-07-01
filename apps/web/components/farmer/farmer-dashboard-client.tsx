@@ -109,8 +109,8 @@ export function FarmerDashboardClient() {
           <div className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-2.5 sm:gap-3">
             {stats.activePreview.map((listing) => (
               <FarmerListingCard
-                compact
                 key={listing._id}
+                compact
                 listing={listing}
                 listingId={listing._id}
               />

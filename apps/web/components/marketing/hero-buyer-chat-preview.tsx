@@ -8,8 +8,7 @@ import { BuyerListingCard } from "@/components/buyer/buyer-listing-card";
 import { SourcingSendIcon } from "@/components/buyer/sourcing-agent-icon";
 import { VunrLogo } from "@/components/marketing/vunr-logo";
 
-const HERO_USER_QUERY =
-  "50kg maize in Nakuru under 50 shillings per kg";
+const HERO_USER_QUERY = "50kg maize in Nakuru under 50 shillings per kg";
 
 const HERO_ASSISTANT_INTRO = "Here are 2 matching listings below.";
 
@@ -45,8 +44,7 @@ const HERO_MOCK_LISTINGS: BuyerSourcingListingResult[] = [
 const ELEVATED_SURFACE =
   "rounded-xl bg-surface text-surface-foreground shadow-sm";
 
-const COMPOSER_SURFACE =
-  "rounded-2xl bg-background shadow-sm";
+const COMPOSER_SURFACE = "rounded-2xl bg-background shadow-sm";
 
 const COMPOSER_INPUT =
   "min-h-10 w-full resize-none bg-transparent px-3 py-2 pr-12 text-sm leading-5 text-foreground outline-none placeholder:text-muted";
@@ -68,7 +66,9 @@ export function HeroBuyerChatPreview() {
                 </div>
               </div>
               <Avatar className="shrink-0 shadow-sm" size="sm">
-                <Avatar.Fallback className="text-xs font-semibold">BK</Avatar.Fallback>
+                <Avatar.Fallback className="text-xs font-semibold">
+                  BK
+                </Avatar.Fallback>
               </Avatar>
             </div>
 
@@ -78,7 +78,9 @@ export function HeroBuyerChatPreview() {
               </div>
 
               <div className="flex min-w-0 w-full flex-col gap-2 sm:max-w-[92%]">
-                <div className={`px-3 py-2 text-sm leading-5 ${ELEVATED_SURFACE}`}>
+                <div
+                  className={`px-3 py-2 text-sm leading-5 ${ELEVATED_SURFACE}`}
+                >
                   <p>{HERO_ASSISTANT_INTRO}</p>
                 </div>
 
@@ -99,8 +101,8 @@ export function HeroBuyerChatPreview() {
 
           <div className={`relative ${COMPOSER_SURFACE}`}>
             <textarea
-              readOnly
               aria-hidden
+              readOnly
               className={COMPOSER_INPUT}
               placeholder="Describe what you need…"
               rows={1}

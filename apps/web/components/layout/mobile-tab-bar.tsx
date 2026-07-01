@@ -34,9 +34,7 @@ export const MobileTabBar = () => {
               aria-label={item.label}
               className={clsx(
                 "flex flex-1 items-center justify-center transition-colors",
-                isActive
-                  ? "text-accent"
-                  : "text-muted hover:text-foreground",
+                isActive ? "text-accent" : "text-muted hover:text-foreground",
               )}
               href={item.href}
             >

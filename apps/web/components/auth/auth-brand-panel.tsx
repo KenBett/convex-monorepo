@@ -23,7 +23,9 @@ export function AuthBrandPanel({ compact = false }: AuthBrandPanelProps) {
             <p className="text-lg font-semibold tracking-[-0.04em] text-white">
               {siteConfig.name}
             </p>
-            <p className="truncate text-sm text-white/65">{brandCopy.tagline}</p>
+            <p className="truncate text-sm text-white/65">
+              {brandCopy.tagline}
+            </p>
           </div>
         </div>
       </div>
@@ -50,17 +52,16 @@ export function AuthBrandPanel({ compact = false }: AuthBrandPanelProps) {
         </div>
       </div>
 
-      <div className="relative flex flex-1 flex-col items-center justify-center py-8">
+      <div className="relative flex flex-1 flex-col items-center justify-center px-2 py-8">
         <AppIllustration name="auth-welcome" size={220} />
-      </div>
-
-      <div className="relative max-w-md">
-        <p className="text-xs font-medium uppercase tracking-[0.14em] text-brand-accent-highlight">
-          Agricultural trade, simplified
-        </p>
-        <h2 className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-white">
-          {brandCopy.tagline}
-        </h2>
+        <div className="mt-8 max-w-md text-center">
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-brand-accent-highlight">
+            Agricultural trade, simplified
+          </p>
+          <h2 className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-white">
+            {brandCopy.tagline}
+          </h2>
+        </div>
       </div>
 
       <p className="relative text-xs text-white/40">

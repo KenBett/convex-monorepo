@@ -131,7 +131,12 @@ export function FarmerListingCard({
           </div>
         )}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-linear-to-t from-black/20 to-transparent" />
-        <div className={clsx("absolute z-10", compact ? "right-1.5 top-1.5" : "right-2 top-2")}>
+        <div
+          className={clsx(
+            "absolute z-10",
+            compact ? "right-1.5 top-1.5" : "right-2 top-2",
+          )}
+        >
           <ListingStatusPill compact={compact} status={listing.status} />
         </div>
       </div>
@@ -184,6 +189,17 @@ export function FarmerListingCard({
           {" · "}
           {listing.county}
         </p>
+
+        {listing.description.trim() ? (
+          <p
+            className={clsx(
+              "line-clamp-2 leading-snug text-neutral-500 dark:text-neutral-400",
+              compact ? "text-[10px]" : "text-[11px]",
+            )}
+          >
+            {listing.description.trim()}
+          </p>
+        ) : null}
       </div>
     </article>
   );

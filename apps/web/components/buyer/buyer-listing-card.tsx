@@ -7,6 +7,7 @@ import type {
 
 import {
   formatListingStatus,
+  getBuyerListingDescription,
   getCropTheme,
   getListingCardBgClass,
   LISTING_CARD_NOISE_DATA_URI,
@@ -16,6 +17,7 @@ import { Button, Chip } from "@heroui/react";
 import clsx from "clsx";
 import Image from "next/image";
 import { ShoppingBag } from "lucide-react";
+import { type KeyboardEvent } from "react";
 
 import { CropBadge } from "@/components/farmer/crop-display";
 
@@ -23,6 +25,7 @@ type BuyerListingCardProps = {
   forceLight?: boolean;
   liveStatus?: ChatListingLiveStatus;
   onOrder?: (result: BuyerSourcingListingResult) => void;
+  onSelect?: (result: BuyerSourcingListingResult) => void;
   result: BuyerSourcingListingResult;
 };
 
@@ -45,24 +48,52 @@ export function BuyerListingCard({
   forceLight = false,
   liveStatus,
   onOrder,
+  onSelect,
   result,
 }: BuyerListingCardProps) {
   const theme = getCropTheme(result.crop);
+  const description = getBuyerListingDescription(result.description);
   const resolvedStatus = liveStatus ?? result.status;
   const isUnavailable =
     resolvedStatus === "sold_out" ||
     resolvedStatus === "expired" ||
     resolvedStatus === "deleted";
-  const canOrder = Boolean(onOrder) && resolvedStatus === "active";
+  const isInteractive = Boolean(onSelect);
+  const showInlineOrder =
+    Boolean(onOrder) && !isInteractive && resolvedStatus === "active";
+
+  const handleActivate = () => {
+    if (isInteractive) {
+      onSelect?.(result);
+    }
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (!isInteractive) {
+      return;
+    }
+
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onSelect?.(result);
+    }
+  };
 
   return (
     <article
       className={clsx(
-        "relative grid aspect-square grid-rows-[1fr_auto] overflow-hidden rounded-[0.875rem]",
-        "shadow-sm transition-shadow duration-200 hover:shadow-md",
+        "group relative grid aspect-square grid-rows-[1fr_auto] overflow-hidden rounded-[0.875rem]",
+        "shadow-sm transition-[box-shadow,transform] duration-200",
         getListingCardBgClass(result.crop),
         isUnavailable && "opacity-60 saturate-50",
+        isInteractive &&
+          "cursor-pointer hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 active:shadow-md focus-visible:outline-none",
+        !isInteractive && "hover:shadow-md",
       )}
+      role={isInteractive ? "button" : undefined}
+      tabIndex={isInteractive ? 0 : undefined}
+      onClick={isInteractive ? handleActivate : undefined}
+      onKeyDown={isInteractive ? handleKeyDown : undefined}
     >
       <div className="relative min-h-0 w-full overflow-hidden">
         {result.imageUrl ? (
@@ -101,7 +132,7 @@ export function BuyerListingCard({
                   : formatListingStatus(resolvedStatus)}
               </Chip.Label>
             </Chip>
-          ) : (
+          ) : result.score > 0 ? (
             <Chip
               className={clsx(
                 "h-auto bg-white/95 px-1.5 py-0.5 shadow-sm ring-1 ring-black/5",
@@ -114,7 +145,7 @@ export function BuyerListingCard({
                 {Math.round(result.score * 100)}% match
               </Chip.Label>
             </Chip>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -123,6 +154,17 @@ export function BuyerListingCard({
           aria-hidden
           className="pointer-events-none absolute inset-0 z-20 rounded-[inherit] bg-background/25"
         />
+      ) : null}
+
+      {isInteractive ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-30 flex items-end justify-center rounded-[inherit] bg-linear-to-t from-black/35 via-black/10 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100"
+        >
+          <span className="mb-3 rounded-full bg-white/95 px-3 py-1 text-[11px] font-semibold text-neutral-900 shadow-sm ring-1 ring-black/5">
+            View details
+          </span>
+        </div>
       ) : null}
 
       <ListingCardNoiseOverlay />
@@ -178,7 +220,18 @@ export function BuyerListingCard({
           {result.cooperativeName}
         </p>
 
-        {canOrder ? (
+        {description ? (
+          <p
+            className={clsx(
+              "line-clamp-2 text-[10px] leading-snug text-neutral-500",
+              !forceLight && "dark:text-neutral-400",
+            )}
+          >
+            {description}
+          </p>
+        ) : null}
+
+        {showInlineOrder ? (
           <Button
             className="mt-1 w-full rounded-full bg-accent text-[11px] font-semibold text-accent-foreground"
             size="sm"

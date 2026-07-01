@@ -7,7 +7,11 @@ import type {
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
-import { assertValidCrop } from "../lib/listings";
+import {
+  assertValidCrop,
+  matchesCooperative,
+  matchesGrade,
+} from "../lib/listings";
 import {
   runListingSemanticSearch,
   type ListingSearchResultRow,
@@ -17,52 +21,13 @@ export type BuyerChatPreviousListing = {
   cooperativeName: string;
   county: string;
   crop: string;
+  description?: string;
   grade?: string;
   listingId: Id<"listings">;
   pricePerKg: number;
   quantityKg: number;
   status: "active" | "expired" | "sold_out";
 };
-
-function normalizeCooperativeName(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/\b(cooperative|co-op|society|group)\b/gi, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-export function matchesCooperative(
-  listingName: string,
-  query?: string,
-): boolean {
-  if (!query) {
-    return true;
-  }
-
-  const normalizedListing = normalizeCooperativeName(listingName);
-  const normalizedQuery = normalizeCooperativeName(query);
-
-  return (
-    normalizedListing.includes(normalizedQuery) ||
-    normalizedQuery.includes(normalizedListing)
-  );
-}
-
-export function matchesGrade(listingGrade?: string, query?: string): boolean {
-  if (!query) {
-    return true;
-  }
-
-  if (!listingGrade) {
-    return false;
-  }
-
-  const listing = listingGrade.toLowerCase();
-  const gradeQuery = query.toLowerCase().replace(/^grade\s*/i, "");
-
-  return listing.includes(gradeQuery) || gradeQuery.includes(listing);
-}
 
 function toListingResult(row: ListingSearchResultRow) {
   return {

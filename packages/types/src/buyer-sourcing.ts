@@ -14,6 +14,7 @@ export const buyerSearchIntentSchema = z.object({
 export type BuyerSearchIntent = {
   county?: (typeof COUNTIES)[number];
   crop?: (typeof CROP_TYPES)[number];
+  grade?: string;
   maxPricePerKg?: number;
   minQuantityKg?: number;
   pricePreference?: "cheapest" | "most_expensive";
@@ -61,10 +62,21 @@ export interface BuyerSourcingSearchResponse {
   results: BuyerSourcingListingResult[];
 }
 
+/** One distinct crop/county/grade request within a compound buyer message. */
+export interface BuyerSearchGroup {
+  intent: BuyerSearchIntent;
+  listings: BuyerSourcingListingResult[];
+}
+
 export interface BuyerSourcingStreamData {
   intent: BuyerSearchIntent;
   listings: BuyerSourcingListingResult[];
   meta: BuyerSourcingMeta;
+  /**
+   * One entry per distinct clause the buyer asked for; length 1 for a simple search.
+   * Optional because chat history persisted before this field existed won't have it.
+   */
+  searchGroups?: BuyerSearchGroup[];
 }
 
 export type BuyerChatStatusPhase = "working" | "searching" | "ordering";

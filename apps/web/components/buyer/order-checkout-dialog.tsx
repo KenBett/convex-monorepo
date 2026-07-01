@@ -368,6 +368,7 @@ export function OrderCheckoutDialog({
                   onPress={() => {
                     if (isSuccess) {
                       onCheckoutComplete?.();
+
                       return;
                     }
                     onClose();

@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "@heroui/react";
-import clsx from "clsx";
 import {
   ArrowRight,
   Leaf,
@@ -10,7 +9,7 @@ import {
   Truck,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 
 import { siteConfig } from "@/config/site";
 
@@ -54,71 +53,89 @@ function lerp(start: number, end: number, progress: number) {
 }
 
 function LandingNav() {
-  const [scrollProgress, setScrollProgress] = useState(0);
+  const headerRef = useRef<HTMLElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const logoLinkRef = useRef<HTMLAnchorElement>(null);
+  const logoTextRef = useRef<HTMLSpanElement>(null);
+  const buttonWrapRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     let frame = 0;
 
-    const updateScroll = () => {
-      frame = 0;
-      const progress = Math.min(window.scrollY / NAV_SCROLL_RANGE, 1);
-      setScrollProgress(progress);
-    };
+    function applyStyles(progress: number) {
+      if (headerRef.current) {
+        headerRef.current.style.paddingTop = `${lerp(0, 12, progress)}px`;
+        headerRef.current.style.paddingInline = `${lerp(0, 20, progress)}px`;
+      }
+      if (innerRef.current) {
+        const el = innerRef.current;
+        el.style.maxWidth = `${lerp(72, 40, progress)}rem`;
+        el.style.borderRadius = `${lerp(0, 16, progress)}px`;
+        el.style.paddingTop = `${lerp(20, 12, progress)}px`;
+        el.style.paddingBottom = `${lerp(20, 12, progress)}px`;
+        el.style.backgroundColor = `color-mix(in srgb, var(--brand-deep) ${lerp(35, 92, progress)}%, transparent)`;
+        el.style.border = `${lerp(0, 1, progress)}px solid rgba(255, 255, 255, ${lerp(0, 0.12, progress)})`;
+        el.style.boxShadow =
+          progress > 0.02
+            ? `0 ${lerp(4, 10, progress)}px ${lerp(12, 32, progress)}px rgba(0, 0, 0, ${lerp(0.06, 0.22, progress)})`
+            : "none";
+        el.style.backdropFilter = `blur(${lerp(12, 20, progress)}px) saturate(${lerp(100, 150, progress)}%)`;
+      }
+      if (logoLinkRef.current) {
+        logoLinkRef.current.style.transform = `scale(${1 - progress * 0.05})`;
+      }
+      if (logoTextRef.current) {
+        logoTextRef.current.style.fontSize = `${lerp(1.25, 1.125, progress)}rem`;
+      }
+      if (buttonWrapRef.current) {
+        buttonWrapRef.current.style.transform = `scale(${1 - progress * 0.03})`;
+      }
+    }
 
     const onScroll = () => {
       if (frame !== 0) return;
-      frame = window.requestAnimationFrame(updateScroll);
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        applyStyles(Math.min(window.scrollY / NAV_SCROLL_RANGE, 1));
+      });
     };
 
-    updateScroll();
+    applyStyles(Math.min(window.scrollY / NAV_SCROLL_RANGE, 1));
     window.addEventListener("scroll", onScroll, { passive: true });
 
     return () => {
       window.removeEventListener("scroll", onScroll);
-      if (frame !== 0) {
-        window.cancelAnimationFrame(frame);
-      }
+      if (frame !== 0) cancelAnimationFrame(frame);
     };
   }, []);
 
-  const progress = scrollProgress;
-  const logoScale = 1 - progress * 0.05;
-  const buttonScale = 1 - progress * 0.03;
-
   return (
     <header
+      ref={headerRef}
       className="sticky top-0 z-50 w-full motion-reduce:transition-none"
-      style={{
-        paddingTop: `${lerp(0, 12, progress)}px`,
-        paddingInline: `${lerp(0, 20, progress)}px`,
-      }}
     >
       <div
+        ref={innerRef}
         className="mx-auto flex w-full items-center justify-between"
         style={{
-          maxWidth: `${lerp(72, 40, progress)}rem`,
-          borderRadius: `${lerp(0, 16, progress)}px`,
-          paddingTop: `${lerp(20, 12, progress)}px`,
-          paddingBottom: `${lerp(20, 12, progress)}px`,
-          paddingInline: `${lerp(20, 20, progress)}px`,
-          backgroundColor: `color-mix(in srgb, var(--brand-deep) ${Math.round(lerp(35, 92, progress))}%, transparent)`,
-          border: `${lerp(0, 1, progress)}px solid rgba(255, 255, 255, ${lerp(0, 0.12, progress)})`,
-          boxShadow:
-            progress > 0.02
-              ? `0 ${lerp(4, 10, progress)}px ${lerp(12, 32, progress)}px rgba(0, 0, 0, ${lerp(0.06, 0.22, progress)})`
-              : "none",
-          backdropFilter: `blur(${lerp(12, 20, progress)}px) saturate(${lerp(100, 150, progress)}%)`,
+          maxWidth: "72rem",
+          paddingTop: "20px",
+          paddingBottom: "20px",
+          paddingInline: "20px",
+          backgroundColor: "color-mix(in srgb, var(--brand-deep) 35%, transparent)",
+          backdropFilter: "blur(12px) saturate(100%)",
         }}
       >
         <Link
+          ref={logoLinkRef}
           className="flex items-center gap-2.5 text-brand-accent-highlight"
           href="/"
-          style={{ transform: `scale(${logoScale})` }}
         >
           <VunrLogo className="text-brand-accent-highlight" size={36} />
           <span
+            ref={logoTextRef}
             className="font-semibold tracking-[-0.04em] text-white"
-            style={{ fontSize: `${lerp(1.25, 1.125, progress)}rem` }}
+            style={{ fontSize: "1.25rem" }}
           >
             {siteConfig.name}
           </span>
@@ -129,13 +146,14 @@ function LandingNav() {
             Sign in
           </Link>
           <Link href="/sign-up">
-            <Button
-              className={`${LANDING_PRIMARY_BUTTON} px-5 py-2 text-sm`}
-              style={{ transform: `scale(${buttonScale})` }}
-              variant="primary"
-            >
-              Get started
-            </Button>
+            <span ref={buttonWrapRef} style={{ display: "inline-flex" }}>
+              <Button
+                className={`${LANDING_PRIMARY_BUTTON} px-5 py-2 text-sm`}
+                variant="primary"
+              >
+                Get started
+              </Button>
+            </span>
           </Link>
         </nav>
       </div>
@@ -286,7 +304,9 @@ function RolesSection() {
   return (
     <section className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-16 sm:px-8 sm:pb-24">
       <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
-        <article className={`flex flex-col gap-5 rounded-[1.75rem] p-6 sm:p-8 ${LANDING_SURFACE_CARD}`}>
+        <article
+          className={`flex flex-col gap-5 rounded-[1.75rem] p-6 sm:p-8 ${LANDING_SURFACE_CARD}`}
+        >
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-brand-accent-highlight">
             For buyers
           </p>
@@ -307,7 +327,9 @@ function RolesSection() {
           </Link>
         </article>
 
-        <article className={`flex flex-col gap-5 rounded-[1.75rem] p-6 sm:p-8 ${LANDING_SURFACE_CARD}`}>
+        <article
+          className={`flex flex-col gap-5 rounded-[1.75rem] p-6 sm:p-8 ${LANDING_SURFACE_CARD}`}
+        >
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-brand-accent-highlight">
             For farmers
           </p>
@@ -334,7 +356,9 @@ function RolesSection() {
 function CtaSection() {
   return (
     <section className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-20 sm:px-8">
-      <div className={`flex flex-col items-center gap-6 rounded-[2rem] px-6 py-12 text-center sm:px-10 sm:py-14 ${LANDING_SURFACE_CARD}`}>
+      <div
+        className={`flex flex-col items-center gap-6 rounded-[2rem] px-6 py-12 text-center sm:px-10 sm:py-14 ${LANDING_SURFACE_CARD}`}
+      >
         <VunrLogo className="text-brand-accent-highlight" size={52} />
         <div className="flex max-w-xl flex-col gap-3">
           <h2 className="text-3xl font-semibold tracking-[-0.03em] text-white sm:text-4xl">
@@ -382,7 +406,10 @@ export function LandingPage() {
     <div className="vunr-landing relative min-h-dvh bg-brand-deep text-white">
       <LandingNav />
       <div className="relative overflow-x-hidden">
-        <div aria-hidden className="vunr-noise pointer-events-none absolute inset-0 opacity-40" />
+        <div
+          aria-hidden
+          className="vunr-noise pointer-events-none absolute inset-0 opacity-40"
+        />
         <HeroGraphic />
         <main>
           <HeroSection />
