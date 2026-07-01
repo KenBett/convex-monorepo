@@ -1,4 +1,8 @@
-import type { BuyerSourcingStreamData } from "@repo/types";
+import type {
+  BuyerOrderDraft,
+  BuyerOrderDraftStreamData,
+  BuyerSourcingStreamData,
+} from "@repo/types";
 
 export function getBuyerSourcingIntroMessage(
   sourcing: BuyerSourcingStreamData,
@@ -39,4 +43,27 @@ export function getBuyerSourcingIntroMessage(
   }
 
   return message;
+}
+
+export function getBuyerOrderDraftIntroMessage(
+  data: BuyerOrderDraftStreamData,
+): string {
+  return data.orderDraft.summaryText;
+}
+
+export function formatOrderDraftIssue(
+  issue: NonNullable<BuyerOrderDraft["lines"][number]["issue"]>,
+): string {
+  switch (issue) {
+    case "insufficient_stock":
+      return "Not enough stock available";
+    case "not_active":
+      return "Listing is no longer active";
+    case "not_found":
+      return "No matching listing found";
+    case "ambiguous":
+      return "Multiple listings matched — pick one from search results";
+    default:
+      return "Unable to fulfill this line";
+  }
 }

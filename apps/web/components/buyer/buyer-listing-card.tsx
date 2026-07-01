@@ -1,8 +1,12 @@
 "use client";
 
-import type { BuyerSourcingListingResult } from "@repo/types";
+import type {
+  BuyerSourcingListingResult,
+  ChatListingLiveStatus,
+} from "@repo/types";
 
 import {
+  formatListingStatus,
   getCropTheme,
   getListingCardBgClass,
   LISTING_CARD_NOISE_DATA_URI,
@@ -16,6 +20,7 @@ import { ShoppingBag } from "lucide-react";
 import { CropBadge } from "@/components/farmer/crop-display";
 
 type BuyerListingCardProps = {
+  liveStatus?: ChatListingLiveStatus;
   onOrder?: (result: BuyerSourcingListingResult) => void;
   result: BuyerSourcingListingResult;
 };
@@ -35,8 +40,18 @@ function ListingCardNoiseOverlay() {
   );
 }
 
-export function BuyerListingCard({ onOrder, result }: BuyerListingCardProps) {
+export function BuyerListingCard({
+  liveStatus,
+  onOrder,
+  result,
+}: BuyerListingCardProps) {
   const theme = getCropTheme(result.crop);
+  const resolvedStatus = liveStatus ?? result.status;
+  const isUnavailable =
+    resolvedStatus === "sold_out" ||
+    resolvedStatus === "expired" ||
+    resolvedStatus === "deleted";
+  const canOrder = Boolean(onOrder) && resolvedStatus === "active";
 
   return (
     <article
@@ -44,6 +59,7 @@ export function BuyerListingCard({ onOrder, result }: BuyerListingCardProps) {
         "relative grid aspect-square grid-rows-[1fr_auto] overflow-hidden rounded-[0.875rem]",
         "shadow-sm transition-shadow duration-200 hover:shadow-md",
         getListingCardBgClass(result.crop),
+        isUnavailable && "opacity-60 saturate-50",
       )}
     >
       <div className="relative min-h-0 w-full overflow-hidden">
@@ -63,17 +79,38 @@ export function BuyerListingCard({ onOrder, result }: BuyerListingCardProps) {
         )}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-linear-to-t from-black/20 to-transparent" />
         <div className="absolute right-2 top-2 z-10">
-          <Chip
-            className="h-auto bg-white/95 px-1.5 py-0.5 shadow-sm ring-1 ring-black/5 dark:bg-stone-900/95"
-            size="sm"
-            variant="secondary"
-          >
-            <Chip.Label className="text-[10px]">
-              {Math.round(result.score * 100)}% match
-            </Chip.Label>
-          </Chip>
+          {isUnavailable ? (
+            <Chip
+              className="h-auto bg-white/95 px-1.5 py-0.5 shadow-sm ring-1 ring-black/5 dark:bg-stone-900/95"
+              size="sm"
+              variant="secondary"
+            >
+              <Chip.Label className="text-[10px]">
+                {resolvedStatus === "deleted"
+                  ? "No longer available"
+                  : formatListingStatus(resolvedStatus)}
+              </Chip.Label>
+            </Chip>
+          ) : (
+            <Chip
+              className="h-auto bg-white/95 px-1.5 py-0.5 shadow-sm ring-1 ring-black/5 dark:bg-stone-900/95"
+              size="sm"
+              variant="secondary"
+            >
+              <Chip.Label className="text-[10px]">
+                {Math.round(result.score * 100)}% match
+              </Chip.Label>
+            </Chip>
+          )}
         </div>
       </div>
+
+      {isUnavailable ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-20 rounded-[inherit] bg-background/25"
+        />
+      ) : null}
 
       <ListingCardNoiseOverlay />
 
@@ -103,12 +140,12 @@ export function BuyerListingCard({ onOrder, result }: BuyerListingCardProps) {
           {result.cooperativeName}
         </p>
 
-        {onOrder ? (
+        {canOrder ? (
           <Button
             className="mt-1 w-full rounded-full bg-accent text-[11px] font-semibold text-accent-foreground"
             size="sm"
             variant="primary"
-            onPress={() => onOrder(result)}
+            onPress={() => onOrder?.(result)}
           >
             <ShoppingBag className="h-3.5 w-3.5" strokeWidth={1.75} />
             Order

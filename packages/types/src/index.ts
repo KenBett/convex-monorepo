@@ -131,11 +131,20 @@ export interface ListingSearchResponse {
 export {
   buyerSearchIntentSchema,
   fromParsedBuyerSearchIntent,
+  type BuyerOrderDraft,
+  type BuyerOrderDraftIssue,
+  type BuyerOrderDraftLine,
+  type BuyerOrderDraftStreamData,
+  type BuyerChatStatusPhase,
+  type BuyerChatStatusStreamData,
+  type BuyerOrderLineRequest,
   type BuyerSearchIntent,
   type BuyerSourcingListingResult,
   type BuyerSourcingMeta,
   type BuyerSourcingSearchResponse,
   type BuyerSourcingStreamData,
+  type ChatListingAvailability,
+  type ChatListingLiveStatus,
 } from "./buyer-sourcing";
 
 export {

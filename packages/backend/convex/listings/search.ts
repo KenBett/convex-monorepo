@@ -7,6 +7,7 @@ import {
   action,
   internalAction,
   internalQuery,
+  query,
   type ActionCtx,
 } from "../_generated/server";
 import {
@@ -79,6 +80,43 @@ export const verifyBuyerAccess = internalQuery({
   },
 });
 
+const chatListingAvailabilityValidator = v.object({
+  listingId: v.id("listings"),
+  status: v.union(
+    v.literal("active"),
+    v.literal("sold_out"),
+    v.literal("expired"),
+    v.literal("deleted"),
+  ),
+});
+
+/** Reactive status for listings shown in buyer chat (sold out, deleted, etc.). */
+export const getChatListingAvailability = query({
+  args: {
+    listingIds: v.array(v.id("listings")),
+  },
+  returns: v.array(chatListingAvailabilityValidator),
+  handler: async (ctx, args) => {
+    await requireBuyerProfile(ctx);
+
+    const uniqueListingIds = Array.from(new Set(args.listingIds));
+    const availability: Array<{
+      listingId: Id<"listings">;
+      status: "active" | "deleted" | "expired" | "sold_out";
+    }> = [];
+
+    for (const listingId of uniqueListingIds) {
+      const listing = await ctx.db.get("listings", listingId);
+      availability.push({
+        listingId,
+        status: listing ? listing.status : "deleted",
+      });
+    }
+
+    return availability;
+  },
+});
+
 export const hydrateSearchCandidates = internalQuery({
   args: {
     candidates: v.array(searchCandidateValidator),
@@ -86,46 +124,46 @@ export const hydrateSearchCandidates = internalQuery({
   },
   returns: v.array(listingSearchResultValidator),
   handler: async (ctx, args) => {
-    const results: ListingSearchResultRow[] = [];
+    const rows = await Promise.all(
+      args.candidates.map(async (candidate): Promise<ListingSearchResultRow | null> => {
+        const listing = await ctx.db.get("listings", candidate.listingId);
+        if (
+          !listing ||
+          listing.status !== "active" ||
+          listing.quantityKg <= 0 ||
+          isDebugListingDescription(listing.description)
+        ) {
+          return null;
+        }
 
-    for (const candidate of args.candidates) {
-      const listing = await ctx.db.get("listings", candidate.listingId);
-      if (
-        !listing ||
-        listing.status !== "active" ||
-        listing.quantityKg <= 0 ||
-        isDebugListingDescription(listing.description)
-      ) {
-        continue;
-      }
+        if (args.requiredCrop && listing.crop !== args.requiredCrop) {
+          return null;
+        }
 
-      if (args.requiredCrop && listing.crop !== args.requiredCrop) {
-        continue;
-      }
+        const farmer = await ctx.db.get("farmerProfiles", listing.farmerId);
+        if (!farmer) {
+          return null;
+        }
 
-      const farmer = await ctx.db.get("farmerProfiles", listing.farmerId);
-      if (!farmer) {
-        continue;
-      }
+        return {
+          cooperativeName: farmer.cooperativeName,
+          county: listing.county,
+          crop: listing.crop,
+          description: listing.description,
+          grade: listing.grade,
+          imageUrl: await getListingImageUrl(ctx, listing.imageStorageId),
+          listingId: listing._id,
+          pricePerKg: listing.pricePerKg,
+          quantityKg: listing.quantityKg,
+          score: candidate.score,
+          snippet: candidate.snippet,
+          status: listing.status,
+          title: candidate.title,
+        };
+      }),
+    );
 
-      results.push({
-        cooperativeName: farmer.cooperativeName,
-        county: listing.county,
-        crop: listing.crop,
-        description: listing.description,
-        grade: listing.grade,
-        imageUrl: await getListingImageUrl(ctx, listing.imageStorageId),
-        listingId: listing._id,
-        pricePerKg: listing.pricePerKg,
-        quantityKg: listing.quantityKg,
-        score: candidate.score,
-        snippet: candidate.snippet,
-        status: listing.status,
-        title: candidate.title,
-      });
-    }
-
-    return results;
+    return rows.filter((result): result is ListingSearchResultRow => result !== null);
   },
 });
 

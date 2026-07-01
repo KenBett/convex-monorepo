@@ -27,7 +27,9 @@ type OrderCheckoutDialogProps = {
   defaultQuantityKg?: number;
   listing: OrderCheckoutListing | null;
   onClose: () => void;
+  onCheckoutComplete?: () => void;
   open: boolean;
+  stepLabel?: string;
 };
 
 type CheckoutPhase = "form" | "paying" | "done";
@@ -53,7 +55,9 @@ export function OrderCheckoutDialog({
   defaultQuantityKg,
   listing,
   onClose,
+  onCheckoutComplete,
   open,
+  stepLabel,
 }: OrderCheckoutDialogProps) {
   const modalState = useOverlayState();
   const buyerProfile = useQuery(api.users.buyerProfile);
@@ -212,6 +216,7 @@ export function OrderCheckoutDialog({
                 Order {theme.label}
               </Modal.Heading>
               <p className="text-sm text-muted">
+                {stepLabel ? `${stepLabel} · ` : ""}
                 {listing.cooperativeName} · {listing.county}
               </p>
             </Modal.Header>
@@ -360,7 +365,13 @@ export function OrderCheckoutDialog({
                   className="rounded-full bg-accent font-medium text-accent-foreground"
                   size="sm"
                   variant="primary"
-                  onPress={onClose}
+                  onPress={() => {
+                    if (isSuccess) {
+                      onCheckoutComplete?.();
+                      return;
+                    }
+                    onClose();
+                  }}
                 >
                   Done
                 </Button>

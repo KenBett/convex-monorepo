@@ -66,3 +66,50 @@ export interface BuyerSourcingStreamData {
   listings: BuyerSourcingListingResult[];
   meta: BuyerSourcingMeta;
 }
+
+export type BuyerChatStatusPhase = "working" | "searching" | "ordering";
+
+export interface BuyerChatStatusStreamData {
+  phase: BuyerChatStatusPhase;
+}
+
+/** Live availability from Convex — `deleted` when the farmer removed the listing. */
+export type ChatListingLiveStatus = ListingStatus | "deleted";
+
+export interface ChatListingAvailability {
+  listingId: string;
+  status: ChatListingLiveStatus;
+}
+
+/** What the buyer asked to order (parsed from natural language). */
+export interface BuyerOrderLineRequest {
+  cooperativeName?: string;
+  county?: (typeof COUNTIES)[number];
+  crop: (typeof CROP_TYPES)[number];
+  grade?: string;
+  /** 1-based index into listings from the previous assistant message. */
+  listingRef?: number;
+  quantityKg: number;
+}
+
+export type BuyerOrderDraftIssue =
+  | "ambiguous"
+  | "insufficient_stock"
+  | "not_active"
+  | "not_found";
+
+export interface BuyerOrderDraftLine {
+  issue?: BuyerOrderDraftIssue;
+  listing?: BuyerSourcingListingResult;
+  quantityKg: number;
+  request: BuyerOrderLineRequest;
+}
+
+export interface BuyerOrderDraft {
+  lines: BuyerOrderDraftLine[];
+  summaryText: string;
+}
+
+export interface BuyerOrderDraftStreamData {
+  orderDraft: BuyerOrderDraft;
+}
