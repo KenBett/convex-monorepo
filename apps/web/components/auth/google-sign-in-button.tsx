@@ -46,7 +46,11 @@ export function GoogleSignInButton({
   const handleSignIn = async () => {
     setIsLoading(true);
     try {
-      await signIn("google");
+      const redirectTo =
+        typeof window !== "undefined"
+          ? `${window.location.origin}${window.location.pathname}`
+          : undefined;
+      await signIn("google", redirectTo ? { redirectTo } : undefined);
     } finally {
       setIsLoading(false);
     }
