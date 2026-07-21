@@ -24,7 +24,7 @@ import { Modal } from "@heroui/react/modal";
 import clsx from "clsx";
 import { MapPin, ShoppingBag, Sparkles, Store, X } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 import { CropBadge } from "@/components/farmer/crop-display";
 
@@ -144,8 +144,6 @@ function buildMatchReasons(
   return reasons;
 }
 
-const DESCRIPTION_READ_MORE_THRESHOLD = 120;
-
 export function BuyerListingDetailDialog({
   intent = null,
   listing,
@@ -156,7 +154,6 @@ export function BuyerListingDetailDialog({
 }: BuyerListingDetailDialogProps) {
   const modalState = useOverlayState();
   const wasModalOpenRef = useRef(false);
-  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -176,12 +173,6 @@ export function BuyerListingDetailDialog({
     }
   }, [modalState.isOpen, onClose]);
 
-  useEffect(() => {
-    if (open) {
-      setDescriptionExpanded(false);
-    }
-  }, [open, listing?.listingId]);
-
   if (!listing) {
     return null;
   }
@@ -195,9 +186,6 @@ export function BuyerListingDetailDialog({
     resolvedStatus === "expired" ||
     resolvedStatus === "deleted";
   const canOrder = !isUnavailable && resolvedStatus === "active";
-  const showReadMore =
-    description !== null &&
-    description.length > DESCRIPTION_READ_MORE_THRESHOLD;
   const matchPercent = Math.round(listing.score * 100);
   const matchReasons = buildMatchReasons(listing, intent);
   const buyerQuery = intent?.searchText?.trim() || null;
@@ -217,15 +205,11 @@ export function BuyerListingDetailDialog({
     <Modal state={modalState}>
       <Modal.Backdrop>
         <Modal.Container scroll="inside" size="lg">
-          <Modal.Dialog className="flex flex-col gap-0 overflow-hidden p-0">
-            <Modal.Header className="sr-only">
-              <Modal.Heading>
-                {theme.label}
-                {listing.grade ? ` · ${listing.grade}` : ""}
-              </Modal.Heading>
-            </Modal.Header>
-
-            <Modal.Body className="flex flex-col gap-0 p-0">
+          <Modal.Dialog
+            aria-label={`${theme.label}${listing.grade ? ` · ${listing.grade}` : ""}`}
+            className="flex flex-col gap-0 overflow-hidden p-0"
+          >
+            <Modal.Body className="m-0 flex flex-col gap-0 p-0">
               <div
                 className={clsx(
                   "relative h-44 overflow-hidden sm:h-52",
@@ -375,33 +359,6 @@ export function BuyerListingDetailDialog({
                     <span className="text-[11px] text-muted">County</span>
                   </div>
                 </div>
-
-                {description ? (
-                  <div className="flex flex-col gap-2">
-                    <h3 className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted">
-                      Description
-                    </h3>
-                    <p
-                      className={clsx(
-                        "text-sm leading-relaxed text-foreground/85",
-                        !descriptionExpanded && showReadMore && "line-clamp-3",
-                      )}
-                    >
-                      {description}
-                    </p>
-                    {showReadMore ? (
-                      <button
-                        className="self-start text-sm font-medium text-accent underline-offset-2 hover:underline"
-                        type="button"
-                        onClick={() =>
-                          setDescriptionExpanded((expanded) => !expanded)
-                        }
-                      >
-                        {descriptionExpanded ? "Show less" : "Read more"}
-                      </button>
-                    ) : null}
-                  </div>
-                ) : null}
 
                 {hasMatchExplain ? (
                   <div className="relative overflow-hidden rounded-xl bg-white px-4 py-3.5 shadow-sm">

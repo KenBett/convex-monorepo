@@ -24,7 +24,7 @@ export function BuyerChatTrailStrip({
     <ol
       aria-label="Sourcing steps"
       className={clsx(
-        "flex w-full flex-col gap-1.5 rounded-[0.875rem] bg-background px-3.5 py-3 text-sm",
+        "flex w-full flex-col gap-1.5 rounded-[0.875rem] bg-background px-3.5 py-3 text-sm shadow-sm dark:bg-surface dark:shadow-none",
         className,
       )}
     >

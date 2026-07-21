@@ -720,33 +720,6 @@ function ChatListingCardCarousel({
         })}
       </ul>
 
-      {listings.length > 1 ? (
-        <div
-          aria-label="Listing pages"
-          className="chat-listing-carousel-dots flex items-center justify-center gap-2 pt-2 pb-0.5"
-          role="tablist"
-        >
-          {listings.map((listing, index) => {
-            const isActive = index === activeIndex;
-
-            return (
-              <button
-                key={listing.listingId}
-                aria-label={`Show listing ${index + 1} of ${listings.length}`}
-                aria-selected={isActive}
-                className={clsx(
-                  "chat-listing-carousel-dot rounded-full bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:bg-white dark:focus-visible:ring-white/30",
-                  isActive ? "h-2 w-2" : "h-0.5 w-5",
-                )}
-                role="tab"
-                type="button"
-                onClick={() => scrollToIndex(index)}
-              />
-            );
-          })}
-        </div>
-      ) : null}
-
       {canGoPrev ? (
         <button
           aria-label="Previous listing"
