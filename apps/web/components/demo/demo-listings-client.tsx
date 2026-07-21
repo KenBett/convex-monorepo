@@ -100,6 +100,10 @@ export function DemoListingsClient() {
     );
   }
 
+  if (!listings) {
+    return <MyProductsSkeleton />;
+  }
+
   const openCreate = () => {
     setCreateFarmerId(farmers?.[0]?._id ?? "");
     setCreateFormKey((current) => current + 1);

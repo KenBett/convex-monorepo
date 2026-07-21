@@ -53,7 +53,7 @@ export function DemoListingDetailClient() {
     );
   }
 
-  if (listing === null) {
+  if (!listing) {
     return (
       <div className="flex flex-col gap-4">
         <Link
