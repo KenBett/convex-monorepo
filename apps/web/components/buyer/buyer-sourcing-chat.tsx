@@ -34,6 +34,7 @@ import {
   useState,
 } from "react";
 import { getAssistantReplyToLatestUser } from "@repo/backend/convex/listings/buyerChatMessages";
+import { resolveNeededByFromText } from "@repo/backend/convex/lib/buyerNeededBy";
 import clsx from "clsx";
 
 import { siteConfig } from "@/config/site";
@@ -107,6 +108,61 @@ function getOrderDraftData(
   }
 
   return null;
+}
+
+type CheckoutFulfillment = {
+  neededByLabel?: string;
+  neededByMs?: number;
+  pointALabel?: string;
+  pointBLabel?: string;
+};
+
+/**
+ * Card checkout skips the order-draft dialog, so recover needed-by / route
+ * labels from the latest draft or recent user messages when available.
+ */
+function resolveCheckoutFulfillment(
+  listing: BuyerSourcingListingResult,
+  messages: BuyerChatMessage[],
+  activeOrderDraft: BuyerOrderDraft | null,
+): CheckoutFulfillment | undefined {
+  const draftFromMessages = [...messages]
+    .reverse()
+    .map((message) => getOrderDraftData(message)?.orderDraft)
+    .find((draft) => draft != null);
+  const draft = activeOrderDraft ?? draftFromMessages ?? null;
+
+  let neededByLabel = draft?.neededByLabel;
+  let neededByMs = draft?.neededByMs;
+
+  if (!neededByLabel || neededByMs === undefined) {
+    for (const message of [...messages].reverse()) {
+      if (message.role !== "user") {
+        continue;
+      }
+
+      const resolved = resolveNeededByFromText(getMessageText(message));
+
+      if (!resolved) {
+        continue;
+      }
+
+      neededByLabel = neededByLabel ?? resolved.label;
+      neededByMs = neededByMs ?? resolved.neededByMs;
+      break;
+    }
+  }
+
+  if (!neededByLabel && neededByMs === undefined) {
+    return undefined;
+  }
+
+  return {
+    neededByLabel,
+    neededByMs,
+    pointALabel: draft?.pointALabel ?? listing.cooperativeName,
+    pointBLabel: draft?.pointBLabel,
+  };
 }
 
 function getStatusPhase(messages: BuyerChatMessage[]): BuyerChatStatusPhase {
@@ -1018,6 +1074,9 @@ export function BuyerSourcingChat() {
   const [checkoutDefaultQty, setCheckoutDefaultQty] = useState<
     number | undefined
   >(undefined);
+  const [checkoutFulfillment, setCheckoutFulfillment] = useState<
+    CheckoutFulfillment | undefined
+  >(undefined);
   const [orderDraftOpen, setOrderDraftOpen] = useState(false);
   const [detailListing, setDetailListing] =
     useState<BuyerSourcingListingResult | null>(null);
@@ -1140,6 +1199,9 @@ export function BuyerSourcingChat() {
       : null;
 
     setCheckoutDefaultQty(intent?.minQuantityKg);
+    setCheckoutFulfillment(
+      resolveCheckoutFulfillment(listing, messages, activeOrderDraft),
+    );
     setCheckoutListing(listing);
     setCheckoutOpen(true);
   };
@@ -1172,6 +1234,8 @@ export function BuyerSourcingChat() {
   const handleCheckoutClose = () => {
     setCheckoutOpen(false);
     setCheckoutListing(null);
+    setCheckoutFulfillment(undefined);
+    setCheckoutDefaultQty(undefined);
   };
 
   const handleNewChat = () => {
@@ -1183,6 +1247,8 @@ export function BuyerSourcingChat() {
     setMessages([]);
     setInput("");
     setCheckoutListing(null);
+    setCheckoutFulfillment(undefined);
+    setCheckoutDefaultQty(undefined);
     setCheckoutOpen(false);
     setActiveOrderDraft(null);
     setOrderDraftOpen(false);
@@ -1323,6 +1389,7 @@ export function BuyerSourcingChat() {
 
       <OrderCheckoutDialog
         defaultQuantityKg={checkoutDefaultQty}
+        fulfillment={checkoutFulfillment}
         listing={checkoutListing}
         open={checkoutOpen}
         onCheckoutComplete={handleCheckoutClose}
