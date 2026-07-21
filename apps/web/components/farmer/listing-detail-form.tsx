@@ -6,10 +6,15 @@ import { api } from "@repo/backend/convex/_generated/api";
 import {
   COUNTIES,
   CROP_TYPES,
+  formatHarvestWindowLabel,
   formatListingStatus,
   getCropTheme,
+  LISTING_PACKAGING,
+  LISTING_PACKAGING_LABELS,
+  listingGradeOptions,
   type County,
   type CropType,
+  type ListingPackaging,
   type ListingStatus,
 } from "@repo/types";
 import { useMutation } from "convex/react";
@@ -32,19 +37,30 @@ import { ListingImagePicker } from "@/components/farmer/listing-image-picker";
 type ListingSummary = {
   _creationTime: number;
   _id: Id<"listings">;
+  certifications?: string[];
   county: string;
   crop: string;
   description: string;
   grade?: string;
-  imageStorageId: Id<"_storage">;
+  harvestWindowLabel?: string;
+  imageStorageId: Id<"_storage"> | undefined;
   imageUrl: string | null;
+  minOrderKg?: number;
+  packaging?: string;
+  packUnitKg?: number;
   pricePerKg: number;
   quantityKg: number;
+  sizeOrCalibre?: string;
   status: ListingStatus;
+  tags?: string[];
+  variety?: string;
 };
 
 type ListingDetailFormProps = {
+  /** Temporary demo inventory console. */
+  listPath?: string;
   listing: ListingSummary;
+  mode?: "farmer" | "demo";
 };
 
 type EditableField =
@@ -53,16 +69,21 @@ type EditableField =
   | "quantityKg"
   | "county"
   | "grade"
+  | "sizeOrCalibre"
+  | "minOrderKg"
+  | "packUnitKg"
+  | "variety"
+  | "packaging"
+  | "harvestWindowLabel"
   | "description";
 
-const FIELD_CARD_BASE =
-  "flex min-h-[7.5rem] flex-col gap-2 rounded-[0.875rem] border p-4 text-surface-foreground";
+const PANEL =
+  "overflow-hidden rounded-[0.875rem] bg-surface text-surface-foreground shadow-sm dark:shadow-none";
 
-const FIELD_CARD_READ_ONLY =
-  "border-separator bg-surface shadow-[0_1px_3px_oklch(0%_0_0/0.05)] dark:shadow-[0_1px_4px_oklch(0%_0_0/0.28)]";
-
-const FIELD_CARD_EDITABLE =
-  "border-separator bg-surface shadow-[0_2px_10px_oklch(0%_0_0/0.08)] dark:shadow-[0_2px_10px_oklch(0%_0_0/0.32)]";
+const CHIP_IDLE =
+  "rounded-full bg-background shadow-sm dark:bg-default dark:shadow-none";
+const CHIP_SELECTED =
+  "rounded-full bg-foreground text-background shadow-sm dark:bg-accent dark:text-accent-foreground dark:shadow-none";
 
 const EDIT_FIELD_CLASS = clsx(
   "rounded-lg bg-field-background shadow-sm",
@@ -72,43 +93,11 @@ const EDIT_FIELD_CLASS = clsx(
   "dark:focus-visible:ring-2 dark:focus-visible:ring-accent/30",
 );
 
-const EDITABLE_SURFACE_CLASS = clsx(
-  "rounded-lg bg-field-background p-3 shadow-sm",
-  "border-0 outline-none ring-0",
-  "transition-shadow duration-150",
-  "focus-visible:outline-none focus-visible:ring-0",
-  "dark:border dark:border-separator dark:shadow-[0_1px_3px_oklch(0%_0_0/0.24)]",
-  "dark:hover:shadow-[0_3px_8px_oklch(0%_0_0/0.34)]",
-  "dark:focus-visible:ring-2 dark:focus-visible:ring-accent/30",
-);
-
-function DetailFieldCard({
-  children,
-  className,
-  colSpan = 1,
-  editable = false,
-  label,
-}: {
-  children: ReactNode;
-  className?: string;
-  colSpan?: 1 | 2 | 4;
-  editable?: boolean;
-  label: string;
-}) {
+function FieldRow({ children, label }: { children: ReactNode; label: string }) {
   return (
-    <div
-      className={clsx(
-        FIELD_CARD_BASE,
-        editable ? FIELD_CARD_EDITABLE : FIELD_CARD_READ_ONLY,
-        colSpan === 4 && "col-span-2 sm:col-span-4",
-        colSpan === 2 && "col-span-2",
-        className,
-      )}
-    >
-      <p className="text-xs font-medium uppercase tracking-wide text-muted">
-        {label}
-      </p>
-      <div className="min-w-0 flex-1">{children}</div>
+    <div className="grid gap-1.5 border-b border-separator py-3.5 last:border-b-0 sm:grid-cols-[7.5rem_minmax(0,1fr)] sm:items-start sm:gap-4">
+      <p className="pt-0.5 text-sm text-muted">{label}</p>
+      <div className="min-w-0">{children}</div>
     </div>
   );
 }
@@ -120,6 +109,7 @@ function ClickToEdit({
   editing,
   input,
   onStartEdit,
+  placeholder = false,
 }: {
   ariaLabel: string;
   children: ReactNode;
@@ -127,6 +117,7 @@ function ClickToEdit({
   editing: boolean;
   input: ReactNode;
   onStartEdit: () => void;
+  placeholder?: boolean;
 }) {
   if (editing) {
     return <div className={clsx("w-full", className)}>{input}</div>;
@@ -136,14 +127,15 @@ function ClickToEdit({
     <button
       aria-label={`Edit ${ariaLabel}`}
       className={clsx(
-        "h-full w-full cursor-pointer text-left",
-        EDITABLE_SURFACE_CLASS,
+        "w-full rounded-lg text-left transition-colors",
+        "-mx-2 px-2 py-1 hover:bg-surface-secondary/80 focus-visible:bg-surface-secondary/80",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/15",
         className,
       )}
       type="button"
       onClick={onStartEdit}
     >
-      {children}
+      <span className={clsx(placeholder && "text-muted")}>{children}</span>
     </button>
   );
 }
@@ -173,11 +165,28 @@ function useDebouncedSave(delayMs: number) {
   return debounce;
 }
 
-export function ListingDetailForm({ listing }: ListingDetailFormProps) {
+export function ListingDetailForm({
+  listPath = "/farmer/my-products",
+  listing,
+  mode = "farmer",
+}: ListingDetailFormProps) {
   const router = useRouter();
-  const updateListing = useMutation(api.listings.updateListing);
-  const updateListingStatus = useMutation(api.listings.updateListingStatus);
-  const deleteListing = useMutation(api.listings.deleteListing);
+  const updateFarmerListing = useMutation(api.listings.updateListing);
+  const updateFarmerListingStatus = useMutation(
+    api.listings.updateListingStatus,
+  );
+  const deleteFarmerListing = useMutation(api.listings.deleteListing);
+  const updateDemoListing = useMutation(api.listings.demoInventory.update);
+  const updateDemoListingStatus = useMutation(
+    api.listings.demoInventory.updateStatus,
+  );
+  const deleteDemoListing = useMutation(api.listings.demoInventory.remove);
+  const updateListing =
+    mode === "demo" ? updateDemoListing : updateFarmerListing;
+  const updateListingStatus =
+    mode === "demo" ? updateDemoListingStatus : updateFarmerListingStatus;
+  const deleteListing =
+    mode === "demo" ? deleteDemoListing : deleteFarmerListing;
   const deleteModalState = useOverlayState();
 
   const [activeField, setActiveField] = useState<EditableField | null>(null);
@@ -191,6 +200,20 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
     String(listing.quantityKg),
   );
   const [gradeDraft, setGradeDraft] = useState(listing.grade ?? "");
+  const [sizeOrCalibreDraft, setSizeOrCalibreDraft] = useState(
+    listing.sizeOrCalibre ?? "",
+  );
+  const [minOrderDraft, setMinOrderDraft] = useState(
+    listing.minOrderKg != null ? String(listing.minOrderKg) : "",
+  );
+  const [packUnitDraft, setPackUnitDraft] = useState(
+    listing.packUnitKg != null ? String(listing.packUnitKg) : "",
+  );
+  const [varietyDraft, setVarietyDraft] = useState(listing.variety ?? "");
+  const [packagingDraft, setPackagingDraft] = useState(listing.packaging ?? "");
+  const [harvestDraft, setHarvestDraft] = useState(
+    listing.harvestWindowLabel ?? "",
+  );
   const [descriptionDraft, setDescriptionDraft] = useState(listing.description);
 
   const debouncedSave = useDebouncedSave(400);
@@ -204,6 +227,28 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
     }
     if (activeField !== "grade") {
       setGradeDraft(listing.grade ?? "");
+    }
+    if (activeField !== "sizeOrCalibre") {
+      setSizeOrCalibreDraft(listing.sizeOrCalibre ?? "");
+    }
+    if (activeField !== "minOrderKg") {
+      setMinOrderDraft(
+        listing.minOrderKg != null ? String(listing.minOrderKg) : "",
+      );
+    }
+    if (activeField !== "packUnitKg") {
+      setPackUnitDraft(
+        listing.packUnitKg != null ? String(listing.packUnitKg) : "",
+      );
+    }
+    if (activeField !== "variety") {
+      setVarietyDraft(listing.variety ?? "");
+    }
+    if (activeField !== "packaging") {
+      setPackagingDraft(listing.packaging ?? "");
+    }
+    if (activeField !== "harvestWindowLabel") {
+      setHarvestDraft(listing.harvestWindowLabel ?? "");
     }
     if (activeField !== "description") {
       setDescriptionDraft(listing.description);
@@ -255,6 +300,46 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
     });
   };
 
+  const saveOptionalNumberField = (
+    field: "minOrderKg" | "packUnitKg",
+    rawValue: string,
+  ) => {
+    const trimmed = rawValue.trim();
+
+    if (trimmed.length === 0) {
+      const current =
+        field === "minOrderKg" ? listing.minOrderKg : listing.packUnitKg;
+
+      if (current == null) {
+        return;
+      }
+      void saveListingField({
+        listingId: listing._id,
+        [field]: null,
+      });
+
+      return;
+    }
+
+    const parsed = Number(trimmed);
+
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return;
+    }
+
+    const current =
+      field === "minOrderKg" ? listing.minOrderKg : listing.packUnitKg;
+
+    if (parsed === current) {
+      return;
+    }
+
+    void saveListingField({
+      listingId: listing._id,
+      [field]: parsed,
+    });
+  };
+
   const handleSoldOutChange = async (checked: boolean) => {
     setSaveError(null);
     setIsSavingStatus(true);
@@ -277,7 +362,7 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
     try {
       await deleteListing({ listingId: listing._id });
       deleteModalState.close();
-      router.push("/farmer/my-products");
+      router.push(listPath);
     } catch (error) {
       setDeleteError(
         error instanceof Error ? error.message : "Could not delete listing.",
@@ -343,154 +428,181 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
       </Modal>
 
       <form
-        className="flex flex-col gap-4"
+        className="mx-auto flex w-full max-w-2xl flex-col gap-5"
         onSubmit={(event) => {
           event.preventDefault();
         }}
       >
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <DetailFieldCard editable label="Photo">
-            <div className={clsx("inline-flex", EDITABLE_SURFACE_CLASS)}>
-              <ListingImagePicker
-                hideLabel
-                initialPreviewUrl={listing.imageUrl}
-                value={listing.imageStorageId}
-                variant="compact"
-                onChange={(storageId) => {
-                  if (!storageId) {
-                    return;
-                  }
-                  void saveListingField({
-                    listingId: listing._id,
-                    imageStorageId: storageId,
-                  });
-                }}
-              />
-            </div>
-          </DetailFieldCard>
-
-          <DetailFieldCard editable label="Product">
-            <ClickToEdit
-              ariaLabel="product"
-              className="flex h-full items-center"
-              editing={activeField === "crop"}
-              input={
-                <Select
-                  aria-label="Product"
-                  isDisabled={isExpired}
-                  placeholder="Select product"
-                  selectedKey={listing.crop}
-                  onSelectionChange={(key) => {
-                    if (!key || key === listing.crop) {
-                      setActiveField(null);
-
-                      return;
-                    }
-                    void saveListingField(
-                      {
-                        listingId: listing._id,
-                        crop: String(key) as CropType,
-                      },
-                      { closeField: "crop" },
-                    );
-                  }}
-                >
-                  <Select.Trigger className={clsx("w-full", EDIT_FIELD_CLASS)}>
-                    <Select.Value />
-                    <Select.Indicator />
-                  </Select.Trigger>
-                  <Select.Popover>
-                    <ListBox>
-                      {CROP_TYPES.map((crop) => (
-                        <ListBox.Item
-                          key={crop}
-                          id={crop}
-                          textValue={getCropTheme(crop).label}
-                        >
-                          <CropLabel crop={crop} />
-                          <ListBox.ItemIndicator />
-                        </ListBox.Item>
-                      ))}
-                    </ListBox>
-                  </Select.Popover>
-                </Select>
+        <section className={PANEL}>
+          <ListingImagePicker
+            hideLabel
+            initialPreviewUrl={listing.imageUrl}
+            mode={mode}
+            value={listing.imageStorageId ?? null}
+            variant="cover"
+            onChange={(storageId) => {
+              if (!storageId) {
+                return;
               }
-              onStartEdit={() => setActiveField("crop")}
-            >
-              <CropLabel crop={listing.crop} />
-            </ClickToEdit>
-          </DetailFieldCard>
+              void saveListingField({
+                listingId: listing._id,
+                imageStorageId: storageId,
+              });
+            }}
+          />
 
-          <DetailFieldCard editable label="Price">
-            <ClickToEdit
-              ariaLabel="price per kg"
-              className="flex h-full items-center px-1"
-              editing={activeField === "pricePerKg"}
-              input={
-                <Input
-                  autoFocus
-                  fullWidth
-                  aria-label="Price per kg"
-                  className={EDIT_FIELD_CLASS}
-                  inputMode="decimal"
-                  type="number"
-                  value={priceDraft}
-                  onBlur={() => {
-                    saveNumberField("pricePerKg", priceDraft);
-                    setActiveField(null);
-                  }}
+          <div className="flex flex-col gap-4 px-4 pb-5 pt-4 sm:px-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <ClickToEdit
+                  ariaLabel="product"
+                  editing={activeField === "crop"}
+                  input={
+                    <Select
+                      aria-label="Product"
+                      isDisabled={isExpired}
+                      placeholder="Select product"
+                      selectedKey={listing.crop}
+                      onSelectionChange={(key) => {
+                        if (!key || key === listing.crop) {
+                          setActiveField(null);
+
+                          return;
+                        }
+                        void saveListingField(
+                          {
+                            listingId: listing._id,
+                            crop: String(key) as CropType,
+                          },
+                          { closeField: "crop" },
+                        );
+                      }}
+                    >
+                      <Select.Trigger
+                        className={clsx("w-full", EDIT_FIELD_CLASS)}
+                      >
+                        <Select.Value />
+                        <Select.Indicator />
+                      </Select.Trigger>
+                      <Select.Popover>
+                        <ListBox>
+                          {CROP_TYPES.map((crop) => (
+                            <ListBox.Item
+                              key={crop}
+                              id={crop}
+                              textValue={getCropTheme(crop).label}
+                            >
+                              <CropLabel crop={crop} />
+                              <ListBox.ItemIndicator />
+                            </ListBox.Item>
+                          ))}
+                        </ListBox>
+                      </Select.Popover>
+                    </Select>
+                  }
+                  onStartEdit={() => setActiveField("crop")}
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <CropLabel crop={listing.crop} />
+                  </span>
+                </ClickToEdit>
+
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
+                  <ClickToEdit
+                    ariaLabel="county"
+                    className="mx-0 inline-flex px-1 py-0.5"
+                    editing={activeField === "county"}
+                    input={
+                      <Select
+                        aria-label="County"
+                        placeholder="Select county"
+                        selectedKey={listing.county}
+                        onSelectionChange={(key) => {
+                          if (!key || key === listing.county) {
+                            setActiveField(null);
+
+                            return;
+                          }
+                          void saveListingField(
+                            {
+                              listingId: listing._id,
+                              county: String(key) as County,
+                            },
+                            { closeField: "county" },
+                          );
+                        }}
+                      >
+                        <Select.Trigger
+                          className={clsx("w-full", EDIT_FIELD_CLASS)}
+                        >
+                          <Select.Value />
+                          <Select.Indicator />
+                        </Select.Trigger>
+                        <Select.Popover>
+                          <ListBox>
+                            {COUNTIES.map((county) => (
+                              <ListBox.Item
+                                key={county}
+                                id={county}
+                                textValue={county}
+                              >
+                                {county}
+                                <ListBox.ItemIndicator />
+                              </ListBox.Item>
+                            ))}
+                          </ListBox>
+                        </Select.Popover>
+                      </Select>
+                    }
+                    onStartEdit={() => setActiveField("county")}
+                  >
+                    {listing.county}
+                  </ClickToEdit>
+                  <span aria-hidden>·</span>
+                  <span>{formatListingStatus(listing.status)}</span>
+                  <span aria-hidden>·</span>
+                  <span>Listed {createdAt}</span>
+                </div>
+              </div>
+
+              <label className="inline-flex shrink-0 items-center gap-2 rounded-full bg-background px-3 py-1.5 text-sm shadow-sm dark:bg-default dark:shadow-none">
+                <input
+                  checked={isSoldOut}
+                  className="h-3.5 w-3.5 rounded border-separator accent-accent"
+                  disabled={isExpired || isSavingStatus}
+                  type="checkbox"
                   onChange={(event) => {
-                    const next = event.target.value;
-
-                    setPriceDraft(next);
-                    debouncedSave(() => {
-                      saveNumberField("pricePerKg", next);
-                    });
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.currentTarget.blur();
-                    }
-                    if (event.key === "Escape") {
-                      setPriceDraft(String(listing.pricePerKg));
-                      setActiveField(null);
-                    }
+                    void handleSoldOutChange(event.target.checked);
                   }}
                 />
-              }
-              onStartEdit={() => setActiveField("pricePerKg")}
-            >
-              <p className="text-xl font-semibold tracking-tight text-foreground">
-                KES {listing.pricePerKg}
-                <span className="text-sm font-medium text-muted">/kg</span>
-              </p>
-            </ClickToEdit>
-          </DetailFieldCard>
+                Sold out
+              </label>
+            </div>
 
-          <DetailFieldCard editable label="Quantity">
-            <ClickToEdit
-              ariaLabel="quantity"
-              className="flex h-full items-center px-1"
-              editing={activeField === "quantityKg"}
-              input={
-                <div className="flex items-center gap-2">
+            <div className="grid grid-cols-2 gap-3">
+              <ClickToEdit
+                ariaLabel="price per kg"
+                className="rounded-[0.75rem] bg-background px-3 py-3 shadow-sm dark:bg-default dark:shadow-none"
+                editing={activeField === "pricePerKg"}
+                input={
                   <Input
                     autoFocus
-                    aria-label="Quantity in kg"
-                    className={clsx("max-w-40", EDIT_FIELD_CLASS)}
+                    fullWidth
+                    aria-label="Price per kg"
+                    className={EDIT_FIELD_CLASS}
                     inputMode="decimal"
                     type="number"
-                    value={quantityDraft}
+                    value={priceDraft}
                     onBlur={() => {
-                      saveNumberField("quantityKg", quantityDraft);
+                      saveNumberField("pricePerKg", priceDraft);
                       setActiveField(null);
                     }}
                     onChange={(event) => {
                       const next = event.target.value;
 
-                      setQuantityDraft(next);
+                      setPriceDraft(next);
                       debouncedSave(() => {
-                        saveNumberField("quantityKg", next);
+                        saveNumberField("pricePerKg", next);
                       });
                     }}
                     onKeyDown={(event) => {
@@ -498,106 +610,105 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
                         event.currentTarget.blur();
                       }
                       if (event.key === "Escape") {
-                        setQuantityDraft(String(listing.quantityKg));
+                        setPriceDraft(String(listing.pricePerKg));
                         setActiveField(null);
                       }
                     }}
                   />
-                  <span className="text-sm text-muted">kg</span>
-                </div>
-              }
-              onStartEdit={() => setActiveField("quantityKg")}
-            >
-              <p className="text-xl font-semibold tracking-tight text-foreground">
-                {listing.quantityKg}
-                <span className="text-sm font-medium text-muted"> kg</span>
-              </p>
-            </ClickToEdit>
-          </DetailFieldCard>
+                }
+                onStartEdit={() => setActiveField("pricePerKg")}
+              >
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
+                  Price
+                </p>
+                <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+                  KES {listing.pricePerKg}
+                  <span className="text-sm font-medium text-muted">/kg</span>
+                </p>
+              </ClickToEdit>
 
-          <DetailFieldCard editable label="County">
+              <ClickToEdit
+                ariaLabel="quantity"
+                className="rounded-[0.75rem] bg-background px-3 py-3 shadow-sm dark:bg-default dark:shadow-none"
+                editing={activeField === "quantityKg"}
+                input={
+                  <div className="flex items-center gap-2">
+                    <Input
+                      autoFocus
+                      aria-label="Quantity in kg"
+                      className={clsx("w-full", EDIT_FIELD_CLASS)}
+                      inputMode="decimal"
+                      type="number"
+                      value={quantityDraft}
+                      onBlur={() => {
+                        saveNumberField("quantityKg", quantityDraft);
+                        setActiveField(null);
+                      }}
+                      onChange={(event) => {
+                        const next = event.target.value;
+
+                        setQuantityDraft(next);
+                        debouncedSave(() => {
+                          saveNumberField("quantityKg", next);
+                        });
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.currentTarget.blur();
+                        }
+                        if (event.key === "Escape") {
+                          setQuantityDraft(String(listing.quantityKg));
+                          setActiveField(null);
+                        }
+                      }}
+                    />
+                    <span className="text-sm text-muted">kg</span>
+                  </div>
+                }
+                onStartEdit={() => setActiveField("quantityKg")}
+              >
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
+                  Quantity
+                </p>
+                <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+                  {listing.quantityKg}
+                  <span className="text-sm font-medium text-muted"> kg</span>
+                </p>
+              </ClickToEdit>
+            </div>
+          </div>
+        </section>
+
+        <section className={clsx(PANEL, "px-4 sm:px-5")}>
+          <FieldRow label="Variety">
             <ClickToEdit
-              ariaLabel="county"
-              className="flex h-full items-center px-1"
-              editing={activeField === "county"}
-              input={
-                <Select
-                  aria-label="County"
-                  placeholder="Select county"
-                  selectedKey={listing.county}
-                  onSelectionChange={(key) => {
-                    if (!key || key === listing.county) {
-                      setActiveField(null);
-
-                      return;
-                    }
-                    void saveListingField(
-                      {
-                        listingId: listing._id,
-                        county: String(key) as County,
-                      },
-                      { closeField: "county" },
-                    );
-                  }}
-                >
-                  <Select.Trigger className={clsx("w-full", EDIT_FIELD_CLASS)}>
-                    <Select.Value />
-                    <Select.Indicator />
-                  </Select.Trigger>
-                  <Select.Popover>
-                    <ListBox>
-                      {COUNTIES.map((county) => (
-                        <ListBox.Item
-                          key={county}
-                          id={county}
-                          textValue={county}
-                        >
-                          {county}
-                          <ListBox.ItemIndicator />
-                        </ListBox.Item>
-                      ))}
-                    </ListBox>
-                  </Select.Popover>
-                </Select>
-              }
-              onStartEdit={() => setActiveField("county")}
-            >
-              <p className="text-base font-medium text-foreground">
-                {listing.county}
-              </p>
-            </ClickToEdit>
-          </DetailFieldCard>
-
-          <DetailFieldCard editable label="Grade">
-            <ClickToEdit
-              ariaLabel="grade"
-              className="flex h-full items-center px-1"
-              editing={activeField === "grade"}
+              ariaLabel="variety"
+              editing={activeField === "variety"}
               input={
                 <Input
                   autoFocus
                   fullWidth
-                  aria-label="Grade"
+                  aria-label="Variety"
                   className={EDIT_FIELD_CLASS}
-                  placeholder="Optional grade"
-                  value={gradeDraft}
+                  placeholder="e.g. H614, Duma 43"
+                  value={varietyDraft}
                   onBlur={() => {
                     void saveListingField(
                       {
                         listingId: listing._id,
-                        grade: gradeDraft,
+                        variety: varietyDraft,
                       },
-                      { closeField: "grade" },
+                      { closeField: "variety" },
                     );
                   }}
                   onChange={(event) => {
                     const next = event.target.value;
 
-                    setGradeDraft(next);
+                    setVarietyDraft(next);
                     debouncedSave(() => {
                       void saveListingField({
                         listingId: listing._id,
-                        grade: next,
+                        variety: next,
                       });
                     });
                   }}
@@ -606,52 +717,330 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
                       event.currentTarget.blur();
                     }
                     if (event.key === "Escape") {
-                      setGradeDraft(listing.grade ?? "");
+                      setVarietyDraft(listing.variety ?? "");
                       setActiveField(null);
                     }
                   }}
                 />
               }
+              placeholder={!listing.variety?.trim()}
+              onStartEdit={() => setActiveField("variety")}
+            >
+              <p className="text-base text-foreground">
+                {listing.variety?.trim() || "Add variety"}
+              </p>
+            </ClickToEdit>
+          </FieldRow>
+
+          <FieldRow label="Grade">
+            <ClickToEdit
+              ariaLabel="grade"
+              editing={activeField === "grade"}
+              input={
+                <div className="flex flex-wrap gap-2 py-1">
+                  {listingGradeOptions(gradeDraft).map((item) => {
+                    const selected = gradeDraft === item;
+
+                    return (
+                      <Button
+                        key={item}
+                        className={selected ? CHIP_SELECTED : CHIP_IDLE}
+                        size="sm"
+                        type="button"
+                        variant={selected ? "primary" : "secondary"}
+                        onPress={() => {
+                          const next = selected ? "" : item;
+
+                          setGradeDraft(next);
+                          void saveListingField(
+                            {
+                              listingId: listing._id,
+                              grade: next,
+                            },
+                            { closeField: "grade" },
+                          );
+                        }}
+                      >
+                        {item}
+                      </Button>
+                    );
+                  })}
+                </div>
+              }
+              placeholder={!listing.grade?.trim()}
               onStartEdit={() => setActiveField("grade")}
             >
               <p className="text-base text-foreground">
-                {listing.grade?.trim() ? listing.grade : "Add grade"}
+                {listing.grade?.trim() || "Add grade"}
               </p>
             </ClickToEdit>
-          </DetailFieldCard>
+          </FieldRow>
 
-          <DetailFieldCard editable label="Status">
-            <div
-              className={clsx("flex flex-col gap-3", EDITABLE_SURFACE_CLASS)}
-            >
-              <p className="text-base font-medium text-foreground">
-                {formatListingStatus(listing.status)}
-              </p>
-              <label className="flex items-center gap-2 text-sm text-foreground">
-                <input
-                  checked={isSoldOut}
-                  className="h-4 w-4 rounded border-separator accent-accent"
-                  disabled={isExpired || isSavingStatus}
-                  type="checkbox"
+          <FieldRow label="Size">
+            <ClickToEdit
+              ariaLabel="size or calibre"
+              editing={activeField === "sizeOrCalibre"}
+              input={
+                <Input
+                  autoFocus
+                  fullWidth
+                  aria-label="Size or calibre"
+                  className={EDIT_FIELD_CLASS}
+                  placeholder="e.g. 18 count, 45–65 mm"
+                  value={sizeOrCalibreDraft}
+                  onBlur={() => {
+                    void saveListingField(
+                      {
+                        listingId: listing._id,
+                        sizeOrCalibre: sizeOrCalibreDraft,
+                      },
+                      { closeField: "sizeOrCalibre" },
+                    );
+                  }}
                   onChange={(event) => {
-                    void handleSoldOutChange(event.target.checked);
+                    const next = event.target.value;
+
+                    setSizeOrCalibreDraft(next);
+                    debouncedSave(() => {
+                      void saveListingField({
+                        listingId: listing._id,
+                        sizeOrCalibre: next,
+                      });
+                    });
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.currentTarget.blur();
+                    }
+                    if (event.key === "Escape") {
+                      setSizeOrCalibreDraft(listing.sizeOrCalibre ?? "");
+                      setActiveField(null);
+                    }
                   }}
                 />
-                <span>Sold out</span>
-              </label>
-            </div>
-          </DetailFieldCard>
+              }
+              placeholder={!listing.sizeOrCalibre?.trim()}
+              onStartEdit={() => setActiveField("sizeOrCalibre")}
+            >
+              <p className="text-base text-foreground">
+                {listing.sizeOrCalibre?.trim() || "Add size / calibre"}
+              </p>
+            </ClickToEdit>
+          </FieldRow>
 
-          <DetailFieldCard label="Listed">
-            <p className="flex h-full items-center text-base text-foreground">
-              {createdAt}
-            </p>
-          </DetailFieldCard>
+          <FieldRow label="Packaging">
+            <ClickToEdit
+              ariaLabel="packaging"
+              editing={activeField === "packaging"}
+              input={
+                <div className="flex flex-wrap gap-2 py-1">
+                  {LISTING_PACKAGING.map((item) => {
+                    const selected = packagingDraft === item;
 
-          <DetailFieldCard editable colSpan={4} label="Description">
+                    return (
+                      <Button
+                        key={item}
+                        className={selected ? CHIP_SELECTED : CHIP_IDLE}
+                        size="sm"
+                        type="button"
+                        variant={selected ? "primary" : "secondary"}
+                        onPress={() => {
+                          if (selected) {
+                            setActiveField(null);
+
+                            return;
+                          }
+                          setPackagingDraft(item);
+                          void saveListingField(
+                            {
+                              listingId: listing._id,
+                              packaging: item,
+                            },
+                            { closeField: "packaging" },
+                          );
+                        }}
+                      >
+                        {LISTING_PACKAGING_LABELS[item]}
+                      </Button>
+                    );
+                  })}
+                </div>
+              }
+              placeholder={!listing.packaging}
+              onStartEdit={() => setActiveField("packaging")}
+            >
+              <p className="text-base text-foreground">
+                {listing.packaging
+                  ? (LISTING_PACKAGING_LABELS[
+                      listing.packaging as ListingPackaging
+                    ] ?? listing.packaging)
+                  : "Add packaging"}
+              </p>
+            </ClickToEdit>
+          </FieldRow>
+
+          <FieldRow label="Min order">
+            <ClickToEdit
+              ariaLabel="minimum order kg"
+              editing={activeField === "minOrderKg"}
+              input={
+                <div className="flex items-center gap-2">
+                  <Input
+                    autoFocus
+                    aria-label="Minimum order in kg"
+                    className={clsx("max-w-40", EDIT_FIELD_CLASS)}
+                    inputMode="decimal"
+                    type="number"
+                    value={minOrderDraft}
+                    onBlur={() => {
+                      saveOptionalNumberField("minOrderKg", minOrderDraft);
+                      setActiveField(null);
+                    }}
+                    onChange={(event) => {
+                      const next = event.target.value;
+
+                      setMinOrderDraft(next);
+                      debouncedSave(() => {
+                        saveOptionalNumberField("minOrderKg", next);
+                      });
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.currentTarget.blur();
+                      }
+                      if (event.key === "Escape") {
+                        setMinOrderDraft(
+                          listing.minOrderKg != null
+                            ? String(listing.minOrderKg)
+                            : "",
+                        );
+                        setActiveField(null);
+                      }
+                    }}
+                  />
+                  <span className="text-sm text-muted">kg</span>
+                </div>
+              }
+              placeholder={listing.minOrderKg == null}
+              onStartEdit={() => setActiveField("minOrderKg")}
+            >
+              <p className="text-base text-foreground">
+                {listing.minOrderKg != null
+                  ? `${listing.minOrderKg} kg`
+                  : "Add min order"}
+              </p>
+            </ClickToEdit>
+          </FieldRow>
+
+          <FieldRow label="Pack unit">
+            <ClickToEdit
+              ariaLabel="pack unit kg"
+              editing={activeField === "packUnitKg"}
+              input={
+                <div className="flex items-center gap-2">
+                  <Input
+                    autoFocus
+                    aria-label="Pack unit in kg"
+                    className={clsx("max-w-40", EDIT_FIELD_CLASS)}
+                    inputMode="decimal"
+                    type="number"
+                    value={packUnitDraft}
+                    onBlur={() => {
+                      saveOptionalNumberField("packUnitKg", packUnitDraft);
+                      setActiveField(null);
+                    }}
+                    onChange={(event) => {
+                      const next = event.target.value;
+
+                      setPackUnitDraft(next);
+                      debouncedSave(() => {
+                        saveOptionalNumberField("packUnitKg", next);
+                      });
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.currentTarget.blur();
+                      }
+                      if (event.key === "Escape") {
+                        setPackUnitDraft(
+                          listing.packUnitKg != null
+                            ? String(listing.packUnitKg)
+                            : "",
+                        );
+                        setActiveField(null);
+                      }
+                    }}
+                  />
+                  <span className="text-sm text-muted">kg</span>
+                </div>
+              }
+              placeholder={listing.packUnitKg == null}
+              onStartEdit={() => setActiveField("packUnitKg")}
+            >
+              <p className="text-base text-foreground">
+                {listing.packUnitKg != null
+                  ? `${listing.packUnitKg} kg packs`
+                  : "Add pack unit"}
+              </p>
+            </ClickToEdit>
+          </FieldRow>
+
+          <FieldRow label="Harvest">
+            <ClickToEdit
+              ariaLabel="harvest window"
+              editing={activeField === "harvestWindowLabel"}
+              input={
+                <Input
+                  autoFocus
+                  fullWidth
+                  aria-label="Harvest window"
+                  className={EDIT_FIELD_CLASS}
+                  placeholder="Ready now, or a date range"
+                  value={harvestDraft}
+                  onBlur={() => {
+                    void saveListingField(
+                      {
+                        listingId: listing._id,
+                        harvestWindowLabel: harvestDraft,
+                      },
+                      { closeField: "harvestWindowLabel" },
+                    );
+                  }}
+                  onChange={(event) => {
+                    const next = event.target.value;
+
+                    setHarvestDraft(next);
+                    debouncedSave(() => {
+                      void saveListingField({
+                        listingId: listing._id,
+                        harvestWindowLabel: next,
+                      });
+                    });
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.currentTarget.blur();
+                    }
+                    if (event.key === "Escape") {
+                      setHarvestDraft(listing.harvestWindowLabel ?? "");
+                      setActiveField(null);
+                    }
+                  }}
+                />
+              }
+              placeholder={!listing.harvestWindowLabel?.trim()}
+              onStartEdit={() => setActiveField("harvestWindowLabel")}
+            >
+              <p className="text-base text-foreground">
+                {formatHarvestWindowLabel(listing.harvestWindowLabel) ||
+                  "Add harvest window"}
+              </p>
+            </ClickToEdit>
+          </FieldRow>
+
+          <FieldRow label="Notes">
             <ClickToEdit
               ariaLabel="description"
-              className="w-full px-1"
               editing={activeField === "description"}
               input={
                 <textarea
@@ -693,6 +1082,7 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
                   }}
                 />
               }
+              placeholder={listing.description.trim().length === 0}
               onStartEdit={() => setActiveField("description")}
             >
               <p className="text-sm leading-relaxed text-foreground">
@@ -701,13 +1091,13 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps) {
                   : "Add description"}
               </p>
             </ClickToEdit>
-          </DetailFieldCard>
-        </div>
+          </FieldRow>
+        </section>
 
         {saveError ? <p className="text-sm text-danger">{saveError}</p> : null}
 
         <p className="text-xs text-muted">
-          Tap any card to edit. Changes save automatically.
+          Tap a field to edit — saves automatically.
         </p>
 
         <Button

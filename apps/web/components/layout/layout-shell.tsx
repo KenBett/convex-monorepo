@@ -18,16 +18,21 @@ import { SidebarProvider, useSidebar } from "./sidebar-context";
 
 interface LayoutShellProps {
   children: ReactNode;
+  /** Hide the top navbar and its offset (full-bleed pages like driver map). */
+  hideNavbar?: boolean;
 }
 
-function LayoutShellContent({ children }: LayoutShellProps) {
+function LayoutShellContent({
+  children,
+  hideNavbar = false,
+}: LayoutShellProps) {
   const { isExpanded } = useSidebar();
   const { mainMargin } = getSidebarLayoutClasses(isExpanded);
 
   return (
     <>
       <Sidebar />
-      <Navbar />
+      {hideNavbar ? null : <Navbar />}
       <MobileTabBar />
       <div
         className={clsx(
@@ -37,10 +42,18 @@ function LayoutShellContent({ children }: LayoutShellProps) {
       >
         <main
           className={clsx(
-            "flex min-h-dvh flex-col pb-6 md:pb-8",
-            NAVBAR_OFFSET_CLASSES,
-            MOBILE_TAB_BAR_OFFSET_CLASSES,
-            CONTENT_CONTAINER_CLASSES,
+            "flex min-h-dvh flex-col",
+            hideNavbar
+              ? clsx(
+                  "p-0 md:h-dvh md:overflow-hidden",
+                  MOBILE_TAB_BAR_OFFSET_CLASSES,
+                )
+              : clsx(
+                  "pb-6 md:pb-8",
+                  NAVBAR_OFFSET_CLASSES,
+                  MOBILE_TAB_BAR_OFFSET_CLASSES,
+                  CONTENT_CONTAINER_CLASSES,
+                ),
           )}
         >
           {children}
@@ -50,7 +63,10 @@ function LayoutShellContent({ children }: LayoutShellProps) {
   );
 }
 
-export const LayoutShell = ({ children }: LayoutShellProps) => {
+export const LayoutShell = ({
+  children,
+  hideNavbar = false,
+}: LayoutShellProps) => {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -63,7 +79,9 @@ export const LayoutShell = ({ children }: LayoutShellProps) => {
 
   return (
     <SidebarProvider>
-      <LayoutShellContent>{children}</LayoutShellContent>
+      <LayoutShellContent hideNavbar={hideNavbar}>
+        {children}
+      </LayoutShellContent>
     </SidebarProvider>
   );
 };

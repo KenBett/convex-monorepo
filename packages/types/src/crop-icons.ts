@@ -55,6 +55,13 @@ export const CROP_ICON_DEFINITIONS: Record<CropType, CropIconDefinition> = {
       "M11.5 14.5a2 2 0 1 0 0 .1 2 2 0 0 0 0-.1Z",
     ],
   },
+  bananas: {
+    viewBox: "0 0 24 24",
+    paths: [
+      "M7 6c2-2 5-2.5 7.5-.5 2 1.5 3 4 2.5 6.5-.4 2-1.8 3.8-3.8 4.8-1.5.8-3.2.6-4.5-.4C6.5 15 5.5 12.5 6 10c.3-1.5 1.2-3 2.5-4Z",
+      "M14.5 5.5c1.2-.8 2.8-.6 3.8.6.8 1 .8 2.4 0 3.4",
+    ],
+  },
   coffee: {
     viewBox: "0 0 24 24",
     paths: [

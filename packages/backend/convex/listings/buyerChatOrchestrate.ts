@@ -1,6 +1,6 @@
 "use node";
 
-import { CROP_TYPES, COUNTIES } from "@repo/types";
+import { CROP_TYPES, COUNTIES, LISTING_HARD_FILTER_TAGS } from "@repo/types";
 import { generateText, stepCountIs, tool } from "ai";
 import { type Infer, v } from "convex/values";
 import { z } from "zod";
@@ -9,6 +9,7 @@ import { internal } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
 import { internalAction } from "../_generated/server";
 import { answerModel } from "../lib/rag";
+import { resolveNeededByFromText, resolveNeededByMs } from "../lib/buyerNeededBy";
 import {
   buyerSearchIntentValidator,
   type BuyerSearchIntent,
@@ -16,6 +17,7 @@ import {
 import { buyerChatRequestContextValidator } from "./buyerChatContext";
 import {
   answerAboutListingsFromTool,
+  promoteFocusedListing,
   tryAnswerListingQuestion,
 } from "./buyerChatListingAnswer";
 import {
@@ -33,7 +35,9 @@ import {
   resolveOrderDraft,
 } from "./buyerOrderResolve";
 import {
+  extractCropFromQuery,
   fallbackBuyerSearchIntent,
+  messageHasExpandResultsIntent,
   normalizeBuyerSearchIntent,
   SEARCH_INTENT_TOOL_RULES,
   type BuyerSearchIntentPreviousContext,
@@ -44,14 +48,44 @@ import {
   type BuyerSearchGroupResult,
 } from "./buyerSearchExecute";
 import {
+  buildCompletedTrail,
+  buildFilterLabels,
+} from "./buyerChatTrail";
+import {
   listingSearchResultValidator,
   type ListingSearchResultRow,
 } from "./search";
 
+const buyerChatTrailStepValidator = v.object({
+  detail: v.optional(v.string()),
+  id: v.union(
+    v.literal("understand"),
+    v.literal("search"),
+    v.literal("filter"),
+    v.literal("rank"),
+  ),
+  label: v.string(),
+  state: v.union(
+    v.literal("pending"),
+    v.literal("active"),
+    v.literal("done"),
+  ),
+});
+
 const buyerSourcingMetaValidator = v.object({
   excludedSoldOutCount: v.number(),
+  filterLabels: v.optional(v.array(v.string())),
   ragCandidateCount: v.number(),
   resultCount: v.number(),
+  retrievalMode: v.optional(
+    v.union(
+      v.literal("hybrid"),
+      v.literal("indexed_browse"),
+      v.literal("refine"),
+      v.literal("vector"),
+    ),
+  ),
+  trail: v.optional(v.array(buyerChatTrailStepValidator)),
 });
 
 const buyerSearchGroupValidator = v.object({
@@ -73,46 +107,73 @@ type BuyerSearchGroup = {
   results: ListingSearchResultRow[];
 };
 
+type BuyerSourcingMeta = {
+  excludedSoldOutCount: number;
+  filterLabels?: string[];
+  ragCandidateCount: number;
+  resultCount: number;
+  retrievalMode?:
+    | "hybrid"
+    | "indexed_browse"
+    | "refine"
+    | "vector";
+  trail?: Array<{
+    detail?: string;
+    id: "understand" | "search" | "filter" | "rank";
+    label: string;
+    state: "pending" | "active" | "done";
+  }>;
+};
+
 export type BuyerChatTurnResult = {
   assistantText?: string;
   intent: BuyerSearchIntent;
-  meta: {
-    excludedSoldOutCount: number;
-    ragCandidateCount: number;
-    resultCount: number;
-  };
+  meta: BuyerSourcingMeta;
   orderDraft?: ReturnType<typeof toValidatorOrderDraft>;
   results: ListingSearchResultRow[];
   searchGroups: BuyerSearchGroup[];
 };
 
-const ORCHESTRATOR_SYSTEM_PROMPT = `You are a buyer assistant for a Kenyan produce marketplace chat.
+const ORCHESTRATOR_SYSTEM_PROMPT = `You are a warm, helpful customer-care assistant for a Kenyan produce marketplace (Offtake / Vunr). Buyers chat with you to learn about produce, browse live co-op listings, and place orders.
 
-Your job is to decide which tools to call based on the latest buyer message.
+Default: reply in plain text with NO tools for greetings, thanks, how-the-app-works questions, soft produce advice, or unclear intent. Be concise, friendly, and ask one clarifying question when you need crop, county, grade, or quantity. Never invent listing IDs, prices, grades, or stock — only use tools or prior listing context for marketplace facts.
 
-Tools:
-- searchListings: when the buyer is browsing, comparing, or refining listings (not placing an order).
-- prepareOrder: when the buyer wants to order, buy, purchase, or get a specific quantity of produce.
-- answerAboutListings: when the buyer asks a text question about metadata of listings already shown (grade, price, quantity, county, cooperative, status). Use listingRef for "first/second" and crop/cooperative hints for "that maize" / "from Kenato".
+Critical: "Previous search context: none" means the buyer has not browsed yet — NOT that inventory is empty. For greetings and small talk, never claim there are no listings or that produce is unavailable. Just greet and offer help.
 
-Rules:
-- Order verbs include: order, buy, purchase, get me, I want, I need (with a quantity).
+Tools (call only when intent is clear):
+- searchListings: buyer wants to see options — browsing, comparing, refining, or checking availability (show/find/looking for/available/list/search). Not for greetings or general advice.
+- prepareOrder: clear purchase intent — order/buy/purchase/get me, or I want/I need WITH a quantity or a listing reference ("the first one", "that maize"). Soft preference without quantity ("I might want maize someday") → text only, ask what they need.
+- answerAboutListings: text question about metadata of listings already shown (grade, price, quantity, county, cooperative, status, description, tags/standards, certifications, packaging, variety, harvest). For "tell me about this maize" / "details on the first one", omit fields to get a full summary. For "is this export quality/organic/KEPSA?" ask for tags or certifications. Use listingRef for "first/second" and crop/cooperative hints for "that maize" / "from Kenato".
+
+When NOT to call tools:
+- Hello, hi, thanks, bye, or small talk → short care reply only.
+- "How does ordering / payment / sourcing work?" → explain in text (search → review cards → confirm order → pay).
+- Produce advice without a browse/buy ask ("is maize good this season?") → helpful text; offer to show listings if useful, but do not call searchListings unless they ask to see options.
+- Unclear intent → one clarifying question in text.
+
+When to call tools:
+- Naming a crop (e.g. "maize", "tomatoes in Nakuru") with no other intent → searchListings.
+- Display/browse cues such as "show", "display", "list", "provide", "pull up", "bring up", "find", "search", "select", "pick", "choose", "looking for", "do you have", "any … available" → searchListings (return listing cards), including refinements like "select the cheapest one", "show me the cheapest one", or "display grade 2 only". Never answer those with answerAboutListings text.
+- Order verbs with quantity or listingRef: order, buy, purchase, get me, I want, I need (with kg / "the first one" / "that one") → prepareOrder.
+- Question verbs about earlier results ("what is the grade…", "how much is the first one?", "is this export quality?", "tell me about this maize") → answerAboutListings, not searchListings.
+- Mixed messages (e.g. "find maize and order 5kg from Kenato") → call both searchListings and prepareOrder as needed.
+
+Other rules:
 - For prepareOrder, extract every line item separately (comma / and separated counts).
+- For prepareOrder, extract delivery timing when mentioned (e.g. "by Monday morning") into neededByLabel.
 - Map crops to: ${CROP_TYPES.join(", ")}. Examples: corn → maize.
 - Counties must be one of: ${COUNTIES.join(", ")} when mentioned.
 - For "the second one" / "first listing" set listingRef (1-based) on that line and omit cooperative if unknown.
 - Never invent listing IDs — prepareOrder resolves listings server-side.
-- Call searchListings for pure search requests with no order intent.
-- searchListings takes a "clauses" array — pass ONE clause per distinct crop/county/grade combination the buyer asks for. A message like "grade 2 tomatoes only and maize from Bungoma" is two clauses: {crop: tomatoes, grade: "2"} and {crop: maize, county: Bungoma}. A simple single-topic message is just one clause.
-- Display verbs such as "show", "display", "list", "provide", "pull up", "bring up", "find", and "search" mean the buyer wants listing cards. Use searchListings for these, including refinements like "show me the cheapest one", "list the lowest price", "provide another option", or "display grade 2 only".
-- Question/explanation verbs such as "what", "which", "how much", "how many", "who", "where", "tell me", "explain", and "describe" mean the buyer wants a text answer. Use answerAboutListings for these follow-up questions about earlier results (e.g. "what is the grade of that maize?", "how much is the first one?", "who sells that beans?"). Do not call searchListings for these.
-- Call both tools for mixed messages (e.g. "find maize and order 5kg from Kenato").
+- searchListings takes a "clauses" array — pass ONE clause per distinct crop/county/grade combination. "grade 2 tomatoes only and maize from Bungoma" is two clauses.
 - If the message only orders from earlier results, call prepareOrder only with listingRef or cooperative/grade hints.
-- When the buyer confirms with pronouns ("order it", "buy that", "I want to order it"), call prepareOrder using quantityKg from an earlier buyer message in the transcript when the latest message omits kg.
-- When the buyer says "order all of them" / "buy everything" / "the whole lot", do not call prepareOrder yourself — this is handled deterministically before you are invoked.
-- When the buyer pivots to a new browse request (e.g. "show me beans" after viewing maize), call searchListings only — never prepareOrder from stale earlier order context.
+- When the buyer confirms with pronouns ("order it", "buy that"), call prepareOrder using quantityKg from an earlier buyer message when the latest message omits kg.
+- When the buyer says "order all of them" / "buy everything" / "the whole lot", do not call prepareOrder — handled before you are invoked.
+- When the buyer pivots to a new crop (e.g. "show me onions" after maize), call searchListings as a fresh search — refinePreviousResults false, do not reuse the prior county/filters unless restated. Still use answerAboutListings/prepareOrder for questions or orders about cards already shown.
+- When the buyer asks for more of the same produce ("show me the rest", "any more"), call searchListings with refinePreviousResults false (server excludes already-shown cards).
+- When the buyer asks a chain of questions about one card ("how much?", "what grade?", "order it"), keep that listing context — answerAboutListings / prepareOrder, not a new browse.
 - prepareOrder applies only to the latest buyer message when it contains order intent.
-- For answerAboutListings, resolve "that/the/this" using crop or listingRef from the latest shown listings. Never guess values — read them from listing context via the tool.
+- For answerAboutListings, resolve "that/the/this" using crop or listingRef from shown listings. Never guess values — read them via the tool.
 
 ${SEARCH_INTENT_TOOL_RULES}`;
 
@@ -122,6 +183,7 @@ const orderLineSchema = z.object({
   crop: z.enum(CROP_TYPES),
   grade: z.string().optional(),
   listingRef: z.number().int().positive().optional(),
+  neededByLabel: z.string().optional(),
   quantityKg: z.number().positive(),
 });
 
@@ -138,16 +200,13 @@ const searchClauseSchema = z.object({
   refinePreviousResults: z.boolean().optional(),
   resultLimit: z.number().int().positive().nullable().optional(),
   searchText: z.string(),
+  tags: z.array(z.enum(LISTING_HARD_FILTER_TAGS)).nullable().optional(),
 });
 
 type TurnState = {
   assistantText?: string;
   intent: BuyerSearchIntent;
-  meta: {
-    excludedSoldOutCount: number;
-    ragCandidateCount: number;
-    resultCount: number;
-  };
+  meta: BuyerSourcingMeta;
   orderDraft?: ReturnType<typeof toValidatorOrderDraft>;
   results: ListingSearchResultRow[];
   searchGroups: BuyerSearchGroup[];
@@ -158,8 +217,16 @@ function emptyTurnState(): TurnState {
     intent: { searchText: "" },
     meta: {
       excludedSoldOutCount: 0,
+      filterLabels: [],
       ragCandidateCount: 0,
       resultCount: 0,
+      retrievalMode: "vector",
+      trail: buildCompletedTrail({
+        filterLabels: [],
+        ragCandidateCount: 0,
+        resultCount: 0,
+        retrievalMode: "vector",
+      }),
     },
     results: [],
     searchGroups: [],
@@ -167,10 +234,62 @@ function emptyTurnState(): TurnState {
 }
 
 const CARD_DISPLAY_REQUEST_PATTERN =
-  /\b(show|display|list|provide|pull\s+up|bring\s+up|find|search)\b/i;
+  /\b(show|display|list|provide|pull\s+up|bring\s+up|find|search|select|pick|choose)\b/i;
+
+/** Soft browse cues beyond display verbs (availability / looking-for). */
+const BROWSE_AVAILABILITY_PATTERN =
+  /\b(looking\s+for|do\s+you\s+have|any\b.+\bavailable|have\s+any|in\s+stock|available\s+(?:for|in|from)?)\b/i;
+
+/** "the cheapest one" / "most expensive one" without an explicit show/select verb. */
+const CARD_PICK_PATTERN =
+  /\b(the\s+)?(cheapest|most\s+expensive|priciest|lowest\s+price|highest\s+price|best)\s+one\b/i;
 
 const TEXT_ANSWER_REQUEST_PATTERN =
   /\b(what|which|how\s+much|how\s+many|tell\s+me|who|where|explain|describe)\b/i;
+
+/** Greetings / thanks / goodbye — reply in text, never search. */
+const CARE_SMALLTALK_PATTERN =
+  /^(hi|hello|hey|howdy|hola|yo|sup|good\s+(morning|afternoon|evening)|thanks|thank\s+you|thx|ty|bye|goodbye|see\s+you|ok|okay|cool|great|perfect|nice)[\s!.?]*$/i;
+
+/** How the marketplace / ordering works. */
+const HOW_IT_WORKS_PATTERN =
+  /\b(how\s+(does|do|can|to)|what\s+is|explain|help)\b.*\b(order|ordering|buy|buying|pay|payment|source|sourcing|work|chat|app|this)\b/i;
+
+const CARE_THANKS_REPLY =
+  "You're welcome! Need anything else?";
+
+const CARE_BYE_REPLY = "Anytime — happy sourcing.";
+
+const CARE_HOW_IT_WORKS_REPLY =
+  "Tell me what you need, I'll show matching listings, then you can confirm and pay. What are you sourcing?";
+
+function buildGreetingReply(firstName?: string): string {
+  if (firstName) {
+    return `Hey, ${firstName} — what are you sourcing today?`;
+  }
+
+  return "Hey — what are you sourcing today?";
+}
+
+function buildCareFallbackReply(firstName?: string): string {
+  return buildGreetingReply(firstName);
+}
+
+/** Warm reply when a browse/search finds nothing. */
+function buildEmptySearchAssistantText(intent: BuyerSearchIntent): string {
+  const gradePart = intent.grade?.trim()
+    ? `grade ${intent.grade.trim()} `
+    : "";
+  const cropPart = intent.crop?.trim() ? intent.crop.trim() : "produce";
+  const countyPart = intent.county?.trim()
+    ? ` in ${intent.county.trim()}`
+    : "";
+
+  return (
+    `I'm sorry — I don't have any ${gradePart}${cropPart}${countyPart} available right now. ` +
+    `Would you like to try a different grade, county, or crop?`
+  );
+}
 
 const CHEAPEST_PATTERN =
   /\b(cheapest|lowest\s+price|least\s+expensive|best\s+value|affordable)\b/i;
@@ -181,23 +300,87 @@ const MOST_EXPENSIVE_PATTERN =
 const SINGLE_CARD_PATTERN =
   /\b(one|1|single|top|best|cheapest|lowest\s+price|least\s+expensive|most\s+expensive|highest\s+price|priciest)\b/i;
 
-function buildCardDisplayIntent(
+/** True when the message clearly asks to see listings (display cues, availability, or names a crop). */
+function messageHasBrowseIntent(query: string): boolean {
+  return (
+    CARD_DISPLAY_REQUEST_PATTERN.test(query) ||
+    CARD_PICK_PATTERN.test(query) ||
+    BROWSE_AVAILABILITY_PATTERN.test(query) ||
+    extractCropFromQuery(query) !== undefined
+  );
+}
+
+function messageHasCardSelectionIntent(query: string): boolean {
+  return (
+    CARD_DISPLAY_REQUEST_PATTERN.test(query) || CARD_PICK_PATTERN.test(query)
+  );
+}
+
+/**
+ * Deterministic customer-care replies for greetings / thanks / how-it-works.
+ * Skips the LLM so "hello" never becomes an inventory claim.
+ */
+function tryDeterministicCareReply(
+  query: string,
+  firstName?: string,
+): string | null {
+  const normalized = query.trim();
+  if (CARE_SMALLTALK_PATTERN.test(normalized)) {
+    if (/^(thanks|thank\s+you|thx|ty)[\s!.?]*$/i.test(normalized)) {
+      return CARE_THANKS_REPLY;
+    }
+    if (/^(bye|goodbye|see\s+you)[\s!.?]*$/i.test(normalized)) {
+      return CARE_BYE_REPLY;
+    }
+    if (/^(ok|okay|cool|great|perfect|nice)[\s!.?]*$/i.test(normalized)) {
+      return "Sounds good — crop, county, or quantity whenever you're ready.";
+    }
+    return buildGreetingReply(firstName);
+  }
+
+  if (HOW_IT_WORKS_PATTERN.test(normalized) && !messageHasBrowseIntent(normalized)) {
+    return CARE_HOW_IT_WORKS_REPLY;
+  }
+
+  return null;
+}
+
+/**
+ * Deterministic browse without LLM: display/availability cues or an explicit crop name.
+ * Blocked for listing Q&A and order intent; greetings are handled earlier.
+ */
+function buildDeterministicBrowseIntent(
   query: string,
   previousContext?: BuyerSearchIntentPreviousContext,
 ): BuyerSearchIntent | null {
-  if (!CARD_DISPLAY_REQUEST_PATTERN.test(query)) {
-    return null;
-  }
-
   if (TEXT_ANSWER_REQUEST_PATTERN.test(query)) {
     return null;
   }
+
+  if (userMessageHasOrderIntent(query)) {
+    return null;
+  }
+
+  if (!messageHasBrowseIntent(query)) {
+    return null;
+  }
+
+  const hasDisplayVerb = messageHasCardSelectionIntent(query);
+  const cropFromQuery = extractCropFromQuery(query);
+  const isExpand = messageHasExpandResultsIntent(query);
 
   const pricePreference = CHEAPEST_PATTERN.test(query)
     ? "cheapest"
     : MOST_EXPENSIVE_PATTERN.test(query)
       ? "most_expensive"
       : null;
+
+  // Refine = re-rank cards already shown. Expand / new crop = fresh inventory search.
+  const refinePreviousResults =
+    !isExpand &&
+    hasDisplayVerb &&
+    previousContext !== undefined &&
+    !cropFromQuery;
 
   return normalizeBuyerSearchIntent(
     {
@@ -207,9 +390,11 @@ function buildCardDisplayIntent(
       maxPricePerKg: null,
       minQuantityKg: null,
       pricePreference,
-      refinePreviousResults: previousContext !== undefined,
-      resultLimit: SINGLE_CARD_PATTERN.test(query) ? 1 : null,
+      refinePreviousResults,
+      resultLimit:
+        !isExpand && SINGLE_CARD_PATTERN.test(query) ? 1 : null,
       searchText: query,
+      tags: null,
     },
     query,
     previousContext,
@@ -236,12 +421,8 @@ function dedupeResultsById(
   return merged;
 }
 
-function sumSearchGroupMeta(groups: BuyerSearchGroupResult[]): {
-  excludedSoldOutCount: number;
-  ragCandidateCount: number;
-  resultCount: number;
-} {
-  return groups.reduce(
+function sumSearchGroupMeta(groups: BuyerSearchGroupResult[]): BuyerSourcingMeta {
+  const totals = groups.reduce(
     (total, group) => ({
       excludedSoldOutCount:
         total.excludedSoldOutCount + group.meta.excludedSoldOutCount,
@@ -250,68 +431,88 @@ function sumSearchGroupMeta(groups: BuyerSearchGroupResult[]): {
     }),
     { excludedSoldOutCount: 0, ragCandidateCount: 0, resultCount: 0 },
   );
+
+  const primary = groups[0]?.meta;
+  const retrievalMode = primary?.retrievalMode ?? "vector";
+  const filterLabels =
+    primary?.filterLabels ??
+    buildFilterLabels(groups[0]?.intent ?? { searchText: "" });
+
+  return {
+    ...totals,
+    filterLabels,
+    retrievalMode,
+    trail: buildCompletedTrail({
+      filterLabels,
+      ragCandidateCount: totals.ragCandidateCount,
+      resultCount: totals.resultCount,
+      retrievalMode,
+    }),
+  };
 }
 
-function toContextListings(
-  listings?: Array<{
+function toContextListing(
+  listing: {
+    certifications?: BuyerChatPreviousListing["certifications"];
     cooperativeName: string;
     county: string;
     crop: string;
     description?: string;
     grade?: string;
+    harvestWindowLabel?: string;
     listingId: BuyerChatPreviousListing["listingId"];
+    minOrderKg?: number;
+    packaging?: BuyerChatPreviousListing["packaging"];
+    packUnitKg?: number;
     pricePerKg: number;
     quantityKg: number;
+    sizeOrCalibre?: string;
     status: "active" | "expired" | "sold_out";
-  }>,
-): BuyerChatPreviousListing[] {
-  if (!listings) {
-    return [];
-  }
-
-  return listings.map((listing) => ({
+    tags?: BuyerChatPreviousListing["tags"];
+    variety?: string;
+  },
+): BuyerChatPreviousListing {
+  return {
+    certifications: listing.certifications,
     cooperativeName: listing.cooperativeName,
     county: listing.county,
     crop: listing.crop,
     description: listing.description,
     grade: listing.grade,
+    harvestWindowLabel: listing.harvestWindowLabel,
     listingId: listing.listingId,
+    minOrderKg: listing.minOrderKg,
+    packaging: listing.packaging,
+    packUnitKg: listing.packUnitKg,
     pricePerKg: listing.pricePerKg,
     quantityKg: listing.quantityKg,
+    sizeOrCalibre: listing.sizeOrCalibre,
     status: listing.status,
-  }));
+    tags: listing.tags,
+    variety: listing.variety,
+  };
+}
+
+function toContextListings(
+  listings?: Array<Parameters<typeof toContextListing>[0]>,
+): BuyerChatPreviousListing[] {
+  if (!listings) {
+    return [];
+  }
+
+  return listings.map(toContextListing);
 }
 
 function toPreviousListings(
   previousSourcing?: {
-    listings: Array<{
-      cooperativeName: string;
-      county: string;
-      crop: string;
-      description?: string;
-      grade?: string;
-      listingId: BuyerChatPreviousListing["listingId"];
-      pricePerKg: number;
-      quantityKg: number;
-      status: "active" | "expired" | "sold_out";
-    }>;
+    listings: Array<Parameters<typeof toContextListing>[0]>;
   },
 ): BuyerChatPreviousListing[] {
   if (!previousSourcing) {
     return [];
   }
 
-  return previousSourcing.listings.map((listing) => ({
-    cooperativeName: listing.cooperativeName,
-    county: listing.county,
-    crop: listing.crop,
-    description: listing.description,
-    grade: listing.grade,
-    listingId: listing.listingId,
-    pricePerKg: listing.pricePerKg,
-    quantityKg: listing.quantityKg,
-    status: listing.status,
-  }));
+  return previousSourcing.listings.map(toContextListing);
 }
 
 function toPreviousSourcingContext(
@@ -331,13 +532,18 @@ function toPreviousSourcingContext(
 }
 
 const listingMetadataFieldSchema = z.enum([
+  "certifications",
   "cooperative",
   "county",
   "description",
   "grade",
+  "harvest",
+  "packaging",
   "price",
   "quantity",
   "status",
+  "tags",
+  "variety",
 ]);
 
 function clauseInputToParsedIntent(
@@ -353,6 +559,7 @@ function clauseInputToParsedIntent(
     refinePreviousResults: input.refinePreviousResults ?? false,
     pricePreference: input.pricePreference ?? null,
     resultLimit: input.resultLimit ?? null,
+    tags: input.tags ?? null,
   };
 }
 
@@ -367,13 +574,31 @@ export async function executeBuyerChatTurn(
     throw new Error("Search query is required");
   }
 
+  const fulfillmentContext = await ctx.runQuery(
+    internal.users.buyerFulfillmentContext,
+    {},
+  );
+  const buyerFirstName = fulfillmentContext.firstName;
+  const neededBy = resolveNeededByFromText(query);
+  const orderDraftOptions = {
+    neededByLabel: neededBy?.label,
+    neededByMs: neededBy?.neededByMs,
+    pointBLabel: fulfillmentContext.businessName,
+  };
+
   const turnState = emptyTurnState();
   const conversationListings = toContextListings(
     args.chatContext.conversationListings,
   );
-  const previousListings = toPreviousListings(args.chatContext.previousSourcing);
-  const allContextListings =
-    conversationListings.length > 0 ? conversationListings : previousListings;
+  const previousListings = promoteFocusedListing(
+    toPreviousListings(args.chatContext.previousSourcing),
+    args.chatContext.focusedListingId,
+  );
+  const allContextListings = promoteFocusedListing(
+    conversationListings.length > 0 ? conversationListings : previousListings,
+    args.chatContext.focusedListingId,
+  );
+  const focusedListingId = args.chatContext.focusedListingId;
   const previousSourcingContext = args.chatContext.previousSourcing
     ? toPreviousSourcingContext({
         ...args.chatContext.previousSourcing,
@@ -387,19 +612,44 @@ export async function executeBuyerChatTurn(
         listingCount: args.chatContext.previousSourcing.listingCount,
       }
     : undefined;
-  const cardDisplayIntent = buildCardDisplayIntent(
+
+  const careReply = tryDeterministicCareReply(query, buyerFirstName);
+  if (careReply) {
+    return {
+      assistantText: careReply,
+      intent: (args.chatContext.previousSourcing?.intent as
+        | BuyerSearchIntent
+        | undefined) ?? { searchText: query },
+      meta: turnState.meta,
+      results: [],
+      searchGroups: [],
+    };
+  }
+
+  const browseIntent = buildDeterministicBrowseIntent(
     query,
     previousContextForNormalize,
   );
 
-  if (cardDisplayIntent) {
+  if (browseIntent) {
     const searchResult = await executeBuyerSearchFromIntent(
       ctx,
-      cardDisplayIntent,
+      browseIntent,
       previousSourcingContext,
     );
 
+    const emptyExpandText =
+      searchResult.results.length === 0 &&
+      browseIntent.excludePreviousListings
+        ? `That's everything I have for ${browseIntent.crop ?? "that produce"}${browseIntent.county ? ` in ${browseIntent.county}` : ""} right now — nothing beyond what I already showed.`
+        : undefined;
+
     return {
+      assistantText:
+        searchResult.results.length === 0
+          ? (emptyExpandText ??
+            buildEmptySearchAssistantText(searchResult.intent))
+          : undefined,
       intent: searchResult.intent,
       meta: searchResult.meta,
       results: searchResult.results,
@@ -412,6 +662,7 @@ export async function executeBuyerChatTurn(
 
   const quickAnswer = tryAnswerListingQuestion({
     conversationListings: allContextListings,
+    focusedListingId,
     previousListings,
     query,
   });
@@ -434,7 +685,12 @@ export async function executeBuyerChatTurn(
 
     if (orderAllSource.length > 0) {
       const lines = buildOrderAllLines(orderAllSource);
-      const orderDraft = await resolveOrderDraft(ctx, lines, orderAllSource);
+      const orderDraft = await resolveOrderDraft(
+        ctx,
+        lines,
+        orderAllSource,
+        orderDraftOptions,
+      );
 
       return {
         assistantText: orderDraft.summaryText,
@@ -453,14 +709,19 @@ export async function executeBuyerChatTurn(
     ? [
         "Previous search context:",
         `- listings shown: ${args.chatContext.previousSourcing.listingCount}`,
-        args.chatContext.previousSourcing.listings
+        focusedListingId
+          ? `- focused listing (centered in carousel): ${focusedListingId} — treat "this/that/it" as this listing`
+          : undefined,
+        previousListings
           .map(
             (listing, index) =>
-              `${index + 1}. ${listing.crop} from ${listing.cooperativeName}${listing.grade ? ` grade ${listing.grade}` : ""} @ KES ${listing.pricePerKg}/kg (${listing.listingId})`,
+              `${index + 1}. ${listing.crop} from ${listing.cooperativeName}${listing.grade ? ` grade ${listing.grade}` : ""} @ KES ${listing.pricePerKg}/kg (${listing.listingId})${focusedListingId === listing.listingId ? " ← FOCUSED" : ""}`,
           )
           .join("\n"),
-      ].join("\n")
-    : "Previous search context: none";
+      ]
+        .filter((line): line is string => Boolean(line))
+        .join("\n")
+    : "Previous search context: none (buyer has not browsed yet — do not claim inventory is empty)";
 
   const prompt = [
     "Conversation so far:",
@@ -480,7 +741,7 @@ export async function executeBuyerChatTurn(
     tools: {
       answerAboutListings: tool({
         description:
-          "Answer a metadata question about listings already shown in this chat (grade, price, stock, county, cooperative, status).",
+          "Answer a metadata question about listings already shown in this chat. Omit fields for a full summary (grade, price, stock, county, cooperative, status, seller notes, tags/standards, certifications, packaging, variety, harvest). Pass specific fields only for targeted questions (e.g. tags for export grade/organic, certifications for KEPSA, or grade/price).",
         inputSchema: z.object({
           cooperativeName: z.string().optional(),
           crop: z.enum(CROP_TYPES).optional(),
@@ -493,6 +754,7 @@ export async function executeBuyerChatTurn(
             cooperativeName: answerInput.cooperativeName,
             crop: answerInput.crop,
             fields: answerInput.fields,
+            focusedListingId,
             listingRef: answerInput.listingRef,
             previousListings,
           });
@@ -505,12 +767,26 @@ export async function executeBuyerChatTurn(
           "Resolve order line items to live marketplace listings for buyer confirmation.",
         inputSchema: z.object({
           lines: z.array(orderLineSchema).min(1),
+          neededByLabel: z.string().optional(),
         }),
-        execute: async ({ lines }) => {
+        execute: async ({ lines, neededByLabel: toolNeededBy }) => {
+          const resolvedLabel =
+            toolNeededBy ??
+            orderDraftOptions.neededByLabel ??
+            lines.map((line) => line.neededByLabel).find(Boolean);
           const orderDraft = await resolveOrderDraft(
             ctx,
             lines,
             previousListings,
+            {
+              ...orderDraftOptions,
+              neededByLabel: resolvedLabel,
+              neededByMs:
+                orderDraftOptions.neededByMs ??
+                (resolvedLabel
+                  ? resolveNeededByMs(resolvedLabel)
+                  : undefined),
+            },
           );
           turnState.orderDraft = toValidatorOrderDraft(orderDraft);
           return {
@@ -564,10 +840,26 @@ export async function executeBuyerChatTurn(
     },
   });
 
+  const llmText =
+    llmResult.text.trim().length > 0 ? llmResult.text.trim() : undefined;
+
+  // Prefer free-text care replies when the model did not call tools that set state.
+  if (
+    !turnState.assistantText &&
+    llmText &&
+    turnState.results.length === 0 &&
+    !turnState.orderDraft
+  ) {
+    turnState.assistantText = llmText;
+  }
+
+  // Only fall back to search when the buyer clearly wanted listings and the LLM
+  // produced neither text, cards, nor an order draft (e.g. tool call failed).
   if (
     turnState.results.length === 0 &&
     !turnState.orderDraft &&
-    !turnState.assistantText
+    !turnState.assistantText &&
+    messageHasBrowseIntent(query)
   ) {
     const fallbackIntent = fallbackBuyerSearchIntent(
       query,
@@ -600,6 +892,7 @@ export async function executeBuyerChatTurn(
         ctx,
         inferredLines,
         previousListings,
+        orderDraftOptions,
       );
       turnState.orderDraft = toValidatorOrderDraft(orderDraft);
     }
@@ -609,10 +902,30 @@ export async function executeBuyerChatTurn(
     turnState.orderDraft = undefined;
   }
 
+  // Care fallback: never leave the buyer with an empty turn when they were not browsing.
+  if (
+    turnState.results.length === 0 &&
+    !turnState.orderDraft &&
+    !turnState.assistantText &&
+    !messageHasBrowseIntent(query)
+  ) {
+    turnState.assistantText = buildCareFallbackReply(buyerFirstName);
+  }
+
+  // Empty search: never leave a blank reply after a browse that found nothing.
+  if (
+    turnState.results.length === 0 &&
+    !turnState.orderDraft &&
+    !turnState.assistantText &&
+    (messageHasBrowseIntent(query) || turnState.searchGroups.length > 0)
+  ) {
+    turnState.assistantText = buildEmptySearchAssistantText(turnState.intent);
+  }
+
   const assistantText =
     turnState.assistantText ??
     turnState.orderDraft?.summaryText ??
-    (llmResult.text.trim().length > 0 ? llmResult.text.trim() : undefined);
+    llmText;
 
   return {
     assistantText,

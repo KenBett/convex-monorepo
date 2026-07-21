@@ -13,6 +13,8 @@ const buyerChatPreviousContextValidator = v.object({
 export const buyerChatRequestContextValidator = v.object({
   conversationListings: v.optional(v.array(buyerChatPreviousListingValidator)),
   conversationTranscript: v.string(),
+  /** Listing currently centered in the buyer chat carousel. */
+  focusedListingId: v.optional(v.id("listings")),
   latestUserMessage: v.string(),
   previousSourcing: v.optional(buyerChatPreviousContextValidator),
 });

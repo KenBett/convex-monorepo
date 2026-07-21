@@ -21,6 +21,9 @@ export const ONBOARDING_PATH = "/onboarding";
 export type RoutePolicy =
   | { mode: "guest" }
   | { mode: "onboarding" }
+  /** Signed in; onboarding may be incomplete (e.g. demo driver portal). */
+  | { mode: "signedIn" }
+  | { mode: "authenticated" }
   | { mode: "role"; requiredRole: MarketplaceRole }
   | { mode: "index" };
 
@@ -82,6 +85,14 @@ export function useViewerRouting(policy: RoutePolicy): ViewerRouting {
         }
 
         return { phase: "redirect", redirectTo: home };
+      case "signedIn":
+        return { phase: "ready", redirectTo: null };
+      case "authenticated":
+        if (onboardingRequired) {
+          return { phase: "redirect", redirectTo: ONBOARDING_PATH };
+        }
+
+        return { phase: "ready", redirectTo: null };
       case "role":
         if (onboardingRequired) {
           return { phase: "redirect", redirectTo: ONBOARDING_PATH };

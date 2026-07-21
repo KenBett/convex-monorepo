@@ -25,11 +25,16 @@ export type OrderCheckoutListing =
 
 type OrderCheckoutDialogProps = {
   defaultQuantityKg?: number;
+  fulfillment?: {
+    neededByLabel?: string;
+    neededByMs?: number;
+    pointALabel?: string;
+    pointBLabel?: string;
+  };
   listing: OrderCheckoutListing | null;
   onClose: () => void;
   onCheckoutComplete?: () => void;
   open: boolean;
-  stepLabel?: string;
 };
 
 type CheckoutPhase = "form" | "paying" | "done";
@@ -53,15 +58,17 @@ function getDefaultQuantity(
 
 export function OrderCheckoutDialog({
   defaultQuantityKg,
+  fulfillment,
   listing,
   onClose,
   onCheckoutComplete,
   open,
-  stepLabel,
 }: OrderCheckoutDialogProps) {
   const modalState = useOverlayState();
   const buyerProfile = useQuery(api.users.buyerProfile);
+  const demoPaymentsEnabled = useQuery(api.orders.demoPaymentsEnabled);
   const createOrder = useMutation(api.orders.createOrder);
+  const confirmDemoEscrow = useMutation(api.orders.confirmDemoEscrow);
   const initiateStkPush = useAction(api.orders.payment.initiateStkPushForOrder);
   const cancelOrder = useMutation(api.orders.cancelOrder);
 
@@ -159,10 +166,18 @@ export function OrderCheckoutDialog({
     try {
       const newOrderId = await createOrder({
         listingId: listing.listingId as Id<"listings">,
+        neededByLabel: fulfillment?.neededByLabel,
+        neededByMs: fulfillment?.neededByMs,
         quantityKg: parsed.data.quantityKg,
       });
 
       setOrderId(newOrderId);
+
+      if (demoPaymentsEnabled) {
+        await confirmDemoEscrow({ orderId: newOrderId });
+
+        return;
+      }
 
       await initiateStkPush({
         mpesaPhoneNumber: parsed.data.mpesaPhoneNumber,
@@ -174,6 +189,51 @@ export function OrderCheckoutDialog({
         checkoutError instanceof Error
           ? checkoutError.message
           : "Could not start payment",
+      );
+    }
+  };
+
+  const handleDemoEscrowOnly = async () => {
+    if (!listing) {
+      return;
+    }
+
+    const parsedQty = Number.parseFloat(quantityKg);
+
+    if (!Number.isFinite(parsedQty) || parsedQty <= 0) {
+      setFieldErrors({ quantityKg: "Enter a valid quantity" });
+
+      return;
+    }
+
+    if (parsedQty > listing.quantityKg) {
+      setFieldErrors({
+        quantityKg: `Maximum available is ${listing.quantityKg} kg`,
+      });
+
+      return;
+    }
+
+    setFieldErrors({});
+    setError(null);
+    setPhase("paying");
+
+    try {
+      const newOrderId = await createOrder({
+        listingId: listing.listingId as Id<"listings">,
+        neededByLabel: fulfillment?.neededByLabel,
+        neededByMs: fulfillment?.neededByMs,
+        quantityKg: parsedQty,
+      });
+
+      setOrderId(newOrderId);
+      await confirmDemoEscrow({ orderId: newOrderId });
+    } catch (checkoutError) {
+      setPhase("form");
+      setError(
+        checkoutError instanceof Error
+          ? checkoutError.message
+          : "Could not confirm demo payment",
       );
     }
   };
@@ -215,10 +275,6 @@ export function OrderCheckoutDialog({
                 />
                 Order {theme.label}
               </Modal.Heading>
-              <p className="text-sm text-muted">
-                {stepLabel ? `${stepLabel} · ` : ""}
-                {listing.cooperativeName} · {listing.county}
-              </p>
             </Modal.Header>
 
             <Modal.Body className="flex flex-col gap-4 p-0">
@@ -247,24 +303,26 @@ export function OrderCheckoutDialog({
                     )}
                   </div>
 
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="order-mpesa">M-PESA number</Label>
-                    <Input
-                      id="order-mpesa"
-                      inputMode="tel"
-                      placeholder="254712345678"
-                      type="tel"
-                      value={mpesaPhone}
-                      onChange={(event) =>
-                        setMpesaPhone(normalizeMpesaPhone(event.target.value))
-                      }
-                    />
-                    {fieldErrors.mpesaPhoneNumber ? (
-                      <p className="text-xs text-danger">
-                        {fieldErrors.mpesaPhoneNumber}
-                      </p>
-                    ) : null}
-                  </div>
+                  {demoPaymentsEnabled ? null : (
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="order-mpesa">M-PESA number</Label>
+                      <Input
+                        id="order-mpesa"
+                        inputMode="tel"
+                        placeholder="254712345678"
+                        type="tel"
+                        value={mpesaPhone}
+                        onChange={(event) =>
+                          setMpesaPhone(normalizeMpesaPhone(event.target.value))
+                        }
+                      />
+                      {fieldErrors.mpesaPhoneNumber ? (
+                        <p className="text-xs text-danger">
+                          {fieldErrors.mpesaPhoneNumber}
+                        </p>
+                      ) : null}
+                    </div>
+                  )}
 
                   <div className="rounded-[0.875rem] border border-separator p-4">
                     <p className="text-sm text-muted">Total</p>
@@ -273,6 +331,7 @@ export function OrderCheckoutDialog({
                     </p>
                     <p className="text-xs text-muted">
                       {parsedQuantity || "—"} kg × KES {listing.pricePerKg}/kg
+                      {demoPaymentsEnabled ? " · demo charge KES 0" : ""}
                     </p>
                   </div>
 
@@ -282,7 +341,9 @@ export function OrderCheckoutDialog({
                 </>
               ) : null}
 
-              {phase === "paying" && isPendingPayment ? (
+              {phase === "paying" &&
+              isPendingPayment &&
+              !demoPaymentsEnabled ? (
                 <div className="flex flex-col items-center gap-4 py-6 text-center">
                   <Loader2
                     className="h-8 w-8 animate-spin text-muted"
@@ -303,14 +364,31 @@ export function OrderCheckoutDialog({
                 </div>
               ) : null}
 
+              {phase === "paying" && demoPaymentsEnabled && isPendingPayment ? (
+                <div className="flex flex-col items-center gap-4 py-6 text-center">
+                  <Loader2
+                    className="h-8 w-8 animate-spin text-muted"
+                    strokeWidth={1.75}
+                  />
+                  <p className="text-sm text-muted">Confirming demo escrow…</p>
+                </div>
+              ) : null}
+
               {phase === "done" && isSuccess ? (
                 <div className="flex flex-col items-center gap-3 py-6 text-center">
                   <Chip size="sm" variant="primary">
-                    <Chip.Label>Payment received</Chip.Label>
+                    <Chip.Label>
+                      {demoPaymentsEnabled
+                        ? "Demo payment confirmed"
+                        : "Payment received"}
+                    </Chip.Label>
                   </Chip>
                   <p className="text-sm text-foreground">
                     Your order of {order.quantityKg} kg {theme.label} is in
-                    escrow. The farmer has been notified.
+                    escrow.{" "}
+                    {demoPaymentsEnabled
+                      ? "A driver job has been assigned — track it under Track orders."
+                      : "The farmer has been notified."}
                   </p>
                   {order.mpesaReceiptNumber ? (
                     <p className="text-xs text-muted">
@@ -343,14 +421,22 @@ export function OrderCheckoutDialog({
                     isDisabled={parsedQuantity <= 0 || totalKes <= 0}
                     size="sm"
                     variant="primary"
-                    onPress={() => void handleConfirmPay()}
+                    onPress={() =>
+                      void (demoPaymentsEnabled
+                        ? handleDemoEscrowOnly()
+                        : handleConfirmPay())
+                    }
                   >
-                    Confirm &amp; Pay
+                    {demoPaymentsEnabled
+                      ? "Confirm payment (demo)"
+                      : "Confirm & Pay"}
                   </Button>
                 </>
               ) : null}
 
-              {phase === "paying" && isPendingPayment ? (
+              {phase === "paying" &&
+              isPendingPayment &&
+              !demoPaymentsEnabled ? (
                 <Button
                   size="sm"
                   variant="secondary"

@@ -7,6 +7,8 @@ import type {
 
 import {
   formatListingStatus,
+  getBuyerListingDescription,
+  getBuyerListingSnippet,
   getCropTheme,
   getListingCardBgClass,
   LISTING_CARD_NOISE_DATA_URI,
@@ -15,17 +17,22 @@ import {
 import { Button, Chip } from "@heroui/react";
 import clsx from "clsx";
 import Image from "next/image";
-import { ShoppingBag } from "lucide-react";
+import { ShoppingBag, Store } from "lucide-react";
 import { type KeyboardEvent } from "react";
 
 import { CropBadge } from "@/components/farmer/crop-display";
+import { ListingCardFace } from "@/components/listing/listing-card-face";
 
 type BuyerListingCardProps = {
+  /** Larger body type for zoomed chat cards — keeps outer card size unchanged. */
+  emphasized?: boolean;
   forceLight?: boolean;
   liveStatus?: ChatListingLiveStatus;
   onOrder?: (result: BuyerSourcingListingResult) => void;
   onSelect?: (result: BuyerSourcingListingResult) => void;
   result: BuyerSourcingListingResult;
+  /** When false, carousel owns scale feedback instead of hover grow. */
+  scaleOnHover?: boolean;
 };
 
 function ListingCardNoiseOverlay() {
@@ -44,11 +51,13 @@ function ListingCardNoiseOverlay() {
 }
 
 export function BuyerListingCard({
+  emphasized = false,
   forceLight = false,
   liveStatus,
   onOrder,
   onSelect,
   result,
+  scaleOnHover = true,
 }: BuyerListingCardProps) {
   const theme = getCropTheme(result.crop);
   const resolvedStatus = liveStatus ?? result.status;
@@ -77,23 +86,29 @@ export function BuyerListingCard({
     }
   };
 
+  const matchSnippet = getBuyerListingSnippet(
+    result.snippet,
+    getBuyerListingDescription(result.description),
+  );
+
   return (
     <article
       className={clsx(
-        "group relative grid aspect-square grid-rows-[1fr_auto] overflow-hidden rounded-[0.875rem]",
-        "shadow-sm transition-[box-shadow,transform] duration-200",
+        "relative flex flex-col overflow-hidden rounded-[0.875rem]",
+        "shadow-sm transition-transform duration-200",
         getListingCardBgClass(result.crop),
         isUnavailable && "opacity-60 saturate-50",
+        isInteractive && "cursor-pointer focus-visible:outline-none",
         isInteractive &&
-          "cursor-pointer hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 active:shadow-md focus-visible:outline-none",
-        !isInteractive && "hover:shadow-md",
+          scaleOnHover &&
+          "hover:scale-[1.03] active:scale-100 focus-visible:scale-[1.03]",
       )}
       role={isInteractive ? "button" : undefined}
       tabIndex={isInteractive ? 0 : undefined}
       onClick={isInteractive ? handleActivate : undefined}
       onKeyDown={isInteractive ? handleKeyDown : undefined}
     >
-      <div className="relative min-h-0 w-full overflow-hidden">
+      <div className="relative aspect-[16/10] w-full shrink-0 overflow-hidden">
         {result.imageUrl ? (
           <Image
             fill
@@ -118,13 +133,14 @@ export function BuyerListingCard({
           {isUnavailable ? (
             <Chip
               className={clsx(
-                "h-auto bg-white/95 px-1.5 py-0.5 shadow-sm ring-1 ring-black/5",
+                "h-auto bg-white/95 shadow-sm ring-1 ring-black/5",
+                emphasized ? "px-2 py-1" : "px-1.5 py-0.5",
                 !forceLight && "dark:bg-stone-900/95",
               )}
               size="sm"
               variant="secondary"
             >
-              <Chip.Label className="text-[10px]">
+              <Chip.Label className={emphasized ? "text-xs" : "text-[10px]"}>
                 {resolvedStatus === "deleted"
                   ? "No longer available"
                   : formatListingStatus(resolvedStatus)}
@@ -133,13 +149,14 @@ export function BuyerListingCard({
           ) : result.score > 0 ? (
             <Chip
               className={clsx(
-                "h-auto bg-white/95 px-1.5 py-0.5 shadow-sm ring-1 ring-black/5",
+                "h-auto bg-white/95 shadow-sm ring-1 ring-black/5",
+                emphasized ? "px-2 py-1" : "px-1.5 py-0.5",
                 !forceLight && "dark:bg-stone-900/95",
               )}
               size="sm"
               variant="secondary"
             >
-              <Chip.Label className="text-[10px]">
+              <Chip.Label className={emphasized ? "text-xs" : "text-[10px]"}>
                 {Math.round(result.score * 100)}% match
               </Chip.Label>
             </Chip>
@@ -154,78 +171,75 @@ export function BuyerListingCard({
         />
       ) : null}
 
-      {isInteractive ? (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 z-30 flex items-end justify-center rounded-[inherit] bg-linear-to-t from-black/35 via-black/10 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100"
-        >
-          <span className="mb-3 rounded-full bg-white/95 px-3 py-1 text-[11px] font-semibold text-neutral-900 shadow-sm ring-1 ring-black/5">
-            View details
-          </span>
-        </div>
-      ) : null}
-
       <ListingCardNoiseOverlay />
 
-      <div className="relative z-10 flex min-h-0 flex-col gap-1 px-2.5 pb-2.5 pt-2">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <CropBadge crop={result.crop} size="sm" />
-          <h3
+      <ListingCardFace
+        className="pb-1.5"
+        cropBadge={
+          <CropBadge crop={result.crop} size={emphasized ? "md" : "sm"} />
+        }
+        cropLabel={theme.label}
+        emphasized={emphasized}
+        forceLight={forceLight}
+        listing={result}
+      />
+
+      <div className="relative z-10 flex flex-col gap-1.5 px-2.5 pb-2.5">
+        <Chip
+          className={clsx(
+            "h-auto max-w-full bg-emerald-100 text-emerald-800 ring-1 ring-emerald-600/15",
+            emphasized ? "px-2 py-1" : "px-1.5 py-0.5",
+            !forceLight && "dark:bg-emerald-950/50 dark:text-emerald-300",
+          )}
+          size="sm"
+          variant="secondary"
+        >
+          <Chip.Label
             className={clsx(
-              "truncate text-xs font-semibold capitalize text-neutral-900",
-              !forceLight && "dark:text-neutral-50",
+              "inline-flex max-w-full items-center gap-1 truncate font-medium",
+              emphasized ? "text-xs" : "text-[10px]",
             )}
           >
-            {theme.label}
-          </h3>
-        </div>
+            <Store
+              aria-hidden
+              className={clsx(
+                "shrink-0",
+                emphasized ? "h-3.5 w-3.5" : "h-3 w-3",
+              )}
+              strokeWidth={1.75}
+            />
+            <span className="truncate">{result.cooperativeName}</span>
+          </Chip.Label>
+        </Chip>
 
-        <p
-          className={clsx(
-            "text-base font-semibold leading-none tracking-tight text-neutral-900",
-            !forceLight && "dark:text-neutral-50",
-          )}
-        >
-          KES {result.pricePerKg}
-          <span
+        {matchSnippet && !isUnavailable ? (
+          <p
             className={clsx(
-              "text-[11px] font-medium text-neutral-600",
+              "italic text-neutral-600",
+              emphasized
+                ? "line-clamp-2 text-xs leading-snug"
+                : "line-clamp-2 text-[10px] leading-snug",
               !forceLight && "dark:text-neutral-400",
             )}
           >
-            /kg
-          </span>
-        </p>
-
-        <p
-          className={clsx(
-            "truncate text-[11px] text-neutral-600",
-            !forceLight && "dark:text-neutral-400",
-          )}
-        >
-          {result.quantityKg} kg
-          {result.grade ? ` · ${result.grade}` : ""}
-          {" · "}
-          {result.county}
-        </p>
-
-        <p
-          className={clsx(
-            "truncate text-[11px] font-medium text-neutral-700",
-            !forceLight && "dark:text-neutral-300",
-          )}
-        >
-          {result.cooperativeName}
-        </p>
+            {matchSnippet}
+          </p>
+        ) : null}
 
         {showInlineOrder ? (
           <Button
-            className="mt-1 w-full rounded-full bg-accent text-[11px] font-semibold text-accent-foreground"
+            className={clsx(
+              "w-full rounded-full bg-accent font-semibold text-accent-foreground",
+              emphasized ? "text-sm" : "text-[11px]",
+            )}
             size="sm"
             variant="primary"
             onPress={() => onOrder?.(result)}
           >
-            <ShoppingBag className="h-3.5 w-3.5" strokeWidth={1.75} />
+            <ShoppingBag
+              className={emphasized ? "h-4 w-4" : "h-3.5 w-3.5"}
+              strokeWidth={1.75}
+            />
             Order
           </Button>
         ) : null}

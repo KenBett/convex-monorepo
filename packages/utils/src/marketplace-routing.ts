@@ -3,6 +3,7 @@ import type { MarketplaceRole } from "@repo/types";
 export const MARKETPLACE_ROLES: readonly MarketplaceRole[] = [
   "farmer",
   "buyer",
+  "driver",
 ] as const;
 
 /**

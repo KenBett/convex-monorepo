@@ -115,6 +115,21 @@ export function formatOrderStatus(status: string): string {
   }
 }
 
+export function formatDriveStatus(status: string): string {
+  switch (status) {
+    case "assigned":
+      return "Drive assigned";
+    case "picked_up":
+      return "Picked up";
+    case "delivered":
+      return "Delivered";
+    case "cancelled":
+      return "Cancelled";
+    default:
+      return status;
+  }
+}
+
 export function calculateOrderTotal(
   quantityKg: number,
   pricePerKg: number,

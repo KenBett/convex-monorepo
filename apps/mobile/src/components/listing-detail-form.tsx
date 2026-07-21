@@ -5,6 +5,7 @@ import {
   CROP_TYPES,
   formatListingStatus,
   getCropTheme,
+  listingGradeOptions,
   type County,
   type CropType,
   type ListingStatus,
@@ -22,15 +23,23 @@ import { ListingImagePicker } from "@/components/listing-image-picker";
 type ListingSummary = {
   _creationTime: number;
   _id: Id<"listings">;
+  certifications?: string[];
   county: string;
   crop: string;
   description: string;
   grade?: string;
-  imageStorageId: Id<"_storage">;
+  harvestWindowLabel?: string;
+  imageStorageId: Id<"_storage"> | undefined;
   imageUrl: string | null;
+  minOrderKg?: number;
+  packaging?: string;
+  packUnitKg?: number;
   pricePerKg: number;
   quantityKg: number;
+  sizeOrCalibre?: string;
   status: ListingStatus;
+  tags?: string[];
+  variety?: string;
 };
 
 type ListingDetailFormProps = {
@@ -43,6 +52,9 @@ type EditableField =
   | "quantityKg"
   | "county"
   | "grade"
+  | "sizeOrCalibre"
+  | "minOrderKg"
+  | "packUnitKg"
   | "description";
 
 type SelectOption = {
@@ -165,11 +177,33 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps): JSX.Elem
   const [priceDraft, setPriceDraft] = useState(String(listing.pricePerKg));
   const [quantityDraft, setQuantityDraft] = useState(String(listing.quantityKg));
   const [gradeDraft, setGradeDraft] = useState(listing.grade ?? "");
+  const [sizeOrCalibreDraft, setSizeOrCalibreDraft] = useState(
+    listing.sizeOrCalibre ?? "",
+  );
+  const [minOrderDraft, setMinOrderDraft] = useState(
+    listing.minOrderKg != null ? String(listing.minOrderKg) : "",
+  );
+  const [packUnitDraft, setPackUnitDraft] = useState(
+    listing.packUnitKg != null ? String(listing.packUnitKg) : "",
+  );
   const [descriptionDraft, setDescriptionDraft] = useState(listing.description);
 
   const debouncedSave = useDebouncedSave(400);
 
-  useEffect(() => {
+  const listingDraftSyncKey = [
+    listing.pricePerKg,
+    listing.quantityKg,
+    listing.grade ?? "",
+    listing.sizeOrCalibre ?? "",
+    listing.minOrderKg ?? "",
+    listing.packUnitKg ?? "",
+    listing.description,
+    activeField ?? "",
+  ].join("\0");
+  const [prevListingDraftSyncKey, setPrevListingDraftSyncKey] =
+    useState(listingDraftSyncKey);
+  if (listingDraftSyncKey !== prevListingDraftSyncKey) {
+    setPrevListingDraftSyncKey(listingDraftSyncKey);
     if (activeField !== "pricePerKg") {
       setPriceDraft(String(listing.pricePerKg));
     }
@@ -179,10 +213,23 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps): JSX.Elem
     if (activeField !== "grade") {
       setGradeDraft(listing.grade ?? "");
     }
+    if (activeField !== "sizeOrCalibre") {
+      setSizeOrCalibreDraft(listing.sizeOrCalibre ?? "");
+    }
+    if (activeField !== "minOrderKg") {
+      setMinOrderDraft(
+        listing.minOrderKg != null ? String(listing.minOrderKg) : "",
+      );
+    }
+    if (activeField !== "packUnitKg") {
+      setPackUnitDraft(
+        listing.packUnitKg != null ? String(listing.packUnitKg) : "",
+      );
+    }
     if (activeField !== "description") {
       setDescriptionDraft(listing.description);
     }
-  }, [listing, activeField]);
+  }
 
   const saveListingField = useCallback(
     async (
@@ -216,6 +263,41 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps): JSX.Elem
     }
 
     const current = field === "pricePerKg" ? listing.pricePerKg : listing.quantityKg;
+    if (parsed === current) {
+      return;
+    }
+
+    void saveListingField({
+      listingId: listing._id,
+      [field]: parsed,
+    });
+  };
+
+  const saveOptionalNumberField = (
+    field: "minOrderKg" | "packUnitKg",
+    rawValue: string,
+  ) => {
+    const trimmed = rawValue.trim();
+    if (trimmed.length === 0) {
+      const current =
+        field === "minOrderKg" ? listing.minOrderKg : listing.packUnitKg;
+      if (current == null) {
+        return;
+      }
+      void saveListingField({
+        listingId: listing._id,
+        [field]: null,
+      });
+      return;
+    }
+
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return;
+    }
+
+    const current =
+      field === "minOrderKg" ? listing.minOrderKg : listing.packUnitKg;
     if (parsed === current) {
       return;
     }
@@ -308,7 +390,7 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps): JSX.Elem
             <ListingImagePicker
             hideLabel
             initialPreviewUrl={listing.imageUrl}
-            value={listing.imageStorageId}
+            value={listing.imageStorageId ?? null}
             variant="compact"
             onChange={(storageId) => {
               if (!storageId) {
@@ -489,32 +571,31 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps): JSX.Elem
               ariaLabel="grade"
               editing={activeField === "grade"}
               input={
-                <TextField>
-                  <Input
-                    autoFocus
-                    className={FIELD_CLASS}
-                    placeholder="Optional grade"
-                    value={gradeDraft}
-                    onBlur={() => {
-                      void saveListingField(
-                        {
-                          listingId: listing._id,
-                          grade: gradeDraft,
-                        },
-                        { closeField: "grade" },
-                      );
-                    }}
-                    onChangeText={(next) => {
-                      setGradeDraft(next);
-                      debouncedSave(() => {
-                        void saveListingField({
-                          listingId: listing._id,
-                          grade: next,
-                        });
-                      });
-                    }}
-                  />
-                </TextField>
+                <View className="flex-row flex-wrap gap-2 py-1">
+                  {listingGradeOptions(gradeDraft).map((item) => {
+                    const selected = gradeDraft === item;
+                    return (
+                      <Button
+                        key={item}
+                        size="sm"
+                        variant={selected ? "primary" : "secondary"}
+                        onPress={() => {
+                          const next = selected ? "" : item;
+                          setGradeDraft(next);
+                          void saveListingField(
+                            {
+                              listingId: listing._id,
+                              grade: next,
+                            },
+                            { closeField: "grade" },
+                          );
+                        }}
+                      >
+                        {item}
+                      </Button>
+                    );
+                  })}
+                </View>
               }
               onStartEdit={() => setActiveField("grade")}
             >
@@ -522,6 +603,126 @@ export function ListingDetailForm({ listing }: ListingDetailFormProps): JSX.Elem
                 {listing.grade?.trim() ? listing.grade : "Add grade"}
               </Text>
             </ClickToEdit>
+        </DetailFieldCard>
+
+        <DetailFieldCard editable label="Size / calibre">
+          <ClickToEdit
+            ariaLabel="size or calibre"
+            editing={activeField === "sizeOrCalibre"}
+            input={
+              <TextField>
+                <Input
+                  autoFocus
+                  className={FIELD_CLASS}
+                  placeholder="e.g. 18 count, 45–65 mm"
+                  value={sizeOrCalibreDraft}
+                  onBlur={() => {
+                    void saveListingField(
+                      {
+                        listingId: listing._id,
+                        sizeOrCalibre: sizeOrCalibreDraft,
+                      },
+                      { closeField: "sizeOrCalibre" },
+                    );
+                  }}
+                  onChangeText={(next) => {
+                    setSizeOrCalibreDraft(next);
+                    debouncedSave(() => {
+                      void saveListingField({
+                        listingId: listing._id,
+                        sizeOrCalibre: next,
+                      });
+                    });
+                  }}
+                />
+              </TextField>
+            }
+            onStartEdit={() => setActiveField("sizeOrCalibre")}
+          >
+            <Text className="text-sm text-foreground">
+              {listing.sizeOrCalibre?.trim()
+                ? listing.sizeOrCalibre
+                : "Add size / calibre"}
+            </Text>
+          </ClickToEdit>
+        </DetailFieldCard>
+
+        <DetailFieldCard editable label="Min order">
+          <ClickToEdit
+            ariaLabel="minimum order kg"
+            editing={activeField === "minOrderKg"}
+            input={
+              <TextField>
+                <Input
+                  autoFocus
+                  className={FIELD_CLASS}
+                  keyboardType="decimal-pad"
+                  value={minOrderDraft}
+                  onBlur={() => {
+                    saveOptionalNumberField("minOrderKg", minOrderDraft);
+                    setActiveField(null);
+                  }}
+                  onChangeText={(next) => {
+                    setMinOrderDraft(next);
+                    debouncedSave(() => {
+                      saveOptionalNumberField("minOrderKg", next);
+                    });
+                  }}
+                />
+              </TextField>
+            }
+            onStartEdit={() => setActiveField("minOrderKg")}
+          >
+            <Text className="text-emphasis text-foreground">
+              {listing.minOrderKg != null ? (
+                <>
+                  {listing.minOrderKg}
+                  <Text className="text-caption text-muted"> kg</Text>
+                </>
+              ) : (
+                <Text className="text-sm font-medium">Add min order</Text>
+              )}
+            </Text>
+          </ClickToEdit>
+        </DetailFieldCard>
+
+        <DetailFieldCard editable label="Pack unit">
+          <ClickToEdit
+            ariaLabel="pack unit kg"
+            editing={activeField === "packUnitKg"}
+            input={
+              <TextField>
+                <Input
+                  autoFocus
+                  className={FIELD_CLASS}
+                  keyboardType="decimal-pad"
+                  value={packUnitDraft}
+                  onBlur={() => {
+                    saveOptionalNumberField("packUnitKg", packUnitDraft);
+                    setActiveField(null);
+                  }}
+                  onChangeText={(next) => {
+                    setPackUnitDraft(next);
+                    debouncedSave(() => {
+                      saveOptionalNumberField("packUnitKg", next);
+                    });
+                  }}
+                />
+              </TextField>
+            }
+            onStartEdit={() => setActiveField("packUnitKg")}
+          >
+            <Text className="text-emphasis text-foreground">
+              {listing.packUnitKg != null ? (
+                <>
+                  {listing.packUnitKg}
+                  <Text className="text-caption text-muted"> kg</Text>
+                </>
+              ) : (
+                <Text className="text-sm font-medium">Add pack unit</Text>
+              )}
+            </Text>
+          </ClickToEdit>
         </DetailFieldCard>
 
         <DetailFieldCard editable label="Status">

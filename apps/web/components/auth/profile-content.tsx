@@ -2,13 +2,30 @@
 
 import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "@repo/backend/convex/_generated/api";
-import { BUSINESS_TYPES, COUNTIES, type BusinessType } from "@repo/types";
+import {
+  BUSINESS_TYPES,
+  COUNTIES,
+  getCountyCentroid,
+  isValidKenyaLatLng,
+  resolveProfileLocation,
+  type BusinessType,
+} from "@repo/types";
 import { getInitials } from "@repo/utils";
 import { Avatar, Button, Input, ListBox, Select } from "@heroui/react";
 import { useMutation, useQuery } from "convex/react";
 import { FormEvent, useEffect, useState } from "react";
 
+import { ProfileLocationPicker } from "@/components/location/profile-location-picker";
 import { ThemeListBox } from "@/components/theme-list-box";
+
+function latLngStringsForCounty(county: string) {
+  const centroid = getCountyCentroid(county);
+
+  return {
+    lat: String(centroid.lat),
+    lng: String(centroid.lng),
+  };
+}
 
 export function ProfileContent() {
   const viewer = useQuery(api.users.viewer);
@@ -37,6 +54,9 @@ export function ProfileContent() {
   const [county, setCounty] = useState<string>(COUNTIES[0]);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [mpesaNumber, setMpesaNumber] = useState("");
+  const initialCoords = latLngStringsForCounty(COUNTIES[0]);
+  const [locationLat, setLocationLat] = useState(initialCoords.lat);
+  const [locationLng, setLocationLng] = useState(initialCoords.lng);
 
   useEffect(() => {
     if (!viewer) {
@@ -53,6 +73,18 @@ export function ProfileContent() {
     setCounty(farmerProfile.county);
     setPhoneNumber(farmerProfile.phoneNumber);
     setMpesaNumber(farmerProfile.mpesaNumber);
+    if (
+      farmerProfile.locationLat != null &&
+      farmerProfile.locationLng != null
+    ) {
+      setLocationLat(String(farmerProfile.locationLat));
+      setLocationLng(String(farmerProfile.locationLng));
+    } else {
+      const coords = latLngStringsForCounty(farmerProfile.county);
+
+      setLocationLat(coords.lat);
+      setLocationLng(coords.lng);
+    }
   }, [farmerProfile]);
 
   useEffect(() => {
@@ -63,6 +95,15 @@ export function ProfileContent() {
     setBusinessType(buyerProfile.businessType);
     setCounty(buyerProfile.county);
     setPhoneNumber(buyerProfile.phoneNumber);
+    if (buyerProfile.locationLat != null && buyerProfile.locationLng != null) {
+      setLocationLat(String(buyerProfile.locationLat));
+      setLocationLng(String(buyerProfile.locationLng));
+    } else {
+      const coords = latLngStringsForCounty(buyerProfile.county);
+
+      setLocationLat(coords.lat);
+      setLocationLng(coords.lng);
+    }
   }, [buyerProfile]);
 
   const handleSignOut = async () => {
@@ -80,16 +121,37 @@ export function ProfileContent() {
       return;
     }
 
+    const lat = Number(locationLat);
+    const lng = Number(locationLng);
+
+    if (!isValidKenyaLatLng(lat, lng)) {
+      setError(
+        "Enter a valid Kenya latitude (−5 to 5.5) and longitude (33.5 to 42).",
+      );
+
+      return;
+    }
+
     setError(null);
     setSavedMessage(null);
     setIsSaving(true);
     try {
       await updateProfile({ name });
 
+      const location = resolveProfileLocation({
+        county,
+        geoLat: lat,
+        geoLng: lng,
+        label: "Map pin",
+      });
+
       if (viewer.role === "farmer") {
         await updateFarmerProfile({
           cooperativeName,
           county,
+          locationLabel: location.locationLabel,
+          locationLat: location.locationLat,
+          locationLng: location.locationLng,
           phoneNumber,
           mpesaNumber,
         });
@@ -98,6 +160,9 @@ export function ProfileContent() {
           businessName,
           businessType,
           county,
+          locationLabel: location.locationLabel,
+          locationLat: location.locationLat,
+          locationLng: location.locationLng,
           phoneNumber,
         });
       }
@@ -160,7 +225,7 @@ export function ProfileContent() {
         <div>
           <h2 className="text-sm font-semibold">Profile details</h2>
           <p className="mt-1 text-sm text-muted">
-            Update your account and contact information.
+            Update your account, contact information, and map pin.
           </p>
         </div>
 
@@ -251,31 +316,48 @@ export function ProfileContent() {
         ) : null}
 
         {viewer?.role ? (
-          <Select
-            aria-label="County"
-            placeholder="County"
-            selectedKey={county}
-            onSelectionChange={(key) => {
-              if (key) {
-                setCounty(String(key));
-              }
-            }}
-          >
-            <Select.Trigger>
-              <Select.Value />
-              <Select.Indicator />
-            </Select.Trigger>
-            <Select.Popover>
-              <ListBox>
-                {COUNTIES.map((item) => (
-                  <ListBox.Item key={item} id={item} textValue={item}>
-                    {item}
-                    <ListBox.ItemIndicator />
-                  </ListBox.Item>
-                ))}
-              </ListBox>
-            </Select.Popover>
-          </Select>
+          <>
+            <Select
+              aria-label="County"
+              placeholder="County"
+              selectedKey={county}
+              onSelectionChange={(key) => {
+                if (key) {
+                  const nextCounty = String(key);
+
+                  setCounty(nextCounty);
+                  const coords = latLngStringsForCounty(nextCounty);
+
+                  setLocationLat(coords.lat);
+                  setLocationLng(coords.lng);
+                }
+              }}
+            >
+              <Select.Trigger>
+                <Select.Value />
+                <Select.Indicator />
+              </Select.Trigger>
+              <Select.Popover>
+                <ListBox>
+                  {COUNTIES.map((item) => (
+                    <ListBox.Item key={item} id={item} textValue={item}>
+                      {item}
+                      <ListBox.ItemIndicator />
+                    </ListBox.Item>
+                  ))}
+                </ListBox>
+              </Select.Popover>
+            </Select>
+
+            <ProfileLocationPicker
+              locationLat={locationLat}
+              locationLng={locationLng}
+              onLocationChange={(lat, lng) => {
+                setLocationLat(lat);
+                setLocationLng(lng);
+              }}
+            />
+          </>
         ) : null}
 
         {error ? <p className="text-sm text-danger">{error}</p> : null}

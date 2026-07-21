@@ -1,7 +1,8 @@
-import { COUNTIES, CROP_TYPES } from "@repo/types";
+import { COUNTIES, CROP_TYPES, isValidKenyaLatLng } from "@repo/types";
 
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { formatListingAttributeSentence } from "./listingAttributes";
 import { MIN_INDEXABLE_TEXT_LENGTH } from "./rag";
 import { getCurrentUser, getMarketplaceRole } from "./roles";
 
@@ -30,6 +31,12 @@ export function assertValidCounty(county: string): void {
 export function assertPositiveNumber(value: number, field: string): void {
   if (!Number.isFinite(value) || value <= 0) {
     throw new Error(`${field} must be a positive number`);
+  }
+}
+
+export function assertValidKenyaLocation(lat: number, lng: number): void {
+  if (!isValidKenyaLatLng(lat, lng)) {
+    throw new Error("Location must be within Kenya");
   }
 }
 
@@ -119,13 +126,21 @@ export async function requireBuyerProfile(
 export function formatListingText(
   listing: Pick<
     Doc<"listings">,
+    | "certifications"
     | "county"
     | "crop"
     | "description"
     | "grade"
+    | "harvestWindowLabel"
+    | "minOrderKg"
+    | "packaging"
+    | "packUnitKg"
     | "pricePerKg"
     | "quantityKg"
+    | "sizeOrCalibre"
     | "status"
+    | "tags"
+    | "variety"
   >,
 ): string {
   const gradeSentence =
@@ -133,9 +148,20 @@ export function formatListingText(
       ? ` Grade: ${listing.grade.trim()}.`
       : "";
 
+  const attributeSentence = formatListingAttributeSentence({
+    certifications: listing.certifications,
+    harvestWindowLabel: listing.harvestWindowLabel,
+    minOrderKg: listing.minOrderKg,
+    packaging: listing.packaging,
+    packUnitKg: listing.packUnitKg,
+    sizeOrCalibre: listing.sizeOrCalibre,
+    tags: listing.tags,
+    variety: listing.variety,
+  });
+
   const text =
     `This listing offers ${listing.quantityKg} kg of ${listing.crop} at KES ${listing.pricePerKg} per kg in ${listing.county} county.` +
-    `${gradeSentence} Status: ${listing.status}. Description: ${listing.description.trim()}.`;
+    `${gradeSentence}${attributeSentence} Status: ${listing.status}. Description: ${listing.description.trim()}.`;
 
   if (text.length >= MIN_INDEXABLE_TEXT_LENGTH) {
     return text;

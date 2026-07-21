@@ -1,5 +1,6 @@
 "use client";
 
+import type { Id } from "@repo/backend/convex/_generated/dataModel";
 import type {
   BuyerOrderDraft,
   BuyerOrderDraftLine,
@@ -7,10 +8,16 @@ import type {
   ChatListingLiveStatus,
 } from "@repo/types";
 
-import { calculateOrderTotal, getCropTheme } from "@repo/types";
-import { Button, Label, useOverlayState } from "@heroui/react";
+import { api } from "@repo/backend/convex/_generated/api";
+import {
+  calculateOrderTotal,
+  getCropTheme,
+  normalizeMpesaPhone,
+} from "@repo/types";
+import { useAction, useMutation, useQuery } from "convex/react";
+import { Button, Chip, Input, Label, useOverlayState } from "@heroui/react";
 import { Modal } from "@heroui/react/modal";
-import { AlertCircle, ChevronLeft, ShoppingBag, Trash2 } from "lucide-react";
+import { AlertCircle, Loader2, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -25,7 +32,7 @@ export type ConfirmedOrderLine = {
 type OrderDraftConfirmDialogProps = {
   liveStatusMap: Map<string, ChatListingLiveStatus>;
   onClose: () => void;
-  onConfirm: (lines: ConfirmedOrderLine[]) => void;
+  onComplete?: () => void;
   open: boolean;
   orderDraft: BuyerOrderDraft | null;
 };
@@ -34,14 +41,20 @@ type EditableLine = BuyerOrderDraftLine & {
   key: string;
 };
 
+type ConfirmPhase = "review" | "paying" | "done";
+
 const draftCardClassName =
-  "overflow-hidden rounded-[0.875rem] shadow-sm dark:bg-surface dark:text-surface-foreground dark:shadow-none";
+  "overflow-hidden rounded-[0.875rem] bg-background text-foreground shadow-sm dark:bg-surface dark:text-surface-foreground dark:shadow-none";
 
 const quantityChipClassName =
-  "inline-flex h-8 w-12 items-center justify-center rounded-full bg-default px-2 shadow-sm dark:bg-surface-secondary dark:shadow-none";
+  "inline-flex h-9 w-fit shrink-0 -ml-2.5 items-center gap-0 rounded-full bg-default px-2.5 shadow-sm dark:bg-surface-secondary dark:shadow-none";
 
 const quantityChipInputClassName =
-  "w-full min-w-0 bg-transparent text-center text-sm font-semibold tabular-nums text-foreground outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
+  "w-[2.25rem] min-w-0 bg-transparent text-right text-sm font-semibold tabular-nums text-foreground outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
+
+function formatKes(amount: number): string {
+  return `KES ${amount.toLocaleString("en-KE")}`;
+}
 
 function getLineIssue(
   line: EditableLine,
@@ -81,14 +94,23 @@ function isNeedsQuantityLine(line: EditableLine): boolean {
 export function OrderDraftConfirmDialog({
   liveStatusMap,
   onClose,
-  onConfirm,
+  onComplete,
   open,
   orderDraft,
 }: OrderDraftConfirmDialogProps) {
   const modalState = useOverlayState();
   const wasModalOpenRef = useRef(false);
   const [lines, setLines] = useState<EditableLine[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [phase, setPhase] = useState<ConfirmPhase>("review");
+  const [error, setError] = useState<string | null>(null);
+  const [mpesaPhone, setMpesaPhone] = useState("");
+  const [paidCount, setPaidCount] = useState(0);
+
+  const buyerProfile = useQuery(api.users.buyerProfile);
+  const demoPaymentsEnabled = useQuery(api.orders.demoPaymentsEnabled);
+  const createOrder = useMutation(api.orders.createOrder);
+  const confirmDemoEscrow = useMutation(api.orders.confirmDemoEscrow);
+  const initiateStkPush = useAction(api.orders.payment.initiateStkPushForOrder);
 
   useEffect(() => {
     if (open) {
@@ -119,8 +141,11 @@ export function OrderDraftConfirmDialog({
         key: `${line.request.crop}-${index}`,
       })),
     );
-    setCurrentIndex(0);
-  }, [open, orderDraft]);
+    setPhase("review");
+    setError(null);
+    setPaidCount(0);
+    setMpesaPhone(buyerProfile?.phoneNumber ?? "");
+  }, [open, orderDraft, buyerProfile?.phoneNumber]);
 
   const linesWithIssues = useMemo(
     () =>
@@ -131,16 +156,6 @@ export function OrderDraftConfirmDialog({
       })),
     [lines, liveStatusMap],
   );
-
-  useEffect(() => {
-    if (currentIndex > linesWithIssues.length - 1) {
-      setCurrentIndex(Math.max(0, linesWithIssues.length - 1));
-    }
-  }, [currentIndex, linesWithIssues.length]);
-
-  const currentLine = linesWithIssues[currentIndex] ?? null;
-  const isFirstLine = currentIndex === 0;
-  const isLastLine = currentIndex >= linesWithIssues.length - 1;
 
   const confirmableLines = linesWithIssues.filter(
     (line) => line.listing && !line.resolvedIssue && !line.needsQuantity,
@@ -170,21 +185,62 @@ export function OrderDraftConfirmDialog({
     setLines((current) => current.filter((line) => line.key !== key));
   };
 
-  const handleBack = () => {
-    setCurrentIndex((index) => Math.max(0, index - 1));
+  const handleConfirmPayment = async () => {
+    if (confirmableLines.length === 0) {
+      return;
+    }
+
+    if (!demoPaymentsEnabled) {
+      const phone = normalizeMpesaPhone(mpesaPhone);
+
+      if (phone.length < 10) {
+        setError("Enter a valid M-PESA number");
+
+        return;
+      }
+    }
+
+    setError(null);
+    setPhase("paying");
+
+    try {
+      let confirmed = 0;
+
+      for (const line of confirmableLines) {
+        const listing = line.listing!;
+        const orderId = await createOrder({
+          listingId: listing.listingId as Id<"listings">,
+          neededByLabel: orderDraft?.neededByLabel,
+          neededByMs: orderDraft?.neededByMs,
+          quantityKg: line.quantityKg,
+        });
+
+        if (demoPaymentsEnabled) {
+          await confirmDemoEscrow({ orderId });
+        } else {
+          await initiateStkPush({
+            mpesaPhoneNumber: normalizeMpesaPhone(mpesaPhone),
+            orderId,
+          });
+        }
+
+        confirmed += 1;
+      }
+
+      setPaidCount(confirmed);
+      setPhase("done");
+    } catch (checkoutError) {
+      setPhase("review");
+      setError(
+        checkoutError instanceof Error
+          ? checkoutError.message
+          : "Could not confirm payment",
+      );
+    }
   };
 
-  const handleNext = () => {
-    setCurrentIndex((index) => Math.min(linesWithIssues.length - 1, index + 1));
-  };
-
-  const handleConfirm = () => {
-    const confirmed: ConfirmedOrderLine[] = confirmableLines.map((line) => ({
-      listing: line.listing!,
-      quantityKg: line.quantityKg,
-    }));
-
-    onConfirm(confirmed);
+  const handleDone = () => {
+    onComplete?.();
     modalState.close();
   };
 
@@ -195,224 +251,275 @@ export function OrderDraftConfirmDialog({
   return (
     <Modal state={modalState}>
       <Modal.Backdrop>
-        <Modal.Container scroll="inside" size="lg">
-          <Modal.Dialog className="flex flex-col gap-0 p-6">
-            <Modal.Header className="flex flex-col gap-1 border-0 p-0 pb-4">
-              <Modal.Heading className="flex items-center gap-2 text-lg font-semibold">
-                <ShoppingBag
-                  className="h-5 w-5 text-muted"
-                  strokeWidth={1.75}
-                />
-                Review your order
+        <Modal.Container scroll="inside" size="md">
+          <Modal.Dialog className="flex flex-col gap-0 p-0">
+            <Modal.Header className="border-0 px-6 pt-6 pb-4">
+              <Modal.Heading className="text-xl font-semibold tracking-tight text-foreground">
+                Review order
               </Modal.Heading>
             </Modal.Header>
 
-            <Modal.Body className="flex flex-col gap-0 p-0">
-              {linesWithIssues.length === 0 || !currentLine ? (
-                <p className="text-sm text-muted">No order lines to review.</p>
-              ) : (
-                <div className={draftCardClassName}>
-                  <div className="flex items-center justify-between px-4 pt-4 pb-3">
-                    <p className="text-xs font-medium text-muted">
-                      Item {currentIndex + 1} of {linesWithIssues.length}
-                    </p>
-                    <div className="flex items-center gap-1.5">
-                      {linesWithIssues.map((line, index) => (
-                        <span
-                          key={line.key}
-                          className={`h-1.5 rounded-full transition-all ${
-                            index === currentIndex
-                              ? "w-4 bg-accent"
-                              : "w-1.5 bg-separator"
-                          }`}
-                        />
-                      ))}
-                    </div>
-                  </div>
+            <Modal.Body className="flex flex-col gap-5 px-6 pb-2">
+              {phase === "review" ? (
+                <>
+                  {linesWithIssues.length === 0 ? (
+                    <p className="text-sm text-muted">No items to review.</p>
+                  ) : (
+                    <div className="flex flex-col gap-3">
+                      {linesWithIssues.map((line) => {
+                        const theme = getCropTheme(line.request.crop);
+                        const issue = line.resolvedIssue;
+                        const maxQty = line.listing?.quantityKg;
+                        const lineTotal =
+                          line.listing && line.quantityKg > 0
+                            ? calculateOrderTotal(
+                                line.quantityKg,
+                                line.listing.pricePerKg,
+                              )
+                            : null;
 
-                  {(() => {
-                    const line = currentLine;
-                    const theme = getCropTheme(line.request.crop);
-                    const issue = line.resolvedIssue;
-                    const maxQty = line.listing?.quantityKg;
-
-                    return (
-                      <>
-                        <div className="flex gap-3 px-4 pb-4">
-                          <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl">
-                            {line.listing?.imageUrl ? (
-                              <Image
-                                fill
-                                unoptimized
-                                alt={`${theme.label} listing`}
-                                className="object-cover"
-                                sizes="56px"
-                                src={line.listing.imageUrl}
-                              />
-                            ) : (
-                              <div className="flex h-full w-full items-center justify-center">
-                                <CropBadge crop={line.request.crop} size="sm" />
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0 flex-1">
-                                <h3 className="truncate text-base font-semibold text-foreground">
-                                  {theme.label}
-                                </h3>
-                                {line.listing ? (
-                                  <>
-                                    <p className="truncate text-sm text-foreground/80">
-                                      {line.listing.cooperativeName}
-                                    </p>
-                                    <p className="mt-0.5 text-xs text-muted">
-                                      {line.listing.county}
-                                      {line.listing.grade
-                                        ? ` · ${line.listing.grade}`
-                                        : ""}
-                                      {" · "}
-                                      KES {line.listing.pricePerKg}/kg
-                                    </p>
-                                  </>
+                        return (
+                          <div key={line.key} className={draftCardClassName}>
+                            <div className="relative flex gap-4 p-4">
+                              <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl">
+                                {line.listing?.imageUrl ? (
+                                  <Image
+                                    fill
+                                    unoptimized
+                                    alt={`${theme.label} listing`}
+                                    className="object-cover"
+                                    sizes="80px"
+                                    src={line.listing.imageUrl}
+                                  />
                                 ) : (
-                                  <p className="text-sm text-muted">
-                                    Requested {line.quantityKg} kg
-                                  </p>
+                                  <div className="flex h-full w-full items-center justify-center bg-default/40">
+                                    <CropBadge
+                                      crop={line.request.crop}
+                                      size="sm"
+                                    />
+                                  </div>
                                 )}
                               </div>
 
-                              <Button
-                                isIconOnly
-                                aria-label="Remove line"
-                                size="sm"
-                                type="button"
-                                variant="secondary"
-                                onPress={() => handleRemoveLine(line.key)}
-                              >
-                                <Trash2
-                                  className="h-4 w-4"
-                                  strokeWidth={1.75}
-                                />
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
+                              <div className="flex min-w-0 flex-1 flex-col gap-4">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <h3 className="truncate text-base font-semibold tracking-tight text-foreground">
+                                      {theme.label}
+                                    </h3>
+                                    {line.listing ? (
+                                      <>
+                                        <div className="mt-1.5 flex flex-wrap gap-1">
+                                          <span className="max-w-full truncate rounded-md bg-black px-1.5 py-0.5 text-[10px] font-medium text-white dark:bg-white dark:text-black">
+                                            {line.listing.cooperativeName}
+                                          </span>
+                                          <span className="max-w-full truncate rounded-md bg-black px-1.5 py-0.5 text-[10px] font-medium text-white dark:bg-white dark:text-black">
+                                            {line.listing.county}
+                                          </span>
+                                          {line.listing.grade ? (
+                                            <span className="max-w-full truncate rounded-md bg-black px-1.5 py-0.5 text-[10px] font-medium text-white dark:bg-white dark:text-black">
+                                              {line.listing.grade}
+                                            </span>
+                                          ) : null}
+                                        </div>
+                                        <p className="mt-1.5 text-sm font-semibold tabular-nums tracking-tight text-foreground">
+                                          {formatKes(line.listing.pricePerKg)}
+                                          <span className="font-medium text-muted">
+                                            /kg
+                                          </span>
+                                        </p>
+                                      </>
+                                    ) : (
+                                      <p className="mt-0.5 text-sm text-muted">
+                                        Requested {line.quantityKg} kg
+                                      </p>
+                                    )}
+                                  </div>
 
-                        {issue ? (
-                          <div className="flex items-center gap-2 border-t border-separator/50 px-4 py-3 text-sm text-danger">
-                            <AlertCircle
-                              className="h-4 w-4 shrink-0"
-                              strokeWidth={1.75}
-                            />
-                            {formatOrderDraftIssue(issue)}
-                          </div>
-                        ) : line.listing ? (
-                          <div className="border-t border-separator/50 px-4 py-4">
-                            <div className="flex flex-col gap-1.5">
-                              <Label htmlFor={`draft-qty-${line.key}`}>
-                                Quantity (kg)
-                              </Label>
-                              <div
-                                className={`${quantityChipClassName} ${
-                                  line.needsQuantity ? "w-24" : ""
-                                }`}
-                              >
-                                <input
-                                  autoFocus={line.needsQuantity}
-                                  className={quantityChipInputClassName}
-                                  id={`draft-qty-${line.key}`}
-                                  inputMode="decimal"
-                                  min={0}
-                                  placeholder={
-                                    line.needsQuantity ? "Enter kg" : undefined
-                                  }
-                                  type="number"
-                                  value={
-                                    line.quantityKg > 0
-                                      ? String(line.quantityKg)
-                                      : ""
-                                  }
-                                  onChange={(event) =>
-                                    handleQuantityChange(
-                                      line.key,
-                                      event.target.value,
-                                    )
-                                  }
-                                />
+                                  <Button
+                                    isIconOnly
+                                    aria-label="Remove line"
+                                    className="shrink-0 bg-background text-muted shadow-sm hover:text-foreground dark:bg-default dark:shadow-none"
+                                    size="sm"
+                                    type="button"
+                                    variant="ghost"
+                                    onPress={() => handleRemoveLine(line.key)}
+                                  >
+                                    <Trash2
+                                      className="h-4 w-4"
+                                      strokeWidth={1.75}
+                                    />
+                                  </Button>
+                                </div>
+
+                                {line.listing && !issue ? (
+                                  <div className="flex items-center justify-between gap-4">
+                                    <div className="flex w-fit shrink-0 items-center gap-2">
+                                      <Label
+                                        className="sr-only"
+                                        htmlFor={`draft-qty-${line.key}`}
+                                      >
+                                        Quantity in kilograms
+                                      </Label>
+                                      <div className={quantityChipClassName}>
+                                        <input
+                                          autoFocus={line.needsQuantity}
+                                          className={quantityChipInputClassName}
+                                          id={`draft-qty-${line.key}`}
+                                          inputMode="decimal"
+                                          min={0}
+                                          placeholder={
+                                            line.needsQuantity ? "0" : undefined
+                                          }
+                                          type="number"
+                                          value={
+                                            line.quantityKg > 0
+                                              ? String(line.quantityKg)
+                                              : ""
+                                          }
+                                          onChange={(event) =>
+                                            handleQuantityChange(
+                                              line.key,
+                                              event.target.value,
+                                            )
+                                          }
+                                        />
+                                        <span className="pl-0.5 text-xs font-semibold text-muted">
+                                          kg
+                                        </span>
+                                      </div>
+                                      {line.needsQuantity && maxQty ? (
+                                        <span className="text-[11px] text-muted">
+                                          max {maxQty.toLocaleString("en-KE")}
+                                        </span>
+                                      ) : null}
+                                    </div>
+
+                                    {lineTotal != null ? (
+                                      <p className="ml-auto text-right text-base font-semibold tabular-nums tracking-tight text-foreground">
+                                        {formatKes(lineTotal)}
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                ) : null}
+
+                                {issue ? (
+                                  <div className="flex items-start gap-2 text-sm text-danger">
+                                    <AlertCircle
+                                      className="mt-0.5 h-4 w-4 shrink-0"
+                                      strokeWidth={1.75}
+                                    />
+                                    <span>{formatOrderDraftIssue(issue)}</span>
+                                  </div>
+                                ) : null}
                               </div>
-                              {line.needsQuantity ? (
-                                <p className="text-xs text-accent">
-                                  Enter a quantity to include this line
-                                  {maxQty
-                                    ? ` (up to ${maxQty} kg available)`
-                                    : ""}
-                                </p>
-                              ) : null}
                             </div>
                           </div>
-                        ) : null}
-                      </>
-                    );
-                  })()}
+                        );
+                      })}
+                    </div>
+                  )}
 
-                  {confirmableLines.length > 0 ? (
-                    <div className="border-t border-separator/50 px-4 py-4">
-                      <div className="flex items-end justify-between gap-4">
-                        <p className="text-sm text-muted">Estimated total</p>
-                        <p className="text-2xl font-semibold tracking-tight text-foreground">
-                          KES {grandTotal}
-                        </p>
-                      </div>
+                  {demoPaymentsEnabled === false ? (
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="draft-mpesa">M-PESA number</Label>
+                      <Input
+                        id="draft-mpesa"
+                        inputMode="tel"
+                        placeholder="254712345678"
+                        type="tel"
+                        value={mpesaPhone}
+                        onChange={(event) =>
+                          setMpesaPhone(normalizeMpesaPhone(event.target.value))
+                        }
+                      />
                     </div>
                   ) : null}
+
+                  {error ? (
+                    <p className="text-sm text-danger">{error}</p>
+                  ) : null}
+                </>
+              ) : null}
+
+              {phase === "paying" ? (
+                <div className="flex flex-col items-center gap-4 py-12 text-center">
+                  <Loader2
+                    className="h-8 w-8 animate-spin text-muted"
+                    strokeWidth={1.75}
+                  />
+                  <p className="text-sm text-muted">
+                    {demoPaymentsEnabled
+                      ? "Confirming payment…"
+                      : "Starting M-PESA payment…"}
+                  </p>
                 </div>
-              )}
+              ) : null}
+
+              {phase === "done" ? (
+                <div className="flex flex-col items-center gap-3 py-10 text-center">
+                  <Chip size="sm" variant="primary">
+                    <Chip.Label>
+                      {demoPaymentsEnabled
+                        ? "Payment confirmed"
+                        : "Payment started"}
+                    </Chip.Label>
+                  </Chip>
+                  <p className="max-w-xs text-sm leading-relaxed text-muted">
+                    {paidCount === 1
+                      ? "Your order is in escrow. Track it under Track orders."
+                      : `${paidCount} orders are in escrow. Track them under Track orders.`}
+                  </p>
+                </div>
+              ) : null}
             </Modal.Body>
 
-            <Modal.Footer className="flex items-center justify-between gap-2 border-0 p-0 pt-4">
-              <Button
-                size="sm"
-                variant="secondary"
-                onPress={() => modalState.close()}
-              >
-                Cancel
-              </Button>
+            <Modal.Footer className="flex flex-col gap-3 border-0 px-6 pt-4 pb-6">
+              {phase === "review" ? (
+                <>
+                  {confirmableLines.length > 0 ? (
+                    <div className="flex items-baseline justify-between gap-4">
+                      <span className="text-sm text-muted">Total</span>
+                      <span className="text-2xl font-semibold tabular-nums tracking-tight text-foreground">
+                        {formatKes(grandTotal)}
+                      </span>
+                    </div>
+                  ) : null}
 
-              <div className="flex items-center gap-2">
-                {!isFirstLine ? (
-                  <Button size="sm" variant="secondary" onPress={handleBack}>
-                    <ChevronLeft className="h-4 w-4" strokeWidth={1.75} />
-                    Back
-                  </Button>
-                ) : null}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      className="flex-1"
+                      size="md"
+                      variant="secondary"
+                      onPress={() => modalState.close()}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      className="flex-[1.4] rounded-full bg-accent font-medium text-accent-foreground"
+                      isDisabled={confirmableLines.length === 0}
+                      size="md"
+                      variant="primary"
+                      onPress={() => void handleConfirmPayment()}
+                    >
+                      {demoPaymentsEnabled
+                        ? "Confirm payment"
+                        : "Confirm & Pay"}
+                    </Button>
+                  </div>
+                </>
+              ) : null}
 
-                {!isLastLine ? (
-                  <Button
-                    className="rounded-full bg-accent font-medium text-accent-foreground"
-                    isDisabled={!currentLine}
-                    size="sm"
-                    variant="primary"
-                    onPress={handleNext}
-                  >
-                    Next
-                  </Button>
-                ) : (
-                  <Button
-                    className="rounded-full bg-accent font-medium text-accent-foreground"
-                    isDisabled={confirmableLines.length === 0}
-                    size="sm"
-                    variant="primary"
-                    onPress={handleConfirm}
-                  >
-                    Confirm order
-                    {confirmableLines.length > 1
-                      ? ` (${confirmableLines.length} items)`
-                      : ""}
-                  </Button>
-                )}
-              </div>
+              {phase === "done" ? (
+                <Button
+                  className="w-full rounded-full bg-accent font-medium text-accent-foreground"
+                  size="md"
+                  variant="primary"
+                  onPress={handleDone}
+                >
+                  Done
+                </Button>
+              ) : null}
             </Modal.Footer>
           </Modal.Dialog>
         </Modal.Container>

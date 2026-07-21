@@ -2,6 +2,9 @@ import { api } from "@repo/backend/convex/_generated/api";
 import {
   BUSINESS_TYPES,
   COUNTIES,
+  getCountyCentroid,
+  isValidKenyaLatLng,
+  resolveProfileLocation,
   type BusinessType,
   type MarketplaceRole,
 } from "@repo/types";
@@ -48,6 +51,14 @@ const BUSINESS_TYPE_OPTIONS: SelectOption[] = BUSINESS_TYPES.map((type) => ({
   value: type,
   label: type.charAt(0).toUpperCase() + type.slice(1),
 }));
+
+function latLngStringsForCounty(county: string) {
+  const centroid = getCountyCentroid(county);
+  return {
+    lat: String(centroid.lat),
+    lng: String(centroid.lng),
+  };
+}
 
 function getRoleHomePath(role: MarketplaceRole): Href {
   return `/(${roleHomeSegment(role)})` as Href;
@@ -171,6 +182,9 @@ export function OnboardingFlow(): JSX.Element {
   );
   const [phoneNumber, setPhoneNumber] = useState("");
   const [mpesaNumber, setMpesaNumber] = useState("");
+  const initialCoords = latLngStringsForCounty(COUNTY_OPTIONS[0]!.value);
+  const [locationLat, setLocationLat] = useState(initialCoords.lat);
+  const [locationLng, setLocationLng] = useState(initialCoords.lng);
 
   // Resume at the profile step if the role was already chosen in a prior session.
   // Render-time sync (not an effect) per React's "you might not need an effect".
@@ -209,17 +223,35 @@ export function OnboardingFlow(): JSX.Element {
       return;
     }
 
+    const lat = Number(locationLat);
+    const lng = Number(locationLng);
+    if (!isValidKenyaLatLng(lat, lng)) {
+      setError(
+        "Enter a valid Kenya latitude (−5 to 5.5) and longitude (33.5 to 42).",
+      );
+      return;
+    }
+
     setError(null);
     setIsSubmitting(true);
     try {
       const county = countyValue.value;
       const businessType = businessTypeValue.value as BusinessType;
+      const resolved = resolveProfileLocation({
+        county,
+        geoLat: lat,
+        geoLng: lng,
+        label: "Manual pin",
+      });
 
       if (role === "farmer") {
         await completeOnboarding({
           farmerProfile: {
             cooperativeName,
             county,
+            locationLabel: resolved.locationLabel,
+            locationLat: resolved.locationLat,
+            locationLng: resolved.locationLng,
             phoneNumber,
             mpesaNumber,
           },
@@ -230,6 +262,9 @@ export function OnboardingFlow(): JSX.Element {
             businessName,
             businessType,
             county,
+            locationLabel: resolved.locationLabel,
+            locationLat: resolved.locationLat,
+            locationLng: resolved.locationLng,
             phoneNumber,
           },
         });
@@ -349,8 +384,8 @@ export function OnboardingFlow(): JSX.Element {
         <OnboardingHeader
           description={
             role === "farmer"
-              ? "Tell buyers who you are and how to reach you."
-              : "Tell farmers about your business."
+              ? "Tell buyers who you are and how to reach you. Set latitude and longitude to simulate pickup location."
+              : "Tell farmers about your business. Set latitude and longitude to simulate drop-off location."
           }
           title="Complete your profile"
         />
@@ -418,11 +453,39 @@ export function OnboardingFlow(): JSX.Element {
           <FormSelect
             label="County"
             listLabel="County"
-            onValueChange={setCountyValue}
+            onValueChange={(next) => {
+              setCountyValue(next);
+              const coords = latLngStringsForCounty(next.value);
+              setLocationLat(coords.lat);
+              setLocationLng(coords.lng);
+            }}
             options={COUNTY_OPTIONS}
             placeholder="Choose county"
             value={countyValue}
           />
+
+          <TextField isRequired>
+            <Label>Latitude</Label>
+            <Input
+              keyboardType="decimal-pad"
+              onChangeText={setLocationLat}
+              placeholder="Latitude"
+              value={locationLat}
+            />
+          </TextField>
+          <TextField isRequired>
+            <Label>Longitude</Label>
+            <Input
+              keyboardType="decimal-pad"
+              onChangeText={setLocationLng}
+              placeholder="Longitude"
+              value={locationLng}
+            />
+          </TextField>
+          <Text className="text-caption">
+            Prefills from the county center. Edit both values to place farmer
+            and buyer in different spots for testing.
+          </Text>
         </View>
 
         {error ? <Text className="text-sm text-danger">{error}</Text> : null}

@@ -10,6 +10,8 @@ export {
   type ListingStatus,
   type MarketplaceRole,
   type OrderStatus,
+  type DriveStatus,
+  type DriveSummary,
 } from "./marketplace";
 
 export {
@@ -45,9 +47,48 @@ export {
 } from "./listing-form";
 
 export {
+  LISTING_CERTIFICATIONS,
+  LISTING_CERTIFICATION_LABELS,
+  LISTING_GRADES,
+  LISTING_HARD_FILTER_TAGS,
+  LISTING_PACKAGING,
+  LISTING_PACKAGING_LABELS,
+  LISTING_TAGS,
+  LISTING_TAG_LABELS,
+  formatListingCardMeta,
+  formatHarvestWindowLabel,
+  formatListingGradeLabel,
+  listingCardMetaParts,
+  buildListingCardFace,
+  isListingCertification,
+  isListingGrade,
+  isListingHardFilterTag,
+  isListingPackaging,
+  isListingTag,
+  listingGradeOptions,
+  type ListingCardFaceInput,
+  type ListingCardFaceModel,
+  type ListingCertification,
+  type ListingGrade,
+  type ListingHardFilterTag,
+  type ListingPackaging,
+  type ListingTag,
+} from "./listing-attributes";
+
+export {
+  COUNTY_CENTROIDS,
+  KENYA_BOUNDS,
+  getCountyCentroid,
+  isValidKenyaLatLng,
+  resolveProfileLocation,
+  type ResolvedLocation,
+} from "./geo";
+
+export {
   calculateOrderTotal,
   formatOrderCancelledReason,
   formatOrderStatus,
+  formatDriveStatus,
   normalizeMpesaPhone,
   orderFormSchema,
   parseOrderForm,
@@ -109,19 +150,27 @@ export interface KnowledgeAskResponse {
 }
 
 export interface ListingSearchResult {
+  certifications?: import("./listing-attributes").ListingCertification[];
   cooperativeName: string;
   county: string;
   crop: string;
   description: string;
   grade?: string;
+  harvestWindowLabel?: string;
   imageUrl?: string | null;
   listingId: string;
+  minOrderKg?: number;
+  packaging?: import("./listing-attributes").ListingPackaging;
+  packUnitKg?: number;
   pricePerKg: number;
   quantityKg: number;
   score: number;
+  sizeOrCalibre?: string;
   snippet: string;
   status: ListingStatus;
+  tags?: import("./listing-attributes").ListingTag[];
   title?: string;
+  variety?: string;
 }
 
 export interface ListingSearchResponse {
@@ -137,7 +186,11 @@ export {
   type BuyerOrderDraftStreamData,
   type BuyerChatStatusPhase,
   type BuyerChatStatusStreamData,
+  type BuyerChatTrailStep,
+  type BuyerChatTrailStepId,
+  type BuyerChatTrailStepState,
   type BuyerOrderLineRequest,
+  type BuyerRetrievalMode,
   type BuyerSearchGroup,
   type BuyerSearchIntent,
   type BuyerSourcingListingResult,
@@ -152,4 +205,7 @@ export {
   getBuyerListingDescription,
   getBuyerListingSnippet,
   isDebugListingDescription,
+  stripInternalListingMarkers,
+  DEMO_HOTEL_SEED_MARKER,
+  DEMO_INVENTORY_SEED_MARKER,
 } from "./listing-display";

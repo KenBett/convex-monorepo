@@ -93,6 +93,16 @@ export const CROP_THEMES: Record<CropType, CropTheme> = {
       "border-lime-200/80 bg-lime-50/80 dark:border-lime-800/50 dark:bg-lime-950/40",
     listingCardBgClass: "bg-lime-50 dark:bg-lime-950/40",
   },
+  bananas: {
+    label: "Bananas",
+    iconBadgeClass: "bg-yellow-100/90 dark:bg-yellow-950/70",
+    iconColorClass: "text-yellow-700 dark:text-yellow-300",
+    iconFill: "#ca8a04",
+    iconFillDark: "#fde047",
+    cardClass:
+      "border-yellow-200/80 bg-yellow-50/80 dark:border-yellow-800/50 dark:bg-yellow-950/40",
+    listingCardBgClass: "bg-yellow-50 dark:bg-yellow-950/40",
+  },
   coffee: {
     label: "Coffee",
     iconBadgeClass:

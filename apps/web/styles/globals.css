@@ -297,6 +297,65 @@ body {
   }
 }
 
+@keyframes chat-listing-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-safe-chat-listing-card-in {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .motion-safe-chat-listing-card-in {
+    animation: chat-listing-card-in 280ms ease-out both;
+  }
+
+  /* Centered mandatory snap + custom JS eases arrow / settle moves. */
+  .chat-listing-carousel-scroller {
+    scroll-snap-type: x mandatory;
+    scroll-behavior: auto;
+  }
+
+  .chat-listing-carousel-snap {
+    scroll-snap-align: center;
+    scroll-snap-stop: always;
+  }
+
+  .chat-listing-carousel-card {
+    transition:
+      transform 280ms cubic-bezier(0.2, 0.9, 0.3, 1),
+      filter 280ms cubic-bezier(0.2, 0.9, 0.3, 1);
+  }
+
+  .chat-listing-carousel-dot {
+    transition:
+      width 320ms cubic-bezier(0.2, 0.9, 0.3, 1),
+      height 320ms cubic-bezier(0.2, 0.9, 0.3, 1),
+      background-color 320ms cubic-bezier(0.2, 0.9, 0.3, 1),
+      box-shadow 320ms cubic-bezier(0.2, 0.9, 0.3, 1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-listing-carousel-card {
+    transition: none;
+  }
+
+  .chat-listing-carousel-dot {
+    transition: none;
+  }
+}
+
 @keyframes loading-status-in {
   from {
     opacity: 0;
@@ -309,15 +368,50 @@ body {
   }
 }
 
+@keyframes trail-step-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.trail-step-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--muted) 0%,
+    var(--foreground) 40%,
+    var(--muted) 80%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .loading-status-text-cycle {
     animation: none;
+  }
+
+  .trail-step-shimmer {
+    animation: none;
+    background-image: none;
+    background-clip: unset;
+    -webkit-background-clip: unset;
+    color: var(--foreground);
   }
 }
 
 @media (prefers-reduced-motion: no-preference) {
   .loading-status-text-cycle {
     animation: loading-status-in 360ms ease-out both;
+  }
+
+  .trail-step-shimmer {
+    animation: trail-step-shimmer 1.4s linear infinite;
   }
 }
 
@@ -329,6 +423,8 @@ body {
   --vunr-bg: var(--brand-mid);
   --vunr-bg-card: var(--brand-card);
   --vunr-lime: var(--brand-accent-highlight);
+  --landing-nav-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --landing-nav-duration: 480ms;
 }
 
 .vunr-noise {
@@ -336,11 +432,146 @@ body {
   mix-blend-mode: overlay;
 }
 
+/* Floating nav: one CSS settle instead of per-frame blur/layout thrash */
+.landing-nav {
+  padding-top: 0;
+  padding-inline: 0;
+  transition: padding var(--landing-nav-duration) var(--landing-nav-ease);
+}
+
+.landing-nav.is-scrolled {
+  padding-top: 12px;
+  padding-inline: 20px;
+}
+
+.landing-nav__inner {
+  max-width: 72rem;
+  padding-block: 20px;
+  padding-inline: 20px;
+  border-radius: 0;
+  border: 1px solid transparent;
+  background-color: color-mix(in srgb, var(--brand-deep) 35%, transparent);
+  /* Keep blur constant — animating backdrop-filter is the main jank source */
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  box-shadow: 0 0 0 transparent;
+  transition:
+    max-width var(--landing-nav-duration) var(--landing-nav-ease),
+    padding-block var(--landing-nav-duration) var(--landing-nav-ease),
+    border-radius var(--landing-nav-duration) var(--landing-nav-ease),
+    border-color var(--landing-nav-duration) var(--landing-nav-ease),
+    background-color var(--landing-nav-duration) var(--landing-nav-ease),
+    box-shadow var(--landing-nav-duration) var(--landing-nav-ease);
+}
+
+.landing-nav.is-scrolled .landing-nav__inner {
+  max-width: 40rem;
+  padding-block: 12px;
+  border-radius: 16px;
+  border-color: rgba(255, 255, 255, 0.12);
+  background-color: color-mix(in srgb, var(--brand-deep) 92%, transparent);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2);
+}
+
+.landing-nav__logo,
+.landing-nav__cta {
+  transform: translateZ(0) scale(1);
+  transition: transform var(--landing-nav-duration) var(--landing-nav-ease);
+}
+
+.landing-nav.is-scrolled .landing-nav__logo {
+  transform: translateZ(0) scale(0.96);
+}
+
+.landing-nav.is-scrolled .landing-nav__cta {
+  transform: translateZ(0) scale(0.97);
+}
+
+.landing-nav__brand {
+  font-size: 1.25rem;
+  transition: font-size var(--landing-nav-duration) var(--landing-nav-ease);
+}
+
+.landing-nav.is-scrolled .landing-nav__brand {
+  font-size: 1.125rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .vunr-landing header,
-  .vunr-landing header a,
-  .vunr-landing header button {
+  .landing-nav,
+  .landing-nav__inner,
+  .landing-nav__logo,
+  .landing-nav__cta,
+  .landing-nav__brand {
+    transition: none !important;
+  }
+
+  .landing-nav__logo,
+  .landing-nav__cta {
     transform: none !important;
+  }
+}
+
+/* =========================
+   VUNR LOGO LOADER
+========================= */
+.vunr-logo-loader {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 4.5rem;
+  height: 4.5rem;
+}
+
+.vunr-logo-loader__glow {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: color-mix(
+    in srgb,
+    var(--brand-accent-highlight) 22%,
+    transparent
+  );
+  filter: blur(10px);
+}
+
+.vunr-logo-loader__mark {
+  position: relative;
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .vunr-logo-loader__glow {
+    animation: vunr-logo-glow 1.8s ease-in-out infinite;
+  }
+
+  .vunr-logo-loader__mark {
+    animation: vunr-logo-breathe 1.8s ease-in-out infinite;
+  }
+}
+
+@keyframes vunr-logo-breathe {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: scale(0.92);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes vunr-logo-glow {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+
+  50% {
+    opacity: 0.9;
+    transform: scale(1.05);
   }
 }
 

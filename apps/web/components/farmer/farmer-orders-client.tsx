@@ -9,10 +9,10 @@ import { useMutation, useQuery } from "convex/react";
 import { Button, Chip, Table } from "@heroui/react";
 import clsx from "clsx";
 import { MapPin, Scale, Store } from "lucide-react";
-import Link from "next/link";
 import { useState } from "react";
 
 import { CropIcon } from "@/components/farmer/crop-display";
+import { VunrLogoLoader } from "@/components/layout/vunr-logo-loader";
 
 type FarmerOrderSummary = {
   _id: Id<"orders">;
@@ -254,7 +254,7 @@ export function FarmerOrdersList({
   if (orders === undefined) {
     return (
       <div className="flex min-h-24 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-foreground" />
+        <VunrLogoLoader fullScreen={false} size={36} />
       </div>
     );
   }
@@ -294,15 +294,7 @@ export function FarmerOrdersPreview() {
 
   return (
     <section className="flex flex-col gap-3 rounded-[0.875rem] border border-separator bg-surface p-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold text-foreground">Recent orders</h2>
-        <Link
-          className="text-sm font-medium text-accent hover:underline"
-          href="/farmer/orders"
-        >
-          View all
-        </Link>
-      </div>
+      <h2 className="text-sm font-semibold text-foreground">Recent orders</h2>
       <FarmerOrdersList limit={3} orders={orders} />
     </section>
   );

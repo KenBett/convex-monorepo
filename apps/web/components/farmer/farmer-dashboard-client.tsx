@@ -10,6 +10,7 @@ import clsx from "clsx";
 
 import { FarmerListingCard } from "@/components/farmer/listing-card";
 import { FarmerOrdersPreview } from "@/components/farmer/farmer-orders-client";
+import { VunrLogoLoader } from "@/components/layout/vunr-logo-loader";
 
 type ListingStat = {
   label: string;
@@ -65,7 +66,7 @@ export function FarmerDashboardClient() {
   if (listings === undefined) {
     return (
       <div className="flex min-h-40 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-foreground" />
+        <VunrLogoLoader fullScreen={false} size={36} />
       </div>
     );
   }
@@ -93,17 +94,9 @@ export function FarmerDashboardClient() {
       ) : null}
 
       <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold text-foreground">
-            Active listings
-          </h2>
-          <Link
-            className="text-sm font-medium text-accent hover:underline"
-            href="/farmer/my-products"
-          >
-            View all
-          </Link>
-        </div>
+        <h2 className="text-sm font-semibold text-foreground">
+          Active listings
+        </h2>
 
         {stats && stats.activePreview.length > 0 ? (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-2.5 sm:gap-3">

@@ -46,61 +46,36 @@ const LANDING_PRIMARY_BUTTON =
 const LANDING_SURFACE_CARD =
   "border border-brand-accent-highlight/15 bg-brand-accent-highlight/6 shadow-sm";
 
-const NAV_SCROLL_RANGE = 96;
-
-function lerp(start: number, end: number, progress: number) {
-  return start + (end - start) * progress;
-}
+const NAV_SCROLL_ENTER = 24;
+const NAV_SCROLL_EXIT = 8;
 
 function LandingNav() {
   const headerRef = useRef<HTMLElement>(null);
-  const innerRef = useRef<HTMLDivElement>(null);
-  const logoLinkRef = useRef<HTMLAnchorElement>(null);
-  const logoTextRef = useRef<HTMLSpanElement>(null);
-  const buttonWrapRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
-    let frame = 0;
+    const header = headerRef.current;
 
-    function applyStyles(progress: number) {
-      if (headerRef.current) {
-        headerRef.current.style.paddingTop = `${lerp(0, 12, progress)}px`;
-        headerRef.current.style.paddingInline = `${lerp(0, 20, progress)}px`;
-      }
-      if (innerRef.current) {
-        const el = innerRef.current;
-        el.style.maxWidth = `${lerp(72, 40, progress)}rem`;
-        el.style.borderRadius = `${lerp(0, 16, progress)}px`;
-        el.style.paddingTop = `${lerp(20, 12, progress)}px`;
-        el.style.paddingBottom = `${lerp(20, 12, progress)}px`;
-        el.style.backgroundColor = `color-mix(in srgb, var(--brand-deep) ${lerp(35, 92, progress)}%, transparent)`;
-        el.style.border = `${lerp(0, 1, progress)}px solid rgba(255, 255, 255, ${lerp(0, 0.12, progress)})`;
-        el.style.boxShadow =
-          progress > 0.02
-            ? `0 ${lerp(4, 10, progress)}px ${lerp(12, 32, progress)}px rgba(0, 0, 0, ${lerp(0.06, 0.22, progress)})`
-            : "none";
-        el.style.backdropFilter = `blur(${lerp(12, 20, progress)}px) saturate(${lerp(100, 150, progress)}%)`;
-      }
-      if (logoLinkRef.current) {
-        logoLinkRef.current.style.transform = `scale(${1 - progress * 0.05})`;
-      }
-      if (logoTextRef.current) {
-        logoTextRef.current.style.fontSize = `${lerp(1.25, 1.125, progress)}rem`;
-      }
-      if (buttonWrapRef.current) {
-        buttonWrapRef.current.style.transform = `scale(${1 - progress * 0.03})`;
-      }
-    }
+    if (!header) return;
+
+    let frame = 0;
+    let scrolled = header.classList.contains("is-scrolled");
+
+    const sync = () => {
+      frame = 0;
+      const y = window.scrollY;
+      const next = scrolled ? y > NAV_SCROLL_EXIT : y > NAV_SCROLL_ENTER;
+
+      if (next === scrolled) return;
+      scrolled = next;
+      header.classList.toggle("is-scrolled", scrolled);
+    };
 
     const onScroll = () => {
       if (frame !== 0) return;
-      frame = requestAnimationFrame(() => {
-        frame = 0;
-        applyStyles(Math.min(window.scrollY / NAV_SCROLL_RANGE, 1));
-      });
+      frame = requestAnimationFrame(sync);
     };
 
-    applyStyles(Math.min(window.scrollY / NAV_SCROLL_RANGE, 1));
+    sync();
     window.addEventListener("scroll", onScroll, { passive: true });
 
     return () => {
@@ -110,33 +85,14 @@ function LandingNav() {
   }, []);
 
   return (
-    <header
-      ref={headerRef}
-      className="sticky top-0 z-50 w-full motion-reduce:transition-none"
-    >
-      <div
-        ref={innerRef}
-        className="mx-auto flex w-full items-center justify-between"
-        style={{
-          maxWidth: "72rem",
-          paddingTop: "20px",
-          paddingBottom: "20px",
-          paddingInline: "20px",
-          backgroundColor: "color-mix(in srgb, var(--brand-deep) 35%, transparent)",
-          backdropFilter: "blur(12px) saturate(100%)",
-        }}
-      >
+    <header ref={headerRef} className="landing-nav sticky top-0 z-50 w-full">
+      <div className="landing-nav__inner mx-auto flex w-full items-center justify-between">
         <Link
-          ref={logoLinkRef}
-          className="flex items-center gap-2.5 text-brand-accent-highlight"
+          className="landing-nav__logo flex items-center gap-2.5 text-brand-accent-highlight"
           href="/"
         >
           <VunrLogo className="text-brand-accent-highlight" size={36} />
-          <span
-            ref={logoTextRef}
-            className="font-semibold tracking-[-0.04em] text-white"
-            style={{ fontSize: "1.25rem" }}
-          >
+          <span className="landing-nav__brand font-semibold tracking-[-0.04em] text-white">
             {siteConfig.name}
           </span>
         </Link>
@@ -146,7 +102,7 @@ function LandingNav() {
             Sign in
           </Link>
           <Link href="/sign-up">
-            <span ref={buttonWrapRef} style={{ display: "inline-flex" }}>
+            <span className="landing-nav__cta inline-flex">
               <Button
                 className={`${LANDING_PRIMARY_BUTTON} px-5 py-2 text-sm`}
                 variant="primary"

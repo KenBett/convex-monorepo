@@ -53,10 +53,23 @@ export function getBuyerSourcingIntroMessage(
 
   if (count === 0) {
     if (intent.refinePreviousResults) {
-      return "None of the earlier options still match that request. Try asking for beans again or adjust your filters.";
+      return "I'm sorry — none of the earlier options still match that. Want to search again with a different grade, county, or crop?";
     }
 
-    return "No in-stock listings matched your request. Try adjusting the crop, county, grade, quantity, or price.";
+    const gradePart = intent.grade?.trim()
+      ? `grade ${intent.grade.trim()} `
+      : "";
+    const cropPart = intent.crop?.trim()
+      ? getCropTheme(intent.crop).label.toLowerCase()
+      : "produce";
+    const countyPart = intent.county?.trim()
+      ? ` in ${intent.county.trim()}`
+      : "";
+
+    return (
+      `I'm sorry — I don't have any ${gradePart}${cropPart}${countyPart} available right now. ` +
+      `Would you like to try a different grade, county, or crop?`
+    );
   }
 
   if (intent.refinePreviousResults) {

@@ -3,6 +3,10 @@ import type { Id } from "@repo/backend/convex/_generated/dataModel";
 import { api } from "@repo/backend/convex/_generated/api";
 import { buildBuyerChatRequestContext } from "@repo/backend/convex/listings/buyerChatMessages";
 import {
+  buildCompletedTrail,
+  buildOptimisticTrail,
+} from "@repo/backend/convex/listings/buyerChatTrail";
+import {
   createUIMessageStream,
   createUIMessageStreamResponse,
   type UIMessage,
@@ -27,38 +31,82 @@ function getBearerToken(request: Request): string | null {
 }
 
 function mapListingForContext(listing: {
+  certifications?: Array<
+    "kepsa" | "globalgap" | "fairtrade" | "organic_certified"
+  >;
   cooperativeName: string;
   county: string;
   crop: string;
   description?: string;
   grade?: string;
+  harvestWindowLabel?: string;
   listingId: string;
+  minOrderKg?: number;
+  packaging?: "bulk" | "crates" | "gunny_bags" | "bags";
+  packUnitKg?: number;
   pricePerKg: number;
   quantityKg: number;
+  sizeOrCalibre?: string;
   status: "active" | "expired" | "sold_out";
+  tags?: Array<
+    | "organic"
+    | "export_grade"
+    | "washed"
+    | "sorted"
+    | "cold_chain"
+    | "pesticide_free"
+    | "irrigated"
+    | "dried"
+    | "fresh_picked"
+    | "bulk_ready"
+    | "sample_available"
+    | "traceable"
+    | "weekly_supply"
+  >;
+  variety?: string;
 }) {
   return {
+    certifications: listing.certifications,
     cooperativeName: listing.cooperativeName,
     county: listing.county,
     crop: listing.crop,
     description: listing.description,
     grade: listing.grade,
+    harvestWindowLabel: listing.harvestWindowLabel,
     listingId: listing.listingId as Id<"listings">,
+    minOrderKg: listing.minOrderKg,
+    packaging: listing.packaging,
+    packUnitKg: listing.packUnitKg,
     pricePerKg: listing.pricePerKg,
     quantityKg: listing.quantityKg,
+    sizeOrCalibre: listing.sizeOrCalibre,
     status: listing.status,
+    tags: listing.tags,
+    variety: listing.variety,
   };
 }
 
-function toChatContextPayload(messages: UIMessage[]) {
+function toChatContextPayload(
+  messages: UIMessage[],
+  focusedListingId?: string,
+) {
   const context = buildBuyerChatRequestContext(messages);
 
-  const base = {
+  const base: {
+    conversationListings: ReturnType<typeof mapListingForContext>[];
+    conversationTranscript: string;
+    focusedListingId?: Id<"listings">;
+    latestUserMessage: string;
+  } = {
     conversationListings:
       context.conversationListings.map(mapListingForContext),
     conversationTranscript: context.conversationTranscript,
     latestUserMessage: context.latestUserMessage,
   };
+
+  if (focusedListingId) {
+    base.focusedListingId = focusedListingId as Id<"listings">;
+  }
 
   if (!context.previousSourcing) {
     return base;
@@ -80,37 +128,57 @@ function toChatContextPayload(messages: UIMessage[]) {
 }
 
 type StreamListingSource = {
+  certifications?: string[];
   cooperativeName: string;
   county: string;
   crop: string;
   description: string;
   grade?: string;
+  harvestWindowLabel?: string;
   imageUrl: string | null;
   listingId: string;
+  minOrderKg?: number;
+  packaging?: string;
+  packUnitKg?: number;
   pricePerKg: number;
   quantityKg: number;
   score: number;
+  sizeOrCalibre?: string;
   snippet: string;
   status: "active" | "expired" | "sold_out";
+  tags?: string[];
   title?: string;
+  variety?: string;
 };
 
-function toStreamListings(results: StreamListingSource[]) {
-  return results.map((listing) => ({
+function toStreamListing(listing: StreamListingSource) {
+  return {
+    certifications: listing.certifications,
     cooperativeName: listing.cooperativeName,
     county: listing.county,
     crop: listing.crop,
     description: listing.description,
     grade: listing.grade,
+    harvestWindowLabel: listing.harvestWindowLabel,
     imageUrl: listing.imageUrl,
     listingId: listing.listingId,
+    minOrderKg: listing.minOrderKg,
+    packaging: listing.packaging,
+    packUnitKg: listing.packUnitKg,
     pricePerKg: listing.pricePerKg,
     quantityKg: listing.quantityKg,
     score: listing.score,
+    sizeOrCalibre: listing.sizeOrCalibre,
     snippet: listing.snippet,
     status: listing.status,
+    tags: listing.tags,
     title: listing.title,
-  }));
+    variety: listing.variety,
+  };
+}
+
+function toStreamListings(results: StreamListingSource[]) {
+  return results.map(toStreamListing);
 }
 
 function toStreamSearchGroups(
@@ -128,21 +196,7 @@ function toStreamSearchGroups(
 function toStreamOrderDraft(orderDraft: {
   lines: Array<{
     issue?: "ambiguous" | "insufficient_stock" | "not_active" | "not_found";
-    listing?: {
-      cooperativeName: string;
-      county: string;
-      crop: string;
-      description: string;
-      grade?: string;
-      imageUrl: string | null;
-      listingId: string;
-      pricePerKg: number;
-      quantityKg: number;
-      score: number;
-      snippet: string;
-      status: "active" | "expired" | "sold_out";
-      title?: string;
-    };
+    listing?: StreamListingSource;
     quantityKg: number;
     request: {
       cooperativeName?: string;
@@ -150,34 +204,27 @@ function toStreamOrderDraft(orderDraft: {
       crop: string;
       grade?: string;
       listingRef?: number;
+      neededByLabel?: string;
       quantityKg: number;
     };
   }>;
+  neededByLabel?: string;
+  neededByMs?: number;
+  pointALabel?: string;
+  pointBLabel?: string;
   summaryText: string;
 }) {
   return {
     lines: orderDraft.lines.map((line) => ({
       issue: line.issue,
-      listing: line.listing
-        ? {
-            cooperativeName: line.listing.cooperativeName,
-            county: line.listing.county,
-            crop: line.listing.crop,
-            description: line.listing.description,
-            grade: line.listing.grade,
-            imageUrl: line.listing.imageUrl,
-            listingId: line.listing.listingId,
-            pricePerKg: line.listing.pricePerKg,
-            quantityKg: line.listing.quantityKg,
-            score: line.listing.score,
-            snippet: line.listing.snippet,
-            status: line.listing.status,
-            title: line.listing.title,
-          }
-        : undefined,
+      listing: line.listing ? toStreamListing(line.listing) : undefined,
       quantityKg: line.quantityKg,
       request: line.request,
     })),
+    neededByLabel: orderDraft.neededByLabel,
+    neededByMs: orderDraft.neededByMs,
+    pointALabel: orderDraft.pointALabel,
+    pointBLabel: orderDraft.pointBLabel,
     summaryText: orderDraft.summaryText,
   };
 }
@@ -190,16 +237,25 @@ export async function POST(request: Request) {
   }
 
   let messages: UIMessage[];
+  let focusedListingId: string | undefined;
 
   try {
-    const body = (await request.json()) as { messages?: UIMessage[] };
+    const body = (await request.json()) as {
+      focusedListingId?: string;
+      messages?: UIMessage[];
+    };
 
     messages = body.messages ?? [];
+    focusedListingId =
+      typeof body.focusedListingId === "string" &&
+      body.focusedListingId.length > 0
+        ? body.focusedListingId
+        : undefined;
   } catch {
     return new Response("Invalid request body", { status: 400 });
   }
 
-  const chatContext = toChatContextPayload(messages);
+  const chatContext = toChatContextPayload(messages, focusedListingId);
 
   if (chatContext.latestUserMessage.length === 0) {
     return new Response("Missing user message", { status: 400 });
@@ -209,7 +265,18 @@ export async function POST(request: Request) {
     execute: async ({ writer }) => {
       writer.write({
         type: "data-status",
-        data: { phase: "working" },
+        data: {
+          phase: "working",
+          trail: buildOptimisticTrail("working"),
+        },
+      });
+
+      writer.write({
+        type: "data-status",
+        data: {
+          phase: "searching",
+          trail: buildOptimisticTrail("searching"),
+        },
       });
 
       try {
@@ -220,6 +287,24 @@ export async function POST(request: Request) {
         );
 
         const hasSearchResults = turnResult.results.length > 0;
+        const trail =
+          turnResult.meta.trail ??
+          buildCompletedTrail({
+            filterLabels: turnResult.meta.filterLabels ?? [],
+            ragCandidateCount: turnResult.meta.ragCandidateCount,
+            resultCount: turnResult.meta.resultCount,
+            retrievalMode: turnResult.meta.retrievalMode ?? "vector",
+          });
+
+        if (hasSearchResults || turnResult.meta.resultCount > 0) {
+          writer.write({
+            type: "data-status",
+            data: {
+              phase: "searching",
+              trail,
+            },
+          });
+        }
 
         if (hasSearchResults) {
           writer.write({
@@ -227,13 +312,23 @@ export async function POST(request: Request) {
             data: {
               intent: turnResult.intent,
               listings: toStreamListings(turnResult.results),
-              meta: turnResult.meta,
+              meta: {
+                ...turnResult.meta,
+                trail,
+              },
               searchGroups: toStreamSearchGroups(turnResult.searchGroups),
             },
           });
         }
 
         if (turnResult.orderDraft) {
+          writer.write({
+            type: "data-status",
+            data: {
+              phase: "ordering",
+              trail: buildOptimisticTrail("ordering"),
+            },
+          });
           writer.write({
             type: "data-order-draft",
             data: {

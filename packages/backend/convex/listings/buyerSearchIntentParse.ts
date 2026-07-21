@@ -1,4 +1,10 @@
-import { COUNTIES, CROP_TYPES, type BuyerSearchIntent } from "@repo/types";
+import {
+  COUNTIES,
+  CROP_TYPES,
+  LISTING_HARD_FILTER_TAGS,
+  type BuyerSearchIntent,
+  type ListingHardFilterTag,
+} from "@repo/types";
 import { jsonSchema } from "ai";
 
 export type BuyerSearchPricePreference = "cheapest" | "most_expensive";
@@ -13,6 +19,7 @@ export type ParsedBuyerSearchIntent = {
   refinePreviousResults: boolean;
   resultLimit: number | null;
   searchText: string;
+  tags: ListingHardFilterTag[] | null;
 };
 
 /** OpenAI strict structured output requires every property in `required`. */
@@ -49,6 +56,13 @@ export const buyerSearchIntentParseSchema = jsonSchema<ParsedBuyerSearchIntent>(
     resultLimit: {
       type: ["number", "null"],
     },
+    tags: {
+      type: ["array", "null"],
+      items: {
+        type: "string",
+        enum: [...LISTING_HARD_FILTER_TAGS],
+      },
+    },
   },
   required: [
     "crop",
@@ -60,6 +74,7 @@ export const buyerSearchIntentParseSchema = jsonSchema<ParsedBuyerSearchIntent>(
     "refinePreviousResults",
     "pricePreference",
     "resultLimit",
+    "tags",
   ],
   additionalProperties: false,
 });
@@ -84,5 +99,6 @@ export function toBuyerSearchIntent(
   if (parsed.refinePreviousResults) intent.refinePreviousResults = true;
   if (parsed.pricePreference != null) intent.pricePreference = parsed.pricePreference;
   if (parsed.resultLimit != null) intent.resultLimit = parsed.resultLimit;
+  if (parsed.tags != null && parsed.tags.length > 0) intent.tags = parsed.tags;
   return intent;
 }

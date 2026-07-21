@@ -8,18 +8,60 @@ import { GLOBAL_NAMESPACE, rag, type RagEntryMetadata } from "../lib/rag";
 
 const listingForSyncValidator = v.object({
   _id: v.id("listings"),
+  certifications: v.optional(
+    v.array(
+      v.union(
+        v.literal("kepsa"),
+        v.literal("globalgap"),
+        v.literal("fairtrade"),
+        v.literal("organic_certified"),
+      ),
+    ),
+  ),
   county: v.string(),
   crop: v.string(),
   description: v.string(),
   farmerId: v.id("farmerProfiles"),
   grade: v.optional(v.string()),
+  harvestWindowLabel: v.optional(v.string()),
+  minOrderKg: v.optional(v.number()),
+  packaging: v.optional(
+    v.union(
+      v.literal("bulk"),
+      v.literal("crates"),
+      v.literal("gunny_bags"),
+      v.literal("bags"),
+    ),
+  ),
+  packUnitKg: v.optional(v.number()),
   pricePerKg: v.number(),
   quantityKg: v.number(),
+  sizeOrCalibre: v.optional(v.string()),
   status: v.union(
     v.literal("active"),
     v.literal("sold_out"),
     v.literal("expired"),
   ),
+  tags: v.optional(
+    v.array(
+      v.union(
+        v.literal("organic"),
+        v.literal("export_grade"),
+        v.literal("washed"),
+        v.literal("sorted"),
+        v.literal("cold_chain"),
+        v.literal("pesticide_free"),
+        v.literal("irrigated"),
+        v.literal("dried"),
+        v.literal("fresh_picked"),
+        v.literal("bulk_ready"),
+        v.literal("sample_available"),
+        v.literal("traceable"),
+        v.literal("weekly_supply"),
+      ),
+    ),
+  ),
+  variety: v.optional(v.string()),
 });
 
 export const getListingForSync = internalQuery({
@@ -35,14 +77,22 @@ export const getListingForSync = internalQuery({
 
     return {
       _id: listing._id,
+      certifications: listing.certifications,
       county: listing.county,
       crop: listing.crop,
       description: listing.description,
       farmerId: listing.farmerId,
       grade: listing.grade,
+      harvestWindowLabel: listing.harvestWindowLabel,
+      minOrderKg: listing.minOrderKg,
+      packaging: listing.packaging,
+      packUnitKg: listing.packUnitKg,
       pricePerKg: listing.pricePerKg,
       quantityKg: listing.quantityKg,
+      sizeOrCalibre: listing.sizeOrCalibre,
       status: listing.status,
+      tags: listing.tags,
+      variety: listing.variety,
     };
   },
 });

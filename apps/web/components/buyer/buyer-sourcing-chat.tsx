@@ -2,8 +2,10 @@
 
 import type {
   BuyerChatStatusPhase,
+  BuyerChatTrailStep,
   BuyerOrderDraft,
   BuyerOrderDraftStreamData,
+  BuyerSearchIntent,
   BuyerSourcingListingResult,
   BuyerSourcingStreamData,
   ChatListingLiveStatus,
@@ -15,22 +17,33 @@ import { api } from "@repo/backend/convex/_generated/api";
 import { useChat } from "@ai-sdk/react";
 import { getInitials } from "@repo/utils";
 import { useQuery } from "convex/react";
-import { Avatar, Button, Card } from "@heroui/react";
+import { Avatar, Button } from "@heroui/react";
 import { DefaultChatTransport, isDataUIPart, type UIMessage } from "ai";
-import { ClipboardList, MessageSquarePlus } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  MessageSquarePlus,
+} from "lucide-react";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { getAssistantReplyToLatestUser } from "@repo/backend/convex/listings/buyerChatMessages";
+import clsx from "clsx";
 
 import { siteConfig } from "@/config/site";
+import { BuyerChatTrailStrip } from "@/components/buyer/buyer-chat-trail-strip";
 import { BuyerListingCard } from "@/components/buyer/buyer-listing-card";
 import { BuyerListingDetailDialog } from "@/components/buyer/buyer-listing-detail-dialog";
 import { SourcingSendIcon } from "@/components/buyer/sourcing-agent-icon";
 import { VunrLogo } from "@/components/marketing/vunr-logo";
 import { SourcingChatEmptyState } from "@/components/buyer/sourcing-chat-empty-state";
-import {
-  OrderDraftConfirmDialog,
-  type ConfirmedOrderLine,
-} from "@/components/buyer/order-draft-confirm-dialog";
+import { OrderDraftConfirmDialog } from "@/components/buyer/order-draft-confirm-dialog";
 import { OrderCheckoutDialog } from "@/components/buyer/order-checkout-dialog";
 import {
   clearBuyerSourcingMessages,
@@ -61,14 +74,9 @@ type BuyerChatMessage = UIMessage<
   {
     "order-draft": BuyerOrderDraftStreamData;
     sourcing: BuyerSourcingStreamData;
-    status: { phase: BuyerChatStatusPhase };
+    status: { phase: BuyerChatStatusPhase; trail?: BuyerChatTrailStep[] };
   }
 >;
-
-type CheckoutQueueItem = {
-  listing: BuyerSourcingListingResult;
-  quantityKg: number;
-};
 
 function getMessageText(message: BuyerChatMessage): string {
   return message.parts
@@ -110,7 +118,10 @@ function getStatusPhase(messages: BuyerChatMessage[]): BuyerChatStatusPhase {
     return "working";
   }
 
-  for (const part of lastAssistant.parts) {
+  // Multiple data-status parts are appended during a turn — use the latest.
+  for (let index = lastAssistant.parts.length - 1; index >= 0; index -= 1) {
+    const part = lastAssistant.parts[index];
+
     if (isDataUIPart(part) && part.type === "data-status") {
       return part.data.phase;
     }
@@ -119,87 +130,68 @@ function getStatusPhase(messages: BuyerChatMessage[]): BuyerChatStatusPhase {
   return "working";
 }
 
-const STATUS_MESSAGES_BY_PHASE: Record<BuyerChatStatusPhase, readonly string[]> =
-  {
-    working: [
-      "Understanding what you need…",
-      "Reading your request…",
-      "Picking up the details…",
-      "Checking what matters most…",
-      "Matching your words to crops…",
-      "Noting quantity and location…",
-      "Figuring out grades and timing…",
-      "Translating your ask into a search…",
-      "Looking at county and delivery hints…",
-      "Clarifying crop and grade preferences…",
-      "Processing your message…",
-      "Getting the context straight…",
-      "Reviewing what you asked for…",
-      "Sorting through your requirements…",
-      "Connecting the dots on your order…",
-      "Checking farmer listing categories…",
-      "Aligning with what's in season…",
-      "Thinking through the best approach…",
-      "One moment while I interpret this…",
-      "Turning your message into a plan…",
-      "Considering price and quality tradeoffs…",
-      "Mapping your needs to the marketplace…",
-      "Working on your request…",
-      "Almost ready to search…",
-    ],
-    searching: [
-      "Searching listings…",
-      "Scanning available produce…",
-      "Comparing prices and grades…",
-      "Narrowing down options…",
-      "Browsing active farmer listings…",
-      "Checking what's harvest-ready…",
-      "Filtering by county and crop…",
-      "Looking for the best value…",
-      "Comparing unit prices…",
-      "Checking stock levels…",
-      "Finding matches near you…",
-      "Ranking listings by fit…",
-      "Scanning grade A and B options…",
-      "Checking availability this week…",
-      "Pulling fresh listings…",
-      "Matching crop to your quantity…",
-      "Reviewing farmer offers…",
-      "Hunting for the right bundle…",
-      "Weighing quality against price…",
-      "Almost there with results…",
-      "Shortlisting the strongest options…",
-      "Cross-checking listing details…",
-      "Finding the best matches…",
-      "Checking farmer listings…",
-    ],
-    ordering: [
-      "Preparing your order…",
-      "Verifying availability…",
-      "Calculating line totals…",
-      "Almost ready to review…",
-      "Building your draft order…",
-      "Checking quantities against stock…",
-      "Totalling up line items…",
-      "Confirming prices haven't changed…",
-      "Lining up delivery details…",
-      "Validating each listing…",
-      "Finalizing your cart…",
-      "Double-checking units and amounts…",
-      "Making sure everything still fits…",
-      "Crunching the numbers…",
-      "Pulling together your checkout…",
-      "Reviewing order lines…",
-      "Ensuring listings are still active…",
-      "Getting your draft ready…",
-      "One last pass on totals…",
-      "Almost done assembling your order…",
-      "Matching lines to live inventory…",
-      "Checking minimum order quantities…",
-      "Preparing your review summary…",
-      "Wrapping up your order draft…",
-    ],
-  };
+function getStatusTrail(
+  message: BuyerChatMessage,
+): BuyerChatTrailStep[] | null {
+  const sourcing = getSourcingData(message);
+
+  if (sourcing?.meta.trail && sourcing.meta.trail.length > 0) {
+    return sourcing.meta.trail;
+  }
+
+  // Multiple data-status parts are appended during a turn — use the latest trail.
+  for (let index = message.parts.length - 1; index >= 0; index -= 1) {
+    const part = message.parts[index];
+
+    if (
+      isDataUIPart(part) &&
+      part.type === "data-status" &&
+      part.data.trail &&
+      part.data.trail.length > 0
+    ) {
+      return part.data.trail;
+    }
+  }
+
+  return null;
+}
+
+function getLatestStatusTrail(
+  messages: BuyerChatMessage[],
+): BuyerChatTrailStep[] | null {
+  const lastAssistant = [...messages]
+    .reverse()
+    .find((message) => message.role === "assistant");
+
+  if (!lastAssistant) {
+    return null;
+  }
+
+  return getStatusTrail(lastAssistant);
+}
+
+const LOADING_STATUS_MESSAGES: readonly string[] = [
+  "Scanning co-op listings for a match…",
+  "Checking what's in stock near your county…",
+  "Sorting grades and quantities for you…",
+  "Looking through fresh produce options…",
+  "Matching your request to live inventory…",
+  "Hunting down the right crop and volume…",
+  "Comparing nearby farmer listings…",
+  "Filtering sold-out lots out of the results…",
+  "Narrowing in on what you asked for…",
+  "Pulling up available produce now…",
+  "Checking grades against your brief…",
+  "Searching farms for open supply…",
+  "Weighing quantity options that fit…",
+  "Finding listings that match your ask…",
+  "Cross-checking county and crop…",
+  "Looking for the closest available lots…",
+  "Gathering fresh options from farmers…",
+  "Tracking down produce that fits your order…",
+  "Reviewing live stock for a solid match…",
+  "Almost there — lining up your best options…",
+] as const;
 
 const STATUS_CYCLE_MS = 2000;
 
@@ -224,32 +216,30 @@ function pickRandomStatusMessage(
   return nextMessage;
 }
 
-function LoadingStatusText({ phase }: { phase: BuyerChatStatusPhase }) {
-  const messages = STATUS_MESSAGES_BY_PHASE[phase];
+function LoadingStatusText() {
   const [message, setMessage] = useState(() =>
-    pickRandomStatusMessage(messages, null),
+    pickRandomStatusMessage(LOADING_STATUS_MESSAGES, null),
   );
 
   useEffect(() => {
-    setMessage(pickRandomStatusMessage(messages, null));
-  }, [phase, messages]);
-
-  useEffect(() => {
-    if (messages.length <= 1) {
+    if (LOADING_STATUS_MESSAGES.length <= 1) {
       return;
     }
 
     const intervalId = window.setInterval(() => {
       setMessage((currentMessage) =>
-        pickRandomStatusMessage(messages, currentMessage),
+        pickRandomStatusMessage(LOADING_STATUS_MESSAGES, currentMessage),
       );
     }, STATUS_CYCLE_MS);
 
     return () => window.clearInterval(intervalId);
-  }, [messages]);
+  }, []);
 
   return (
-    <span key={`${phase}-${message}`} className="loading-status-text-cycle text-sm text-muted">
+    <span
+      key={message}
+      className="loading-status-text-cycle text-sm text-muted"
+    >
       {message}
     </span>
   );
@@ -322,6 +312,7 @@ function getVisibleSearchGroups(
   liveStatusMap: Map<string, ChatListingLiveStatus>,
 ): VisibleSearchGroup[] {
   const searchGroups = sourcing.searchGroups ?? [];
+
   if (searchGroups.length <= 1) {
     return [];
   }
@@ -337,11 +328,401 @@ function getVisibleSearchGroups(
     .filter((group) => group.listings.length > 0);
 }
 
-function LoadingBubble({ phase }: { phase: BuyerChatStatusPhase }) {
+/** Intrinsic listing-card width at 1× (keeps Where/Supply untruncated). */
+const CHAT_LISTING_CARD_WIDTH_REM = 18.5;
+/** Base display scale for carousel cards. */
+const CHAT_LISTING_CARD_SCALE = 0.82;
+/** Snappy glide between cards (ms). */
+const CHAT_LISTING_SCROLL_MS = 280;
+
+function prefersReducedMotion(): boolean {
+  if (typeof window === "undefined" || !window.matchMedia) {
+    return false;
+  }
+
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+/** Ease: short glide, then a quick settle. */
+function easeSlowThenSnap(t: number): number {
+  if (t < 0.4) {
+    const u = t / 0.4;
+
+    return 0.22 * u * u;
+  }
+
+  const u = (t - 0.4) / 0.6;
+
+  return 0.22 + 0.78 * (1 - Math.pow(1 - u, 3));
+}
+
+function animateElementScrollTo(
+  scroller: HTMLElement,
+  left: number,
+  scrollAnimRef: { current: number | null },
+  onDone?: () => void,
+): void {
+  if (scrollAnimRef.current !== null) {
+    cancelAnimationFrame(scrollAnimRef.current);
+    scrollAnimRef.current = null;
+  }
+
+  const finish = () => {
+    scroller.style.scrollSnapType = "";
+    onDone?.();
+  };
+
+  if (prefersReducedMotion()) {
+    scroller.scrollLeft = left;
+    finish();
+
+    return;
+  }
+
+  const startLeft = scroller.scrollLeft;
+  const delta = left - startLeft;
+
+  if (Math.abs(delta) < 1) {
+    finish();
+
+    return;
+  }
+
+  scroller.style.scrollSnapType = "none";
+  const startTime = performance.now();
+
+  const step = (now: number) => {
+    const elapsed = now - startTime;
+    const progress = Math.min(1, elapsed / CHAT_LISTING_SCROLL_MS);
+
+    scroller.scrollLeft = startLeft + delta * easeSlowThenSnap(progress);
+
+    if (progress < 1) {
+      scrollAnimRef.current = requestAnimationFrame(step);
+
+      return;
+    }
+
+    scrollAnimRef.current = null;
+    scroller.scrollLeft = left;
+    finish();
+  };
+
+  scrollAnimRef.current = requestAnimationFrame(step);
+}
+
+/** Request-time chat context (read by DefaultChatTransport, not during render). */
+const buyerChatRequestContext = {
+  authToken: null as string | null,
+  focusedListingId: null as string | null,
+};
+
+function ChatListingCardCarousel({
+  listings,
+  liveStatusMap,
+  onFocusedListingChange,
+  onOrderListing,
+  onSelectListing,
+}: {
+  listings: BuyerSourcingListingResult[];
+  liveStatusMap: Map<string, ChatListingLiveStatus>;
+  onFocusedListingChange?: (listing: BuyerSourcingListingResult | null) => void;
+  onOrderListing: (listing: BuyerSourcingListingResult) => void;
+  onSelectListing: (listing: BuyerSourcingListingResult) => void;
+}) {
+  const scrollerRef = useRef<HTMLUListElement>(null);
+  const scrollAnimRef = useRef<number | null>(null);
+  const scrollEndTimerRef = useRef<number | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [sidePadPx, setSidePadPx] = useState(0);
+  const listingKey = listings.map((listing) => listing.listingId).join("|");
+  const canGoPrev = listings.length > 1 && activeIndex > 0;
+  const canGoNext = listings.length > 1 && activeIndex < listings.length - 1;
+  const focusedListing = listings[activeIndex] ?? null;
+  const focusedCardHalfRem =
+    (CHAT_LISTING_CARD_WIDTH_REM * CHAT_LISTING_CARD_SCALE * 1.06) / 2;
+  const arrowInset = `calc(50% - ${focusedCardHalfRem}rem - 0.2rem)`;
+
+  const updateSidePadding = () => {
+    const scroller = scrollerRef.current;
+    const firstItem = scroller?.children[0] as HTMLElement | undefined;
+
+    if (!scroller || !firstItem) {
+      return;
+    }
+
+    setSidePadPx(
+      Math.max(0, (scroller.clientWidth - firstItem.offsetWidth) / 2),
+    );
+  };
+
+  const getCenteredScrollLeft = (index: number) => {
+    const scroller = scrollerRef.current;
+    const item = scroller?.children[index] as HTMLElement | undefined;
+
+    if (!scroller || !item) {
+      return 0;
+    }
+
+    return item.offsetLeft - (scroller.clientWidth - item.offsetWidth) / 2;
+  };
+
+  const getNearestIndex = () => {
+    const scroller = scrollerRef.current;
+
+    if (!scroller || listings.length === 0) {
+      return 0;
+    }
+
+    const center = scroller.scrollLeft + scroller.clientWidth / 2;
+    let bestIndex = 0;
+    let bestDist = Number.POSITIVE_INFINITY;
+
+    for (let index = 0; index < scroller.children.length; index += 1) {
+      const item = scroller.children[index] as HTMLElement | undefined;
+
+      if (!item) {
+        continue;
+      }
+
+      const itemCenter = item.offsetLeft + item.offsetWidth / 2;
+      const dist = Math.abs(itemCenter - center);
+
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestIndex = index;
+      }
+    }
+
+    return Math.max(0, Math.min(bestIndex, listings.length - 1));
+  };
+
+  useEffect(() => {
+    setActiveIndex(0);
+    if (scrollAnimRef.current !== null) {
+      cancelAnimationFrame(scrollAnimRef.current);
+      scrollAnimRef.current = null;
+    }
+    requestAnimationFrame(() => {
+      updateSidePadding();
+      const scroller = scrollerRef.current;
+
+      if (scroller) {
+        scroller.scrollLeft = getCenteredScrollLeft(0);
+      }
+    });
+  }, [listingKey]);
+
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+
+    if (!scroller || typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const observer = new ResizeObserver(() => {
+      updateSidePadding();
+    });
+
+    observer.observe(scroller);
+    updateSidePadding();
+
+    return () => observer.disconnect();
+  }, [listingKey]);
+
+  useEffect(() => {
+    if (scrollAnimRef.current !== null) {
+      return;
+    }
+
+    const scroller = scrollerRef.current;
+
+    if (!scroller) {
+      return;
+    }
+
+    scroller.scrollLeft = getCenteredScrollLeft(activeIndex);
+  }, [sidePadPx]);
+
+  useEffect(() => {
+    onFocusedListingChange?.(focusedListing);
+  }, [focusedListing, onFocusedListingChange]);
+
+  useEffect(() => {
+    return () => {
+      if (scrollAnimRef.current !== null) {
+        cancelAnimationFrame(scrollAnimRef.current);
+      }
+      if (scrollEndTimerRef.current !== null) {
+        window.clearTimeout(scrollEndTimerRef.current);
+      }
+    };
+  }, []);
+
+  const animateScrollTo = (left: number, onDone?: () => void) => {
+    const scroller = scrollerRef.current;
+
+    if (!scroller) {
+      return;
+    }
+
+    animateElementScrollTo(scroller, left, scrollAnimRef, onDone);
+  };
+
+  const scrollToIndex = (index: number) => {
+    const clamped = Math.max(0, Math.min(index, listings.length - 1));
+
+    setActiveIndex(clamped);
+    animateScrollTo(getCenteredScrollLeft(clamped));
+  };
+
+  const handleScrollerScroll = () => {
+    if (scrollAnimRef.current !== null) {
+      return;
+    }
+
+    const nearest = getNearestIndex();
+
+    if (nearest !== activeIndex) {
+      setActiveIndex(nearest);
+    }
+
+    if (scrollEndTimerRef.current !== null) {
+      window.clearTimeout(scrollEndTimerRef.current);
+    }
+
+    scrollEndTimerRef.current = window.setTimeout(() => {
+      scrollEndTimerRef.current = null;
+      if (scrollAnimRef.current !== null) {
+        return;
+      }
+
+      const snapIndex = getNearestIndex();
+
+      setActiveIndex(snapIndex);
+      animateScrollTo(getCenteredScrollLeft(snapIndex));
+    }, 70);
+  };
+
+  return (
+    <div className="relative w-full">
+      <ul
+        ref={scrollerRef}
+        aria-label="Matching listings"
+        className="chat-listing-carousel-scroller flex w-full gap-3 overflow-x-auto overflow-y-visible py-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={{
+          paddingLeft: sidePadPx,
+          paddingRight: sidePadPx,
+        }}
+        onScroll={handleScrollerScroll}
+      >
+        {listings.map((listing, index) => {
+          const isActive = index === activeIndex;
+
+          return (
+            <li
+              key={listing.listingId}
+              className="chat-listing-carousel-snap shrink-0"
+              style={{
+                width: `${CHAT_LISTING_CARD_WIDTH_REM * CHAT_LISTING_CARD_SCALE}rem`,
+              }}
+            >
+              <div
+                className="motion-safe-chat-listing-card-in"
+                style={{
+                  animationDelay: `${Math.min(index, 5) * 40}ms`,
+                }}
+              >
+                <div
+                  className={clsx(
+                    "chat-listing-carousel-card origin-center",
+                    isActive
+                      ? "z-[1] scale-[1.06] blur-none"
+                      : "scale-[0.9] blur-[2.5px]",
+                  )}
+                >
+                  <div
+                    className="origin-top-left"
+                    style={{
+                      width: `${CHAT_LISTING_CARD_WIDTH_REM}rem`,
+                      zoom: CHAT_LISTING_CARD_SCALE,
+                    }}
+                  >
+                    <BuyerListingCard
+                      emphasized
+                      liveStatus={resolveLiveStatus(listing, liveStatusMap)}
+                      result={listing}
+                      scaleOnHover={false}
+                      onOrder={onOrderListing}
+                      onSelect={onSelectListing}
+                    />
+                  </div>
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      {listings.length > 1 ? (
+        <div
+          aria-label="Listing pages"
+          className="chat-listing-carousel-dots flex items-center justify-center gap-2 pt-2 pb-0.5"
+          role="tablist"
+        >
+          {listings.map((listing, index) => {
+            const isActive = index === activeIndex;
+
+            return (
+              <button
+                key={listing.listingId}
+                aria-label={`Show listing ${index + 1} of ${listings.length}`}
+                aria-selected={isActive}
+                className={clsx(
+                  "chat-listing-carousel-dot rounded-full bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:bg-white dark:focus-visible:ring-white/30",
+                  isActive ? "h-2 w-2" : "h-0.5 w-5",
+                )}
+                role="tab"
+                type="button"
+                onClick={() => scrollToIndex(index)}
+              />
+            );
+          })}
+        </div>
+      ) : null}
+
+      {canGoPrev ? (
+        <button
+          aria-label="Previous listing"
+          className="absolute top-1/2 z-10 flex h-8 w-8 -translate-x-full -translate-y-1/2 items-center justify-center rounded-full bg-background text-foreground shadow-sm transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+          style={{ left: arrowInset }}
+          type="button"
+          onClick={() => scrollToIndex(activeIndex - 1)}
+        >
+          <ChevronLeft className="h-4 w-4" strokeWidth={2} />
+        </button>
+      ) : null}
+
+      {canGoNext ? (
+        <button
+          aria-label="Next listing"
+          className="absolute top-1/2 z-10 flex h-8 w-8 translate-x-full -translate-y-1/2 items-center justify-center rounded-full bg-background text-foreground shadow-sm transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+          style={{ right: arrowInset }}
+          type="button"
+          onClick={() => scrollToIndex(activeIndex + 1)}
+        >
+          <ChevronRight className="h-4 w-4" strokeWidth={2} />
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function LoadingBubble() {
   return (
     <div className={`w-fit max-w-full px-4 py-3 ${ASSISTANT_BUBBLE}`}>
       <div className="flex items-center gap-3">
-        <span className="flex items-center gap-1">
+        <span aria-hidden="true" className="flex items-center gap-1">
           {[0, 150, 300].map((delayMs) => (
             <span
               key={delayMs}
@@ -350,7 +731,7 @@ function LoadingBubble({ phase }: { phase: BuyerChatStatusPhase }) {
             />
           ))}
         </span>
-        <LoadingStatusText phase={phase} />
+        <LoadingStatusText />
       </div>
     </div>
   );
@@ -360,7 +741,9 @@ function ChatMessage({
   message,
   liveStatusMap,
   loadingPhase,
+  onFocusedListingChange,
   onOpenOrderDraft,
+  onOrderListing,
   onSelectListing,
   showLoading = false,
   userDisplayName,
@@ -370,8 +753,13 @@ function ChatMessage({
   message: BuyerChatMessage;
   liveStatusMap: Map<string, ChatListingLiveStatus>;
   loadingPhase?: BuyerChatStatusPhase;
+  onFocusedListingChange?: (listing: BuyerSourcingListingResult | null) => void;
   onOpenOrderDraft: (orderDraft: BuyerOrderDraft) => void;
-  onSelectListing: (listing: BuyerSourcingListingResult) => void;
+  onOrderListing: (listing: BuyerSourcingListingResult) => void;
+  onSelectListing: (
+    listing: BuyerSourcingListingResult,
+    intent: BuyerSearchIntent | null,
+  ) => void;
   showLoading?: boolean;
   userDisplayName: string;
   userImage?: string;
@@ -382,7 +770,11 @@ function ChatMessage({
     message.role === "assistant" ? getSourcingData(message) : null;
   const orderDraftData =
     message.role === "assistant" ? getOrderDraftData(message) : null;
+  const trail = message.role === "assistant" ? getStatusTrail(message) : null;
   const isUser = message.role === "user";
+  const selectFromThisTurn = (listing: BuyerSourcingListingResult) => {
+    onSelectListing(listing, sourcing?.intent ?? null);
+  };
 
   const assistantIntro = orderDraftData
     ? getBuyerOrderDraftIntroMessage(orderDraftData)
@@ -402,14 +794,17 @@ function ChatMessage({
   const hasVisibleContent =
     Boolean(assistantIntro) ||
     Boolean(orderDraftData) ||
+    Boolean(trail) ||
     visibleListings.length > 0;
 
   const hasListingResults =
     visibleGroups.length > 0 || visibleListings.length > 0;
 
-  const messageColumnClass = hasListingResults
-    ? "flex min-w-0 w-full max-w-[92%] flex-col gap-3"
-    : "flex min-w-0 max-w-[85%] flex-col gap-3 sm:max-w-[92%]";
+  const messageColumnClass = isUser
+    ? "flex min-w-0 w-full max-w-[50%] flex-col gap-3"
+    : hasListingResults
+      ? "flex min-w-0 w-full max-w-[92%] flex-col gap-3"
+      : "flex min-w-0 max-w-[85%] flex-col gap-3 sm:max-w-[92%]";
 
   return (
     <div
@@ -426,12 +821,19 @@ function ChatMessage({
       >
         {isUser && text ? (
           <div className="w-fit max-w-full rounded-[0.875rem] bg-accent px-4 py-3 text-sm leading-6 text-accent-foreground shadow-sm dark:shadow-none">
-            <p className="whitespace-pre-wrap">{text}</p>
+            <p className="whitespace-pre-wrap break-words">{text}</p>
           </div>
         ) : null}
 
         {!isUser && showLoading && !hasVisibleContent && loadingPhase ? (
-          <LoadingBubble phase={loadingPhase} />
+          <LoadingBubble />
+        ) : null}
+
+        {!isUser &&
+        trail &&
+        trail.length > 0 &&
+        (sourcing || showLoading || orderDraftData) ? (
+          <BuyerChatTrailStrip className="w-full max-w-md" steps={trail} />
         ) : null}
 
         {!isUser && assistantIntro ? (
@@ -462,32 +864,24 @@ function ChatMessage({
                 <span className="w-fit rounded-full bg-default px-3 py-1 text-xs font-medium text-foreground/80">
                   {group.label}
                 </span>
-                <ol className="grid w-full grid-cols-[repeat(auto-fill,minmax(12.5rem,1fr))] gap-3">
-                  {group.listings.map((listing) => (
-                    <li key={listing.listingId}>
-                      <BuyerListingCard
-                        liveStatus={resolveLiveStatus(listing, liveStatusMap)}
-                        result={listing}
-                        onSelect={onSelectListing}
-                      />
-                    </li>
-                  ))}
-                </ol>
+                <ChatListingCardCarousel
+                  listings={group.listings}
+                  liveStatusMap={liveStatusMap}
+                  onFocusedListingChange={onFocusedListingChange}
+                  onOrderListing={onOrderListing}
+                  onSelectListing={selectFromThisTurn}
+                />
               </div>
             ))}
           </div>
         ) : visibleListings.length > 0 ? (
-          <ol className="grid w-full grid-cols-[repeat(auto-fill,minmax(12.5rem,1fr))] gap-3">
-            {visibleListings.map((listing) => (
-              <li key={listing.listingId}>
-                <BuyerListingCard
-                  liveStatus={resolveLiveStatus(listing, liveStatusMap)}
-                  result={listing}
-                  onSelect={onSelectListing}
-                />
-              </li>
-            ))}
-          </ol>
+          <ChatListingCardCarousel
+            listings={visibleListings}
+            liveStatusMap={liveStatusMap}
+            onFocusedListingChange={onFocusedListingChange}
+            onOrderListing={onOrderListing}
+            onSelectListing={selectFromThisTurn}
+          />
         ) : null}
       </div>
 
@@ -507,7 +901,11 @@ function ChatMessage({
   );
 }
 
-function ChatLoadingIndicator({ phase }: { phase: BuyerChatStatusPhase }) {
+function ChatLoadingIndicator({
+  trail,
+}: {
+  trail?: BuyerChatTrailStep[] | null;
+}) {
   return (
     <div
       aria-live="polite"
@@ -518,7 +916,13 @@ function ChatLoadingIndicator({ phase }: { phase: BuyerChatStatusPhase }) {
         <VunrLogo className="h-4 w-4" size={16} />
       </div>
 
-      <LoadingBubble phase={phase} />
+      <div className="flex min-w-0 max-w-[85%] flex-col gap-2 sm:max-w-[92%]">
+        {trail && trail.length > 0 ? (
+          <BuyerChatTrailStrip className="w-full max-w-md" steps={trail} />
+        ) : (
+          <LoadingBubble />
+        )}
+      </div>
     </div>
   );
 }
@@ -526,21 +930,30 @@ function ChatLoadingIndicator({ phase }: { phase: BuyerChatStatusPhase }) {
 export function BuyerSourcingChat() {
   const authToken = useAuthToken();
   const viewer = useQuery(api.users.viewer);
-  const tokenRef = useRef<string | null>(null);
 
-  tokenRef.current = authToken;
+  useEffect(() => {
+    buyerChatRequestContext.authToken = authToken;
+  }, [authToken]);
 
   const chatStorageKey = viewer?._id ?? null;
   const hasHydratedRef = useRef(false);
+  const hydratedMessageIdsRef = useRef(new Set<string>());
   const lastAutoOpenedDraftRef = useRef<string | null>(null);
-  const dismissedDraftKeysRef = useRef<Set<string>>(new Set());
+  const dismissedDraftKeysRef = useRef(new Set<string>());
+
+  const handleFocusedListingChange = useCallback(
+    (listing: BuyerSourcingListingResult | null) => {
+      buyerChatRequestContext.focusedListingId = listing?.listingId ?? null;
+    },
+    [],
+  );
 
   const transport = useMemo(
     () =>
       new DefaultChatTransport<BuyerChatMessage>({
         api: BUYER_SOURCING_CHAT_API,
         headers: (): Record<string, string> => {
-          const token = tokenRef.current;
+          const token = buyerChatRequestContext.authToken;
 
           if (!token) {
             return {};
@@ -548,6 +961,14 @@ export function BuyerSourcingChat() {
 
           return { Authorization: `Bearer ${token}` };
         },
+        prepareSendMessagesRequest: ({ messages, body }) => ({
+          body: {
+            ...body,
+            focusedListingId:
+              buyerChatRequestContext.focusedListingId ?? undefined,
+            messages,
+          },
+        }),
       }),
     [],
   );
@@ -575,6 +996,9 @@ export function BuyerSourcingChat() {
       loadBuyerSourcingMessages<BuyerChatMessage>(chatStorageKey);
 
     if (persistedMessages.length > 0) {
+      hydratedMessageIdsRef.current = new Set(
+        persistedMessages.map((message) => message.id),
+      );
       setMessages(persistedMessages);
     }
   }, [chatStorageKey, setMessages]);
@@ -594,22 +1018,36 @@ export function BuyerSourcingChat() {
   const [checkoutDefaultQty, setCheckoutDefaultQty] = useState<
     number | undefined
   >(undefined);
-  const [checkoutQueue, setCheckoutQueue] = useState<CheckoutQueueItem[]>([]);
-  const [checkoutStepIndex, setCheckoutStepIndex] = useState(0);
   const [orderDraftOpen, setOrderDraftOpen] = useState(false);
+  const [detailListing, setDetailListing] =
+    useState<BuyerSourcingListingResult | null>(null);
+  const [detailIntent, setDetailIntent] = useState<BuyerSearchIntent | null>(
+    null,
+  );
+  const [detailOpen, setDetailOpen] = useState(false);
   const [activeOrderDraft, setActiveOrderDraft] =
     useState<BuyerOrderDraft | null>(null);
-  const [selectedListing, setSelectedListing] =
-    useState<BuyerSourcingListingResult | null>(null);
-  const [listingDetailOpen, setListingDetailOpen] = useState(false);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const isBusy = status === "submitted" || status === "streaming";
   const statusPhase = useMemo(
     () => (isBusy ? getStatusPhase(messages) : "working"),
     [isBusy, messages],
   );
+  const statusTrail = useMemo(
+    () => (isBusy ? getLatestStatusTrail(messages) : null),
+    [isBusy, messages],
+  );
   const isAuthReady = authToken !== null;
   const userDisplayName = viewer?.name ?? viewer?.email ?? "You";
+  const userFirstName = (() => {
+    const raw = viewer?.name?.trim().split(/\s+/)[0];
+
+    if (!raw || raw === "You" || raw.includes("@")) {
+      return undefined;
+    }
+
+    return raw;
+  })();
   const userInitials = getInitials(
     viewer?.name,
     viewer?.email,
@@ -636,8 +1074,10 @@ export function BuyerSourcingChat() {
     });
   }, [messages.length, isBusy]);
 
+  // Auto-open only for drafts created in this session — never for messages
+  // restored from storage on refresh / navigation.
   useEffect(() => {
-    if (isBusy) {
+    if (isBusy || !hasHydratedRef.current) {
       return;
     }
 
@@ -646,6 +1086,10 @@ export function BuyerSourcingChat() {
     ) as BuyerChatMessage | null;
 
     if (!replyToLatestUser) {
+      return;
+    }
+
+    if (hydratedMessageIdsRef.current.has(replyToLatestUser.id)) {
       return;
     }
 
@@ -695,21 +1139,29 @@ export function BuyerSourcingChat() {
       ? getSourcingData(lastAssistant)?.intent
       : null;
 
-    setCheckoutQueue([]);
-    setCheckoutStepIndex(0);
     setCheckoutDefaultQty(intent?.minQuantityKg);
     setCheckoutListing(listing);
     setCheckoutOpen(true);
   };
 
-  const handleSelectListing = (listing: BuyerSourcingListingResult) => {
-    setSelectedListing(listing);
-    setListingDetailOpen(true);
+  const handleSelectListing = (
+    listing: BuyerSourcingListingResult,
+    intent: BuyerSearchIntent | null,
+  ) => {
+    setDetailListing(listing);
+    setDetailIntent(intent);
+    setDetailOpen(true);
   };
 
-  const handleCloseListingDetail = () => {
-    setListingDetailOpen(false);
-    setSelectedListing(null);
+  const handleDetailClose = () => {
+    setDetailOpen(false);
+    setDetailListing(null);
+    setDetailIntent(null);
+  };
+
+  const handleOrderFromDetail = (listing: BuyerSourcingListingResult) => {
+    handleDetailClose();
+    handleOrder(listing);
   };
 
   const handleOpenOrderDraft = (orderDraft: BuyerOrderDraft) => {
@@ -717,50 +1169,10 @@ export function BuyerSourcingChat() {
     setOrderDraftOpen(true);
   };
 
-  const handleConfirmOrderDraft = (lines: ConfirmedOrderLine[]) => {
-    if (lines.length === 0) {
-      return;
-    }
-
-    setCheckoutQueue(lines);
-    setCheckoutStepIndex(0);
-    setCheckoutDefaultQty(lines[0]?.quantityKg);
-    setCheckoutListing(lines[0]?.listing ?? null);
-    setCheckoutOpen(true);
-  };
-
   const handleCheckoutClose = () => {
     setCheckoutOpen(false);
     setCheckoutListing(null);
-    setCheckoutQueue([]);
-    setCheckoutStepIndex(0);
   };
-
-  const handleCheckoutComplete = () => {
-    setCheckoutOpen(false);
-    setCheckoutListing(null);
-
-    const nextIndex = checkoutStepIndex + 1;
-
-    if (nextIndex < checkoutQueue.length) {
-      const nextItem = checkoutQueue[nextIndex]!;
-
-      setCheckoutStepIndex(nextIndex);
-      setCheckoutDefaultQty(nextItem.quantityKg);
-      setCheckoutListing(nextItem.listing);
-      setCheckoutOpen(true);
-
-      return;
-    }
-
-    setCheckoutQueue([]);
-    setCheckoutStepIndex(0);
-  };
-
-  const checkoutStepLabel =
-    checkoutQueue.length > 1
-      ? `Payment ${checkoutStepIndex + 1} of ${checkoutQueue.length}`
-      : undefined;
 
   const handleNewChat = () => {
     if (isBusy) {
@@ -770,12 +1182,15 @@ export function BuyerSourcingChat() {
     clearError();
     setMessages([]);
     setInput("");
-    setCheckoutQueue([]);
-    setCheckoutStepIndex(0);
+    setCheckoutListing(null);
+    setCheckoutOpen(false);
     setActiveOrderDraft(null);
     setOrderDraftOpen(false);
+    handleDetailClose();
+    buyerChatRequestContext.focusedListingId = null;
     lastAutoOpenedDraftRef.current = null;
     dismissedDraftKeysRef.current = new Set();
+    hydratedMessageIdsRef.current = new Set();
 
     if (chatStorageKey) {
       clearBuyerSourcingMessages(chatStorageKey);
@@ -801,111 +1216,94 @@ export function BuyerSourcingChat() {
         </div>
       ) : null}
 
-      <Card className="w-full rounded-card bg-surface text-surface-foreground shadow-sm dark:shadow-none">
-        <Card.Content
-          className={`flex flex-col gap-4 px-5 py-5 sm:px-6${messages.length > 0 ? " min-h-112" : ""}`}
+      <div
+        className={`flex w-full flex-col gap-4${messages.length > 0 ? " min-h-112" : ""}`}
+      >
+        <div
+          ref={chatScrollRef}
+          className="flex flex-1 flex-col gap-4 overflow-y-auto"
         >
-          <div
-            ref={chatScrollRef}
-            className="flex flex-1 flex-col gap-4 overflow-y-auto"
-          >
-            {messages.length === 0 ? (
-              <SourcingChatEmptyState />
-            ) : (
-              messages.map((message, index) => (
-                <ChatMessage
-                  key={message.id}
-                  liveStatusMap={liveStatusMap}
-                  loadingPhase={statusPhase}
-                  message={message}
-                  showLoading={
-                    isBusy &&
-                    index === messages.length - 1 &&
-                    message.role === "assistant"
-                  }
-                  userDisplayName={userDisplayName}
-                  userImage={viewer?.image}
-                  userInitials={userInitials}
-                  onOpenOrderDraft={handleOpenOrderDraft}
-                  onSelectListing={handleSelectListing}
-                />
-              ))
-            )}
-
-            {isBusy &&
-            (messages.length === 0 ||
-              messages[messages.length - 1]?.role === "user") ? (
-              <ChatLoadingIndicator phase={statusPhase} />
-            ) : null}
-          </div>
-
-          {error ? (
-            <p className="text-sm text-danger">{error.message}</p>
-          ) : null}
-          {!isAuthReady ? (
-            <p className="text-sm text-muted">Signing you in…</p>
-          ) : null}
-
-          <form className="flex flex-col gap-3 pt-2" onSubmit={handleSubmit}>
-            <div className={`relative ${COMPOSER_SURFACE}`}>
-              <textarea
-                aria-label="Sourcing request"
-                className={COMPOSER_INPUT}
-                rows={3}
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                onKeyDown={(event) => {
-                  if (
-                    event.key === "Enter" &&
-                    !event.shiftKey &&
-                    !isBusy &&
-                    isAuthReady &&
-                    input.trim().length > 0
-                  ) {
-                    event.preventDefault();
-                    event.currentTarget.form?.requestSubmit();
-                  }
-                }}
+          {messages.length === 0 ? (
+            <SourcingChatEmptyState firstName={userFirstName} />
+          ) : (
+            messages.map((message, index) => (
+              <ChatMessage
+                key={message.id}
+                liveStatusMap={liveStatusMap}
+                loadingPhase={statusPhase}
+                message={message}
+                showLoading={
+                  isBusy &&
+                  index === messages.length - 1 &&
+                  message.role === "assistant"
+                }
+                userDisplayName={userDisplayName}
+                userImage={viewer?.image}
+                userInitials={userInitials}
+                onFocusedListingChange={handleFocusedListingChange}
+                onOpenOrderDraft={handleOpenOrderDraft}
+                onOrderListing={handleOrder}
+                onSelectListing={handleSelectListing}
               />
-              <button
-                aria-label={isBusy ? "Working on request" : "Send request"}
-                className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full bg-accent text-accent-foreground transition-opacity disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
-                disabled={isBusy || !isAuthReady || input.trim().length === 0}
-                type="submit"
-              >
-                <SourcingSendIcon size={16} />
-              </button>
-            </div>
-            <div className="flex items-center justify-between gap-3 px-1">
-              <p className="text-xs text-muted">
-                Press Enter to send · Shift+Enter for a new line
-              </p>
-              {isBusy ? (
-                <Button
-                  size="sm"
-                  type="button"
-                  variant="secondary"
-                  onPress={() => stop()}
-                >
-                  Stop
-                </Button>
-              ) : null}
-            </div>
-          </form>
-        </Card.Content>
-      </Card>
+            ))
+          )}
 
-      <BuyerListingDetailDialog
-        listing={selectedListing}
-        liveStatus={
-          selectedListing
-            ? resolveLiveStatus(selectedListing, liveStatusMap)
-            : undefined
-        }
-        open={listingDetailOpen}
-        onClose={handleCloseListingDetail}
-        onOrder={handleOrder}
-      />
+          {isBusy &&
+          (messages.length === 0 ||
+            messages[messages.length - 1]?.role === "user") ? (
+            <ChatLoadingIndicator trail={statusTrail} />
+          ) : null}
+        </div>
+
+        {error ? <p className="text-sm text-danger">{error.message}</p> : null}
+        {!isAuthReady ? (
+          <p className="text-sm text-muted">Signing you in…</p>
+        ) : null}
+
+        <form className="flex flex-col gap-3 pt-2" onSubmit={handleSubmit}>
+          <div className={`relative ${COMPOSER_SURFACE}`}>
+            <textarea
+              aria-label="Sourcing request"
+              className={COMPOSER_INPUT}
+              rows={3}
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter" &&
+                  !event.shiftKey &&
+                  !isBusy &&
+                  isAuthReady &&
+                  input.trim().length > 0
+                ) {
+                  event.preventDefault();
+                  event.currentTarget.form?.requestSubmit();
+                }
+              }}
+            />
+            <button
+              aria-label={isBusy ? "Working on request" : "Send request"}
+              className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full bg-accent text-accent-foreground transition-opacity disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+              disabled={isBusy || !isAuthReady || input.trim().length === 0}
+              type="submit"
+            >
+              <SourcingSendIcon size={16} />
+            </button>
+          </div>
+          {isBusy ? (
+            <div className="flex items-center justify-end gap-3 px-1">
+              <Button
+                size="sm"
+                type="button"
+                variant="secondary"
+                onPress={() => stop()}
+              >
+                Stop
+              </Button>
+            </div>
+          ) : null}
+        </form>
+      </div>
 
       <OrderDraftConfirmDialog
         liveStatusMap={liveStatusMap}
@@ -917,16 +1315,31 @@ export function BuyerSourcingChat() {
           }
           setOrderDraftOpen(false);
         }}
-        onConfirm={handleConfirmOrderDraft}
+        onComplete={() => {
+          setOrderDraftOpen(false);
+          setActiveOrderDraft(null);
+        }}
       />
 
       <OrderCheckoutDialog
         defaultQuantityKg={checkoutDefaultQty}
         listing={checkoutListing}
         open={checkoutOpen}
-        stepLabel={checkoutStepLabel}
-        onCheckoutComplete={handleCheckoutComplete}
+        onCheckoutComplete={handleCheckoutClose}
         onClose={handleCheckoutClose}
+      />
+
+      <BuyerListingDetailDialog
+        intent={detailIntent}
+        listing={detailListing}
+        liveStatus={
+          detailListing
+            ? resolveLiveStatus(detailListing, liveStatusMap)
+            : undefined
+        }
+        open={detailOpen}
+        onClose={handleDetailClose}
+        onOrder={handleOrderFromDetail}
       />
     </div>
   );

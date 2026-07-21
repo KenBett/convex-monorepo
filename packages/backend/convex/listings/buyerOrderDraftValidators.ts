@@ -10,6 +10,7 @@ export const buyerOrderLineRequestValidator = v.object({
   crop: v.string(),
   grade: v.optional(v.string()),
   listingRef: v.optional(v.number()),
+  neededByLabel: v.optional(v.string()),
   quantityKg: v.number(),
 });
 
@@ -29,59 +30,40 @@ export const buyerOrderDraftLineValidator = v.object({
 
 export const buyerOrderDraftValidator = v.object({
   lines: v.array(buyerOrderDraftLineValidator),
+  neededByLabel: v.optional(v.string()),
+  neededByMs: v.optional(v.number()),
+  pointALabel: v.optional(v.string()),
+  pointBLabel: v.optional(v.string()),
   summaryText: v.string(),
 });
 
-export function toValidatorOrderDraft(
-  orderDraft: BuyerOrderDraft,
-): {
-  lines: Array<{
-    issue?: "ambiguous" | "insufficient_stock" | "not_active" | "not_found";
-    listing?: {
-      cooperativeName: string;
-      county: string;
-      crop: string;
-      description: string;
-      grade?: string;
-      imageUrl: string | null;
-      listingId: Id<"listings">;
-      pricePerKg: number;
-      quantityKg: number;
-      score: number;
-      snippet: string;
-      status: "active" | "expired" | "sold_out";
-      title?: string;
-    };
-    quantityKg: number;
-    request: {
-      cooperativeName?: string;
-      county?: string;
-      crop: string;
-      grade?: string;
-      listingRef?: number;
-      quantityKg: number;
-    };
-  }>;
-  summaryText: string;
-} {
+export function toValidatorOrderDraft(orderDraft: BuyerOrderDraft) {
   return {
     lines: orderDraft.lines.map((line) => ({
       issue: line.issue,
       listing: line.listing
         ? {
+            certifications: line.listing.certifications,
             cooperativeName: line.listing.cooperativeName,
             county: line.listing.county,
             crop: line.listing.crop,
             description: line.listing.description,
             grade: line.listing.grade,
+            harvestWindowLabel: line.listing.harvestWindowLabel,
             imageUrl: line.listing.imageUrl ?? null,
             listingId: line.listing.listingId as Id<"listings">,
+            minOrderKg: line.listing.minOrderKg,
+            packaging: line.listing.packaging,
+            packUnitKg: line.listing.packUnitKg,
             pricePerKg: line.listing.pricePerKg,
             quantityKg: line.listing.quantityKg,
             score: line.listing.score,
+            sizeOrCalibre: line.listing.sizeOrCalibre,
             snippet: line.listing.snippet,
             status: line.listing.status,
+            tags: line.listing.tags,
             title: line.listing.title,
+            variety: line.listing.variety,
           }
         : undefined,
       quantityKg: line.quantityKg,
@@ -91,9 +73,14 @@ export function toValidatorOrderDraft(
         crop: line.request.crop,
         grade: line.request.grade,
         listingRef: line.request.listingRef,
+        neededByLabel: line.request.neededByLabel,
         quantityKg: line.request.quantityKg,
       },
     })),
+    neededByLabel: orderDraft.neededByLabel,
+    neededByMs: orderDraft.neededByMs,
+    pointALabel: orderDraft.pointALabel,
+    pointBLabel: orderDraft.pointBLabel,
     summaryText: orderDraft.summaryText,
   };
 }

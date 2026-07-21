@@ -9,3 +9,5 @@ dist
 convex/_generated
 *.tsbuildinfo
 .DS_Store
+/docs/*
+!/docs/phase.md

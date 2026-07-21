@@ -1,33 +1,62 @@
 import { v } from "convex/values";
 
+import type { BuyerRetrievalMode } from "@repo/types";
+import { stripInternalListingMarkers } from "@repo/types";
+
 import { internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
+import {
+  listingCertificationValidator,
+  listingPackagingValidator,
+  listingTagValidator,
+} from "../lib/listingAttributes";
 import { matchesGrade } from "../lib/listings";
 import type { BuyerSearchIntent } from "./buyerChatParse";
 import {
+  buildCompletedTrail,
+  buildFilterLabels,
+} from "./buyerChatTrail";
+import {
   type ListingSearchResultRow,
-  runListingSemanticSearch,
+  runListingBrowseSearch,
 } from "./search";
+
+type BuyerSearchMeta = {
+  excludedSoldOutCount: number;
+  filterLabels: string[];
+  ragCandidateCount: number;
+  resultCount: number;
+  retrievalMode: BuyerRetrievalMode;
+  trail: ReturnType<typeof buildCompletedTrail>;
+};
 
 type BuyerChatPreviousSourcingContext = {
   crops: string[];
   intent: BuyerSearchIntent;
   listingCount: number;
   listings: Array<{
+    certifications?: Doc<"listings">["certifications"];
     cooperativeName: string;
     county: string;
     crop: string;
     description?: string;
     grade?: string;
+    harvestWindowLabel?: string;
     listingId: Id<"listings">;
+    minOrderKg?: number;
+    packaging?: Doc<"listings">["packaging"];
+    packUnitKg?: number;
     pricePerKg: number;
     quantityKg: number;
+    sizeOrCalibre?: string;
     status: "active" | "expired" | "sold_out";
+    tags?: Doc<"listings">["tags"];
+    variety?: string;
   }>;
 };
 
-/** Crop, county, and grade are all strict AND filters — a mismatch on any one excludes the result. */
+/** Crop, county, grade, and hard tags are all strict AND filters — a mismatch excludes the result. */
 function applyIntentFilters(
   results: ListingSearchResultRow[],
   intent: BuyerSearchIntent,
@@ -47,6 +76,14 @@ function applyIntentFilters(
     }
     if (intent.maxPricePerKg && result.pricePerKg > intent.maxPricePerKg) {
       return false;
+    }
+    if (intent.tags && intent.tags.length > 0) {
+      const listingTags = new Set(result.tags ?? []);
+      for (const tag of intent.tags) {
+        if (!listingTags.has(tag)) {
+          return false;
+        }
+      }
     }
     return true;
   });
@@ -120,16 +157,78 @@ function rankByRelevance(
 ): ListingSearchResultRow[] {
   const terms = extractDescriptiveTerms(intent.searchText);
   if (terms.length === 0) {
-    return results;
+    return results.map((result) => ({
+      ...result,
+      snippet: buildMatchReason(result, intent, terms),
+    }));
   }
 
-  return [...results].sort((left, right) => {
-    const leftScore =
-      left.score + computeDescriptionBonus(left.description, terms) * 0.25;
-    const rightScore =
-      right.score + computeDescriptionBonus(right.description, terms) * 0.25;
-    return rightScore - leftScore;
-  });
+  return [...results]
+    .map((result) => {
+      const descriptionBonus = computeDescriptionBonus(result.description, terms);
+      return {
+        ...result,
+        score: Math.min(1, result.score + descriptionBonus * 0.25),
+        snippet: buildMatchReason(result, intent, terms),
+      };
+    })
+    .sort((left, right) => right.score - left.score);
+}
+
+/** One-line glass-box reason shown on listing cards. */
+function buildMatchReason(
+  result: ListingSearchResultRow,
+  intent: BuyerSearchIntent,
+  terms: string[],
+): string {
+  const description = stripInternalListingMarkers(result.description);
+  if (terms.length > 0 && description.length > 0) {
+    const sentences = description.split(/(?<=[.!?])\s+/);
+    const scored = sentences
+      .map((sentence) => ({
+        hits: terms.filter((term) => sentence.toLowerCase().includes(term))
+          .length,
+        sentence,
+      }))
+      .filter((entry) => entry.hits > 0)
+      .sort((left, right) => right.hits - left.hits);
+
+    const best = scored[0]?.sentence;
+    if (best) {
+      return best.length > 140 ? `${best.slice(0, 137)}…` : best;
+    }
+  }
+
+  const bits: string[] = [];
+  if (result.variety) {
+    bits.push(result.variety);
+  }
+  if (result.tags?.includes("organic")) {
+    bits.push("organic");
+  }
+  if (intent.county && result.county === intent.county) {
+    bits.push(`in ${result.county}`);
+  } else if (result.county) {
+    bits.push(result.county);
+  }
+  if (result.harvestWindowLabel) {
+    bits.push(result.harvestWindowLabel);
+  }
+
+  if (bits.length > 0) {
+    return bits.join(" · ");
+  }
+
+  const generic = stripInternalListingMarkers(result.snippet);
+  if (
+    generic.length > 0 &&
+    !generic.startsWith("This listing offers") &&
+    generic !== `${result.crop} — ${result.county}`
+  ) {
+    return generic.length > 140 ? `${generic.slice(0, 137)}…` : generic;
+  }
+
+  return `${result.crop} from ${result.cooperativeName} in ${result.county}`;
 }
 
 function sortResultsByPricePreference(
@@ -160,6 +259,20 @@ function limitResults(
   return results.slice(0, resultLimit);
 }
 
+function excludePreviouslyShownListings(
+  results: ListingSearchResultRow[],
+  previousSourcing?: BuyerChatPreviousSourcingContext,
+): ListingSearchResultRow[] {
+  if (!previousSourcing || previousSourcing.listings.length === 0) {
+    return results;
+  }
+
+  const shownIds = new Set(
+    previousSourcing.listings.map((listing) => listing.listingId),
+  );
+  return results.filter((result) => !shownIds.has(result.listingId));
+}
+
 async function hydratePreviousListings(
   ctx: ActionCtx,
   intent: BuyerSearchIntent,
@@ -183,13 +296,11 @@ export async function executeBuyerSearchFromIntent(
   previousSourcing?: BuyerChatPreviousSourcingContext,
 ): Promise<{
   intent: BuyerSearchIntent;
-  meta: {
-    excludedSoldOutCount: number;
-    ragCandidateCount: number;
-    resultCount: number;
-  };
+  meta: BuyerSearchMeta;
   results: ListingSearchResultRow[];
 }> {
+  const filterLabels = buildFilterLabels(intent);
+
   if (intent.refinePreviousResults && previousSourcing) {
     const hydratedResults = await hydratePreviousListings(
       ctx,
@@ -203,28 +314,41 @@ export async function executeBuyerSearchFromIntent(
       intent.pricePreference,
     );
     const results = limitResults(sortedResults, intent.resultLimit);
+    const retrievalMode = "refine" as const;
+    const meta: BuyerSearchMeta = {
+      excludedSoldOutCount: Math.max(
+        0,
+        previousSourcing.listings.length - hydratedResults.length,
+      ),
+      filterLabels,
+      ragCandidateCount: previousSourcing.listings.length,
+      resultCount: results.length,
+      retrievalMode,
+      trail: buildCompletedTrail({
+        filterLabels,
+        ragCandidateCount: previousSourcing.listings.length,
+        resultCount: results.length,
+        retrievalMode,
+      }),
+    };
 
     return {
       intent,
-      meta: {
-        excludedSoldOutCount: Math.max(
-          0,
-          previousSourcing.listings.length - hydratedResults.length,
-        ),
-        ragCandidateCount: previousSourcing.listings.length,
-        resultCount: results.length,
-      },
+      meta,
       results,
     };
   }
 
   const query = intent.searchText.trim();
-  const { ragCandidateCount, results: hydratedResults } =
-    await runListingSemanticSearch(ctx, {
-      crop: intent.crop,
-      limit: 8,
-      query: query.length > 0 ? query : "produce",
-    });
+  const {
+    ragCandidateCount,
+    results: hydratedResults,
+    retrievalMode,
+  } = await runListingBrowseSearch(ctx, {
+    crop: intent.crop,
+    limit: intent.excludePreviousListings ? 12 : 8,
+    query: query.length > 0 ? query : "produce",
+  });
 
   const filteredResults = applyIntentFilters(hydratedResults, intent);
   const rankedResults = rankByRelevance(filteredResults, intent);
@@ -232,26 +356,34 @@ export async function executeBuyerSearchFromIntent(
     rankedResults,
     intent.pricePreference,
   );
-  const results = limitResults(sortedResults, intent.resultLimit);
+  const withoutShown = intent.excludePreviousListings
+    ? excludePreviouslyShownListings(sortedResults, previousSourcing)
+    : sortedResults;
+  const results = limitResults(withoutShown, intent.resultLimit);
+  const meta: BuyerSearchMeta = {
+    excludedSoldOutCount: Math.max(0, ragCandidateCount - hydratedResults.length),
+    filterLabels,
+    ragCandidateCount,
+    resultCount: results.length,
+    retrievalMode,
+    trail: buildCompletedTrail({
+      filterLabels,
+      ragCandidateCount,
+      resultCount: results.length,
+      retrievalMode,
+    }),
+  };
 
   return {
     intent,
-    meta: {
-      excludedSoldOutCount: Math.max(0, ragCandidateCount - hydratedResults.length),
-      ragCandidateCount,
-      resultCount: results.length,
-    },
+    meta,
     results,
   };
 }
 
 export type BuyerSearchGroupResult = {
   intent: BuyerSearchIntent;
-  meta: {
-    excludedSoldOutCount: number;
-    ragCandidateCount: number;
-    resultCount: number;
-  };
+  meta: BuyerSearchMeta;
   results: ListingSearchResultRow[];
 };
 
@@ -275,19 +407,27 @@ export async function executeBuyerSearchClauses(
 }
 
 export const buyerChatPreviousListingValidator = v.object({
+  certifications: v.optional(v.array(listingCertificationValidator)),
   cooperativeName: v.string(),
   county: v.string(),
   crop: v.string(),
   description: v.optional(v.string()),
   grade: v.optional(v.string()),
+  harvestWindowLabel: v.optional(v.string()),
   listingId: v.id("listings"),
+  minOrderKg: v.optional(v.number()),
+  packaging: v.optional(listingPackagingValidator),
+  packUnitKg: v.optional(v.number()),
   pricePerKg: v.number(),
   quantityKg: v.number(),
+  sizeOrCalibre: v.optional(v.string()),
   status: v.union(
     v.literal("active"),
     v.literal("sold_out"),
     v.literal("expired"),
   ),
+  tags: v.optional(v.array(listingTagValidator)),
+  variety: v.optional(v.string()),
 });
 
 export type BuyerChatPreviousSourcingContextValidated = {
@@ -295,14 +435,22 @@ export type BuyerChatPreviousSourcingContextValidated = {
   intent: BuyerSearchIntent;
   listingCount: number;
   listings: Array<{
+    certifications?: Doc<"listings">["certifications"];
     cooperativeName: string;
     county: string;
     crop: string;
     description?: string;
     grade?: string;
+    harvestWindowLabel?: string;
     listingId: Id<"listings">;
+    minOrderKg?: number;
+    packaging?: Doc<"listings">["packaging"];
+    packUnitKg?: number;
     pricePerKg: number;
     quantityKg: number;
+    sizeOrCalibre?: string;
     status: "active" | "expired" | "sold_out";
+    tags?: Doc<"listings">["tags"];
+    variety?: string;
   }>;
 };

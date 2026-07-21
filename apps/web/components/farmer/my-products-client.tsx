@@ -13,6 +13,15 @@ import { FarmerListingCard } from "@/components/farmer/listing-card";
 import { ListingForm } from "@/components/farmer/listing-form";
 import { MyProductsSkeleton } from "@/components/farmer/my-products-skeleton";
 
+/** Fills viewport below fixed navbar (and mobile tab bar), so only the grid scrolls. */
+const PAGE_FRAME_CLASSES = clsx(
+  "mx-auto flex w-full max-w-4xl flex-col gap-4",
+  // mobile: navbar (3rem) + tab bar (4rem + safe)
+  "h-[calc(100dvh-3rem-4rem-env(safe-area-inset-bottom,0px))]",
+  // desktop: navbar (3.5rem) + main pb-8 (2rem)
+  "md:h-[calc(100dvh-3.5rem-2rem)]",
+);
+
 type ListingStat = {
   label: string;
   value: string;
@@ -99,7 +108,7 @@ export function MyProductsClient() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
+    <div className={PAGE_FRAME_CLASSES}>
       <Modal state={createModalState}>
         <Modal.Backdrop>
           <Modal.Container scroll="inside" size="lg">
@@ -120,48 +129,50 @@ export function MyProductsClient() {
         </Modal.Backdrop>
       </Modal>
 
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 flex-col gap-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            My Products
-          </h1>
-        </div>
-        <Button
-          className="shrink-0 rounded-full bg-accent px-4 font-medium text-accent-foreground sm:mt-0.5"
-          size="sm"
-          variant="primary"
-          onPress={createModalState.open}
-        >
-          <Plus className="h-4 w-4" strokeWidth={1.75} />
-          Add listing
-        </Button>
-      </header>
+      <div className="flex shrink-0 flex-col gap-4">
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 flex-col gap-1">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              My Products
+            </h1>
+          </div>
+          <Button
+            className="shrink-0 rounded-full bg-accent px-4 font-medium text-accent-foreground sm:mt-0.5"
+            size="sm"
+            variant="primary"
+            onPress={createModalState.open}
+          >
+            <Plus className="h-4 w-4" strokeWidth={1.75} />
+            Add listing
+          </Button>
+        </header>
 
-      {stats ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <ListingStatCard
-            icon={Tag}
-            label="Active listings"
-            value={String(stats.activeCount)}
-          />
-          <ListingStatCard
-            icon={ShoppingBag}
-            label="Sold out"
-            value={String(stats.soldOutCount)}
-          />
-          <ListingStatCard
-            icon={Scale}
-            label="Kg available"
-            value={`${stats.totalKgAvailable.toLocaleString()} kg`}
-          />
-        </div>
-      ) : null}
+        {stats ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <ListingStatCard
+              icon={Tag}
+              label="Active listings"
+              value={String(stats.activeCount)}
+            />
+            <ListingStatCard
+              icon={ShoppingBag}
+              label="Sold out"
+              value={String(stats.soldOutCount)}
+            />
+            <ListingStatCard
+              icon={Scale}
+              label="Kg available"
+              value={`${stats.totalKgAvailable.toLocaleString()} kg`}
+            />
+          </div>
+        ) : null}
+      </div>
 
-      <section className="flex flex-col gap-4">
+      <section className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pr-0.5">
         {listings.length === 0 ? (
           <ListingsEmptyState onAddListing={createModalState.open} />
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(12.5rem,1fr))] gap-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-3 pb-1">
             {listings.map((listing) => (
               <FarmerListingCard
                 key={listing._id}

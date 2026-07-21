@@ -4,15 +4,22 @@ import {
   COUNTIES,
   getCropTheme,
   getListingCardBgClass,
+  LISTING_PACKAGING,
+  LISTING_PACKAGING_LABELS,
+  LISTING_TAGS,
+  LISTING_TAG_LABELS,
   LISTING_FORM_STEP_COUNT,
   LISTING_FORM_STEP_LABELS,
   listingFormDefaults,
+  listingGradeOptions,
   parseListingForm,
   validateListingFormStep,
   type CropType,
   type ListingFormFieldErrors,
   type ListingFormInput,
   type ListingFormStep,
+  type ListingPackaging,
+  type ListingTag,
 } from "@repo/types";
 import { CropBadge, CropPickerGrid } from "@/components/crop-display";
 import { ListingImagePicker } from "@/components/listing-image-picker";
@@ -26,6 +33,7 @@ import {
   Surface,
   TextField,
 } from "heroui-native";
+import { Check } from "lucide-react-native";
 import { Fragment, useState, type JSX } from "react";
 import { Image, ScrollView, Text, View } from "react-native";
 
@@ -100,26 +108,70 @@ function FormSelect({
 function StepIndicator({ step }: { step: ListingFormStep }): JSX.Element {
   return (
     <View
-      accessibilityLabel={`Step ${step} of ${LISTING_FORM_STEP_COUNT}`}
+      accessibilityLabel={`Step ${step} of ${LISTING_FORM_STEP_COUNT}: ${LISTING_FORM_STEP_LABELS[step - 1]}`}
       accessibilityRole="progressbar"
-      className="gap-2"
+      className="w-full"
     >
-      <View className="flex-row gap-1.5">
-        {Array.from({ length: LISTING_FORM_STEP_COUNT }, (_, index) => {
+      <View className="flex-row items-start">
+        {LISTING_FORM_STEP_LABELS.map((label, index) => {
           const stepNumber = (index + 1) as ListingFormStep;
+          const completed = stepNumber < step;
+          const current = stepNumber === step;
+          const upcoming = stepNumber > step;
+
           return (
             <View
-              key={stepNumber}
-              className={`h-1 flex-1 rounded-full ${
-                stepNumber <= step ? "bg-accent" : "bg-separator"
-              }`}
-            />
+              key={label}
+              className="relative min-w-0 flex-1 items-center"
+            >
+              {index > 0 ? (
+                <View
+                  className={`absolute left-0 right-1/2 top-[15px] h-0.5 ${
+                    stepNumber <= step ? "bg-accent" : "bg-separator"
+                  }`}
+                />
+              ) : null}
+              {index < LISTING_FORM_STEP_COUNT - 1 ? (
+                <View
+                  className={`absolute left-1/2 right-0 top-[15px] h-0.5 ${
+                    stepNumber < step ? "bg-accent" : "bg-separator"
+                  }`}
+                />
+              ) : null}
+
+              <View
+                className={`z-10 size-8 items-center justify-center rounded-full ${
+                  completed
+                    ? "bg-accent"
+                    : current
+                      ? "border-2 border-accent bg-background"
+                      : "border border-separator bg-background"
+                }`}
+              >
+                {completed ? (
+                  <Check color="#fff" size={16} strokeWidth={2.5} />
+                ) : (
+                  <Text
+                    className={`text-sm font-semibold ${
+                      current ? "text-accent" : "text-muted"
+                    }`}
+                  >
+                    {stepNumber}
+                  </Text>
+                )}
+              </View>
+
+              <Text
+                className={`mt-2 px-1 text-center text-[11px] leading-tight ${
+                  upcoming ? "text-muted" : "text-foreground font-medium"
+                }`}
+              >
+                {label}
+              </Text>
+            </View>
           );
         })}
       </View>
-      <Text className="text-caption text-muted">
-        Step {step} of {LISTING_FORM_STEP_COUNT} · {LISTING_FORM_STEP_LABELS[step - 1]}
-      </Text>
     </View>
   );
 }
@@ -241,6 +293,23 @@ export function ListingForm({
   );
   const [description, setDescription] = useState(defaults.description);
   const [grade, setGrade] = useState(defaults.grade ?? "");
+  const [variety, setVariety] = useState(defaults.variety ?? "");
+  const [harvestWindowLabel, setHarvestWindowLabel] = useState(
+    defaults.harvestWindowLabel ?? "",
+  );
+  const [tags, setTags] = useState<ListingTag[]>(defaults.tags ?? []);
+  const [packaging, setPackaging] = useState<ListingPackaging | undefined>(
+    defaults.packaging,
+  );
+  const [packUnitKg, setPackUnitKg] = useState(
+    defaults.packUnitKg != null ? String(defaults.packUnitKg) : "",
+  );
+  const [minOrderKg, setMinOrderKg] = useState(
+    defaults.minOrderKg != null ? String(defaults.minOrderKg) : "",
+  );
+  const [sizeOrCalibre, setSizeOrCalibre] = useState(
+    defaults.sizeOrCalibre ?? "",
+  );
   const [imageStorageId, setImageStorageId] = useState<Id<"_storage"> | null>(
     defaults.imageStorageId ? (defaults.imageStorageId as Id<"_storage">) : null,
   );
@@ -252,13 +321,21 @@ export function ListingForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const formValues = {
+    certifications: defaults.certifications ?? [],
     crop,
     county: countyValue.value,
     description,
     grade,
+    harvestWindowLabel,
     imageStorageId: imageStorageId ?? "",
+    minOrderKg,
+    packaging,
+    packUnitKg,
     pricePerKg,
     quantityKg,
+    sizeOrCalibre,
+    tags,
+    variety,
   };
 
   const handleImageChange = (
@@ -285,14 +362,22 @@ export function ListingForm({
 
       if (listingId) {
         await updateListing({
+          certifications: parsed.data.certifications,
           county: parsed.data.county,
           crop: parsed.data.crop,
           description: parsed.data.description,
           grade: gradeValue ?? "",
+          harvestWindowLabel: parsed.data.harvestWindowLabel?.trim() || "",
           imageStorageId: imageStorageId ?? undefined,
           listingId,
+          minOrderKg: parsed.data.minOrderKg ?? null,
+          packaging: parsed.data.packaging,
+          packUnitKg: parsed.data.packUnitKg ?? null,
           pricePerKg: parsed.data.pricePerKg,
           quantityKg: parsed.data.quantityKg,
+          sizeOrCalibre: parsed.data.sizeOrCalibre?.trim() || "",
+          tags: parsed.data.tags,
+          variety: parsed.data.variety?.trim() || "",
         });
       } else {
         if (!imageStorageId) {
@@ -301,13 +386,21 @@ export function ListingForm({
         }
 
         await createListing({
+          certifications: parsed.data.certifications,
           county: parsed.data.county,
           crop: parsed.data.crop,
           description: parsed.data.description,
           grade: gradeValue,
+          harvestWindowLabel: parsed.data.harvestWindowLabel?.trim() || undefined,
           imageStorageId,
+          minOrderKg: parsed.data.minOrderKg,
+          packaging: parsed.data.packaging,
+          packUnitKg: parsed.data.packUnitKg,
           pricePerKg: parsed.data.pricePerKg,
           quantityKg: parsed.data.quantityKg,
+          sizeOrCalibre: parsed.data.sizeOrCalibre?.trim() || undefined,
+          tags: parsed.data.tags,
+          variety: parsed.data.variety?.trim() || undefined,
         });
       }
       onSubmitted();
@@ -329,7 +422,7 @@ export function ListingForm({
     }
 
     setFieldErrors({});
-    setStep((current) => Math.min(current + 1, 3) as ListingFormStep);
+    setStep((current) => Math.min(current + 1, 4) as ListingFormStep);
   };
 
   const handleBack = (): void => {
@@ -400,18 +493,64 @@ export function ListingForm({
         value={countyValue}
       />
 
-      <TextField isInvalid={Boolean(fieldErrors.grade)}>
+      <View className="gap-section-title">
         <Label>Grade (optional)</Label>
-        <Input
-          className={FIELD_CLASS}
-          onChangeText={setGrade}
-          placeholder="e.g. Grade 1"
-          value={grade}
-        />
+        <View className="flex-row flex-wrap gap-2">
+          {listingGradeOptions(grade).map((item) => {
+            const selected = grade === item;
+            return (
+              <Button
+                key={item}
+                size="sm"
+                variant={selected ? "primary" : "secondary"}
+                onPress={() => setGrade(selected ? "" : item)}
+              >
+                {item}
+              </Button>
+            );
+          })}
+        </View>
         {fieldErrors.grade ? (
           <Text className="text-caption text-danger">{fieldErrors.grade}</Text>
         ) : null}
+      </View>
+
+      <TextField>
+        <Label>Size / calibre (optional)</Label>
+        <Input
+          className={FIELD_CLASS}
+          onChangeText={setSizeOrCalibre}
+          placeholder="e.g. 18 count, 45–65 mm"
+          value={sizeOrCalibre}
+        />
       </TextField>
+
+      <View className="flex-row gap-3">
+        <View className="flex-1">
+          <TextField isInvalid={Boolean(fieldErrors.minOrderKg)}>
+            <Label>Min order kg</Label>
+            <Input
+              className={FIELD_CLASS}
+              keyboardType="decimal-pad"
+              onChangeText={setMinOrderKg}
+              placeholder="e.g. 500"
+              value={minOrderKg}
+            />
+          </TextField>
+        </View>
+        <View className="flex-1">
+          <TextField isInvalid={Boolean(fieldErrors.packUnitKg)}>
+            <Label>Pack unit kg</Label>
+            <Input
+              className={FIELD_CLASS}
+              keyboardType="decimal-pad"
+              onChangeText={setPackUnitKg}
+              placeholder="e.g. 20"
+              value={packUnitKg}
+            />
+          </TextField>
+        </View>
+      </View>
 
       <TextField isRequired isInvalid={Boolean(fieldErrors.description)}>
         <Label>Description</Label>
@@ -505,9 +644,9 @@ export function ListingForm({
     ) : step === 2 ? (
       <View className="gap-section">
         <View className="gap-1">
-          <Text className="text-section-title">Listing details</Text>
+          <Text className="text-section-title">Add a listing photo</Text>
           <Text className="text-caption text-muted">
-            Add a photo, then quantity, price, and county so buyers can find your produce.
+            Buyers are more likely to contact you when they can see your crop.
           </Text>
         </View>
 
@@ -517,6 +656,15 @@ export function ListingForm({
           value={imageStorageId}
           onChange={handleImageChange}
         />
+      </View>
+    ) : step === 3 ? (
+      <View className="gap-section">
+        <View className="gap-1">
+          <Text className="text-section-title">Listing details</Text>
+          <Text className="text-caption text-muted">
+            Set quantity, price, and county so buyers can find your produce.
+          </Text>
+        </View>
 
         <View className="flex-row gap-3">
           <View className="flex-1">
@@ -564,24 +712,128 @@ export function ListingForm({
       </View>
     ) : (
       <View className="gap-section">
-        <View className="gap-1">
-          <Text className="text-section-title">Final details</Text>
-          <Text className="text-caption text-muted">
-            Add optional grade info and a description, then review before posting.
-          </Text>
-        </View>
-
-        <TextField isInvalid={Boolean(fieldErrors.grade)}>
+        <View className="gap-section-title">
           <Label>Grade (optional)</Label>
-          <Input
-            className={FIELD_CLASS}
-            onChangeText={setGrade}
-            placeholder="e.g. Grade 1"
-            value={grade}
-          />
+          <View className="flex-row flex-wrap gap-2">
+            {listingGradeOptions(grade).map((item) => {
+              const selected = grade === item;
+              return (
+                <Button
+                  key={item}
+                  size="sm"
+                  variant={selected ? "primary" : "secondary"}
+                  onPress={() => setGrade(selected ? "" : item)}
+                >
+                  {item}
+                </Button>
+              );
+            })}
+          </View>
           {fieldErrors.grade ? (
             <Text className="text-caption text-danger">{fieldErrors.grade}</Text>
           ) : null}
+        </View>
+
+        <TextField>
+          <Label>Variety (optional)</Label>
+          <Input
+            className={FIELD_CLASS}
+            onChangeText={setVariety}
+            placeholder="e.g. Shangi"
+            value={variety}
+          />
+        </TextField>
+
+        <View className="gap-section-title">
+          <Label>Tags</Label>
+          <View className="flex-row flex-wrap gap-2">
+            {LISTING_TAGS.map((tag) => {
+              const selected = tags.includes(tag);
+              return (
+                <Button
+                  key={tag}
+                  size="sm"
+                  variant={selected ? "primary" : "secondary"}
+                  onPress={() =>
+                    setTags((current) =>
+                      current.includes(tag)
+                        ? current.filter((item) => item !== tag)
+                        : [...current, tag],
+                    )
+                  }
+                >
+                  {LISTING_TAG_LABELS[tag]}
+                </Button>
+              );
+            })}
+          </View>
+        </View>
+
+        <View className="gap-section-title">
+          <Label>Packaging (optional)</Label>
+          <View className="flex-row flex-wrap gap-2">
+            {LISTING_PACKAGING.map((item) => {
+              const selected = packaging === item;
+              return (
+                <Button
+                  key={item}
+                  size="sm"
+                  variant={selected ? "primary" : "secondary"}
+                  onPress={() => setPackaging(selected ? undefined : item)}
+                >
+                  {LISTING_PACKAGING_LABELS[item]}
+                </Button>
+              );
+            })}
+          </View>
+        </View>
+
+        <TextField isInvalid={Boolean(fieldErrors.packUnitKg)}>
+          <Label>Pack unit kg (optional)</Label>
+          <Input
+            className={FIELD_CLASS}
+            keyboardType="decimal-pad"
+            onChangeText={setPackUnitKg}
+            placeholder="e.g. 20"
+            value={packUnitKg}
+          />
+          {fieldErrors.packUnitKg ? (
+            <Text className="text-caption text-danger">{fieldErrors.packUnitKg}</Text>
+          ) : null}
+        </TextField>
+
+        <TextField isInvalid={Boolean(fieldErrors.minOrderKg)}>
+          <Label>Min order kg (optional)</Label>
+          <Input
+            className={FIELD_CLASS}
+            keyboardType="decimal-pad"
+            onChangeText={setMinOrderKg}
+            placeholder="e.g. 500"
+            value={minOrderKg}
+          />
+          {fieldErrors.minOrderKg ? (
+            <Text className="text-caption text-danger">{fieldErrors.minOrderKg}</Text>
+          ) : null}
+        </TextField>
+
+        <TextField>
+          <Label>Size / calibre (optional)</Label>
+          <Input
+            className={FIELD_CLASS}
+            onChangeText={setSizeOrCalibre}
+            placeholder="e.g. 18 count, 45–65 mm"
+            value={sizeOrCalibre}
+          />
+        </TextField>
+
+        <TextField>
+          <Label>Harvest window (optional)</Label>
+          <Input
+            className={FIELD_CLASS}
+            onChangeText={setHarvestWindowLabel}
+            placeholder="e.g. picked last week"
+            value={harvestWindowLabel}
+          />
         </TextField>
 
         <TextField isRequired isInvalid={Boolean(fieldErrors.description)}>
@@ -629,7 +881,7 @@ export function ListingForm({
         </Button>
       )}
 
-      {step < 3 ? (
+      {step < 4 ? (
         <Button className="flex-1" size="sm" onPress={handleNext}>
           Continue
         </Button>

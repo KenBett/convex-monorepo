@@ -8,37 +8,67 @@ import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { httpAction } from "../_generated/server";
 import { buildBuyerChatRequestContext } from "./buyerChatMessages";
-import type { BuyerSearchIntent } from "./buyerChatParse";
 import { writeAssistantText } from "./buyerChatStream";
+import {
+  buildCompletedTrail,
+  buildOptimisticTrail,
+} from "./buyerChatTrail";
+import type { BuyerSourcingSearchResponse } from "./buyerSourcing";
 
 function mapListingForContext(
   listing: {
+    certifications?: BuyerSourcingSearchResponse["results"][number]["certifications"];
     cooperativeName: string;
     county: string;
     crop: string;
+    description?: string;
     grade?: string;
+    harvestWindowLabel?: string;
     listingId: Id<"listings">;
+    minOrderKg?: number;
+    packaging?: BuyerSourcingSearchResponse["results"][number]["packaging"];
+    packUnitKg?: number;
     pricePerKg: number;
     quantityKg: number;
+    sizeOrCalibre?: string;
     status: "active" | "expired" | "sold_out";
+    tags?: BuyerSourcingSearchResponse["results"][number]["tags"];
+    variety?: string;
   },
 ) {
   return {
+    certifications: listing.certifications,
     cooperativeName: listing.cooperativeName,
     county: listing.county,
     crop: listing.crop,
+    description: listing.description,
     grade: listing.grade,
+    harvestWindowLabel: listing.harvestWindowLabel,
     listingId: listing.listingId,
+    minOrderKg: listing.minOrderKg,
+    packaging: listing.packaging,
+    packUnitKg: listing.packUnitKg,
     pricePerKg: listing.pricePerKg,
     quantityKg: listing.quantityKg,
+    sizeOrCalibre: listing.sizeOrCalibre,
     status: listing.status,
+    tags: listing.tags,
+    variety: listing.variety,
   };
 }
 
-function toChatContextPayload(messages: UIMessage[]) {
+function toChatContextPayload(
+  messages: UIMessage[],
+  focusedListingId?: Id<"listings">,
+) {
   const context = buildBuyerChatRequestContext(messages);
 
-  const base = {
+  const base: {
+    conversationListings: ReturnType<typeof mapListingForContext>[];
+    conversationTranscript: string;
+    focusedListingId?: Id<"listings">;
+    latestUserMessage: string;
+  } = {
     conversationListings: context.conversationListings.map((listing) =>
       mapListingForContext({
         ...listing,
@@ -48,6 +78,10 @@ function toChatContextPayload(messages: UIMessage[]) {
     conversationTranscript: context.conversationTranscript,
     latestUserMessage: context.latestUserMessage,
   };
+
+  if (focusedListingId) {
+    base.focusedListingId = focusedListingId;
+  }
 
   if (!context.previousSourcing) {
     return base;
@@ -111,9 +145,18 @@ export const buyerSourcingChat = httpAction(async (ctx, request) => {
     }
 
     let messages: UIMessage[];
+    let focusedListingId: Id<"listings"> | undefined;
     try {
-      const body = (await request.json()) as { messages?: UIMessage[] };
+      const body = (await request.json()) as {
+        focusedListingId?: string;
+        messages?: UIMessage[];
+      };
       messages = body.messages ?? [];
+      focusedListingId =
+        typeof body.focusedListingId === "string" &&
+        body.focusedListingId.length > 0
+          ? (body.focusedListingId as Id<"listings">)
+          : undefined;
     } catch {
       return new Response("Invalid request body", {
         headers: corsHeaders,
@@ -121,7 +164,7 @@ export const buyerSourcingChat = httpAction(async (ctx, request) => {
       });
     }
 
-    const chatContext = toChatContextPayload(messages);
+    const chatContext = toChatContextPayload(messages, focusedListingId);
     if (chatContext.latestUserMessage.length === 0) {
       return new Response("Missing user message", {
         headers: corsHeaders,
@@ -133,93 +176,87 @@ export const buyerSourcingChat = httpAction(async (ctx, request) => {
       execute: async ({ writer }) => {
         writer.write({
           type: "data-status",
-          data: { phase: "working" },
+          data: {
+            phase: "working",
+            trail: buildOptimisticTrail("working"),
+          },
         });
 
-        const turnResult: {
-          assistantText?: string;
-          intent: BuyerSearchIntent;
-          meta: {
-            excludedSoldOutCount: number;
-            ragCandidateCount: number;
-            resultCount: number;
-          };
-          orderDraft?: {
-            lines: Array<{
-              issue?: "ambiguous" | "insufficient_stock" | "not_active" | "not_found";
-              listing?: {
-                cooperativeName: string;
-                county: string;
-                crop: string;
-                description: string;
-                grade?: string;
-                imageUrl: string | null;
-                listingId: string;
-                pricePerKg: number;
-                quantityKg: number;
-                score: number;
-                snippet: string;
-                status: "active" | "expired" | "sold_out";
-                title?: string;
-              };
-              quantityKg: number;
-              request: {
-                cooperativeName?: string;
-                county?: string;
-                crop: string;
-                grade?: string;
-                listingRef?: number;
-                quantityKg: number;
-              };
-            }>;
-            summaryText: string;
-          };
-          results: Array<{
-            cooperativeName: string;
-            county: string;
-            crop: string;
-            description: string;
-            grade?: string;
-            imageUrl: string | null;
-            listingId: string;
-            pricePerKg: number;
-            quantityKg: number;
-            score: number;
-            snippet: string;
-            status: "active" | "expired" | "sold_out";
-            title?: string;
-          }>;
-        } = await ctx.runAction(
+        writer.write({
+          type: "data-status",
+          data: {
+            phase: "searching",
+            trail: buildOptimisticTrail("searching"),
+          },
+        });
+
+        const turnResult: BuyerSourcingSearchResponse = await ctx.runAction(
           internal.listings.buyerSourcing.runBuyerSourcingSearch,
           { chatContext },
         );
 
+        const trail =
+          turnResult.meta.trail ??
+          buildCompletedTrail({
+            filterLabels: turnResult.meta.filterLabels ?? [],
+            ragCandidateCount: turnResult.meta.ragCandidateCount,
+            resultCount: turnResult.meta.resultCount,
+            retrievalMode: turnResult.meta.retrievalMode ?? "vector",
+          });
+
         if (turnResult.results.length > 0) {
+          writer.write({
+            type: "data-status",
+            data: {
+              phase: "searching",
+              trail,
+            },
+          });
+
           writer.write({
             type: "data-sourcing",
             data: {
               intent: turnResult.intent,
               listings: turnResult.results.map((listing) => ({
+                certifications: listing.certifications,
                 cooperativeName: listing.cooperativeName,
                 county: listing.county,
                 crop: listing.crop,
                 description: listing.description,
                 grade: listing.grade,
+                harvestWindowLabel: listing.harvestWindowLabel,
                 imageUrl: listing.imageUrl,
                 listingId: listing.listingId,
+                minOrderKg: listing.minOrderKg,
+                packaging: listing.packaging,
+                packUnitKg: listing.packUnitKg,
                 pricePerKg: listing.pricePerKg,
                 quantityKg: listing.quantityKg,
                 score: listing.score,
+                sizeOrCalibre: listing.sizeOrCalibre,
                 snippet: listing.snippet,
                 status: listing.status,
+                tags: listing.tags,
                 title: listing.title,
+                variety: listing.variety,
               })),
-              meta: turnResult.meta,
+              meta: {
+                ...turnResult.meta,
+                trail,
+              },
             },
           });
         }
 
         if (turnResult.orderDraft) {
+          writer.write({
+            type: "data-status",
+            data: {
+              phase: "ordering",
+              trail: buildOptimisticTrail("ordering"),
+            },
+          });
+
           writer.write({
             type: "data-order-draft",
             data: {

@@ -9,9 +9,15 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as dev_wipeDevDeployment from "../dev/wipeDevDeployment.js";
+import type * as drives from "../drives.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_buyerNeededBy from "../lib/buyerNeededBy.js";
 import type * as lib_createAuthUser from "../lib/createAuthUser.js";
+import type * as lib_driveCoords from "../lib/driveCoords.js";
+import type * as lib_fulfillment from "../lib/fulfillment.js";
+import type * as lib_listingAttributes from "../lib/listingAttributes.js";
 import type * as lib_listingImages from "../lib/listingImages.js";
 import type * as lib_listings from "../lib/listings.js";
 import type * as lib_orders from "../lib/orders.js";
@@ -25,12 +31,16 @@ import type * as listings_buyerChatMessages from "../listings/buyerChatMessages.
 import type * as listings_buyerChatOrchestrate from "../listings/buyerChatOrchestrate.js";
 import type * as listings_buyerChatParse from "../listings/buyerChatParse.js";
 import type * as listings_buyerChatStream from "../listings/buyerChatStream.js";
+import type * as listings_buyerChatTrail from "../listings/buyerChatTrail.js";
 import type * as listings_buyerOrderDraftValidators from "../listings/buyerOrderDraftValidators.js";
 import type * as listings_buyerOrderResolve from "../listings/buyerOrderResolve.js";
 import type * as listings_buyerSearchExecute from "../listings/buyerSearchExecute.js";
 import type * as listings_buyerSearchIntentNormalize from "../listings/buyerSearchIntentNormalize.js";
 import type * as listings_buyerSearchIntentParse from "../listings/buyerSearchIntentParse.js";
 import type * as listings_buyerSourcing from "../listings/buyerSourcing.js";
+import type * as listings_demoHotelSeed from "../listings/demoHotelSeed.js";
+import type * as listings_demoInventory from "../listings/demoInventory.js";
+import type * as listings_demoInventorySeedData from "../listings/demoInventorySeedData.js";
 import type * as listings_ragDebug from "../listings/ragDebug.js";
 import type * as listings_ragSync from "../listings/ragSync.js";
 import type * as listings_search from "../listings/search.js";
@@ -50,9 +60,15 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  "dev/wipeDevDeployment": typeof dev_wipeDevDeployment;
+  drives: typeof drives;
   http: typeof http;
   "lib/auth": typeof lib_auth;
+  "lib/buyerNeededBy": typeof lib_buyerNeededBy;
   "lib/createAuthUser": typeof lib_createAuthUser;
+  "lib/driveCoords": typeof lib_driveCoords;
+  "lib/fulfillment": typeof lib_fulfillment;
+  "lib/listingAttributes": typeof lib_listingAttributes;
   "lib/listingImages": typeof lib_listingImages;
   "lib/listings": typeof lib_listings;
   "lib/orders": typeof lib_orders;
@@ -66,12 +82,16 @@ declare const fullApi: ApiFromModules<{
   "listings/buyerChatOrchestrate": typeof listings_buyerChatOrchestrate;
   "listings/buyerChatParse": typeof listings_buyerChatParse;
   "listings/buyerChatStream": typeof listings_buyerChatStream;
+  "listings/buyerChatTrail": typeof listings_buyerChatTrail;
   "listings/buyerOrderDraftValidators": typeof listings_buyerOrderDraftValidators;
   "listings/buyerOrderResolve": typeof listings_buyerOrderResolve;
   "listings/buyerSearchExecute": typeof listings_buyerSearchExecute;
   "listings/buyerSearchIntentNormalize": typeof listings_buyerSearchIntentNormalize;
   "listings/buyerSearchIntentParse": typeof listings_buyerSearchIntentParse;
   "listings/buyerSourcing": typeof listings_buyerSourcing;
+  "listings/demoHotelSeed": typeof listings_demoHotelSeed;
+  "listings/demoInventory": typeof listings_demoInventory;
+  "listings/demoInventorySeedData": typeof listings_demoInventorySeedData;
   "listings/ragDebug": typeof listings_ragDebug;
   "listings/ragSync": typeof listings_ragSync;
   "listings/search": typeof listings_search;

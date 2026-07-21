@@ -6,6 +6,7 @@ export const CROP_TYPES = [
   "onions",
   "cabbage",
   "avocado",
+  "bananas",
   "coffee",
   "tea",
   "wheat",
@@ -26,7 +27,30 @@ export const COUNTIES = [
 
 export type CropType = (typeof CROP_TYPES)[number];
 export type County = (typeof COUNTIES)[number];
-export type MarketplaceRole = "farmer" | "buyer";
+export type MarketplaceRole = "farmer" | "buyer" | "driver";
+
+export type DriveStatus = "assigned" | "picked_up" | "delivered" | "cancelled";
+
+export interface DriveSummary {
+  _id: string;
+  _creationTime: number;
+  assignedDriverUserId: string;
+  countyA: string;
+  countyB: string;
+  createdAt: number;
+  crop: string;
+  deliveredAt?: number;
+  grade?: string;
+  imageUrl?: string | null;
+  neededByLabel?: string;
+  neededByMs?: number;
+  orderId: string;
+  pickedUpAt?: number;
+  pointALabel: string;
+  pointBLabel: string;
+  quantityKg: number;
+  status: DriveStatus;
+}
 
 export const BUSINESS_TYPES = [
   "hotel",

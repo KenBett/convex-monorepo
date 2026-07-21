@@ -11,7 +11,8 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to record voice questions during knowledge calls.",
-        "NSPhotoLibraryUsageDescription": "Allow $(PRODUCT_NAME) to choose crop photos for your listings."
+        "NSPhotoLibraryUsageDescription": "Allow $(PRODUCT_NAME) to choose crop photos for your listings.",
+        "NSLocationWhenInUseUsageDescription": "Allow $(PRODUCT_NAME) to use your location for delivery pickup and drop-off."
       }
     },
     "android": {
@@ -40,6 +41,12 @@
         "expo-image-picker",
         {
           "photosPermission": "Allow $(PRODUCT_NAME) to choose crop photos for your listings."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location for delivery pickup and drop-off."
         }
       ]
     ],

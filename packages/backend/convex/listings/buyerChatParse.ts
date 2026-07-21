@@ -4,6 +4,12 @@ import { generateObject } from "ai";
 import { v } from "convex/values";
 
 import { internalAction } from "../_generated/server";
+import {
+  listingCertificationValidator,
+  listingHardFilterTagValidator,
+  listingPackagingValidator,
+  listingTagValidator,
+} from "../lib/listingAttributes";
 import { answerModel } from "../lib/rag";
 import {
   buyerSearchIntentParseSchema,
@@ -17,6 +23,7 @@ import {
 export const buyerSearchIntentValidator = v.object({
   county: v.optional(v.string()),
   crop: v.optional(v.string()),
+  excludePreviousListings: v.optional(v.boolean()),
   grade: v.optional(v.string()),
   maxPricePerKg: v.optional(v.number()),
   minQuantityKg: v.optional(v.number()),
@@ -26,23 +33,33 @@ export const buyerSearchIntentValidator = v.object({
   refinePreviousResults: v.optional(v.boolean()),
   resultLimit: v.optional(v.number()),
   searchText: v.string(),
+  tags: v.optional(v.array(listingHardFilterTagValidator)),
 });
 
 export type BuyerSearchIntent = BuyerSearchIntentWithRefinement;
 
 const buyerChatPreviousListingValidator = v.object({
+  certifications: v.optional(v.array(listingCertificationValidator)),
   cooperativeName: v.string(),
   county: v.string(),
   crop: v.string(),
+  description: v.optional(v.string()),
   grade: v.optional(v.string()),
+  harvestWindowLabel: v.optional(v.string()),
   listingId: v.id("listings"),
+  minOrderKg: v.optional(v.number()),
+  packaging: v.optional(listingPackagingValidator),
+  packUnitKg: v.optional(v.number()),
   pricePerKg: v.number(),
   quantityKg: v.number(),
+  sizeOrCalibre: v.optional(v.string()),
   status: v.union(
     v.literal("active"),
     v.literal("sold_out"),
     v.literal("expired"),
   ),
+  tags: v.optional(v.array(listingTagValidator)),
+  variety: v.optional(v.string()),
 });
 
 const buyerChatPreviousContextValidator = v.object({

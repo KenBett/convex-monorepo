@@ -5,6 +5,9 @@ import { api } from "@repo/backend/convex/_generated/api";
 import {
   BUSINESS_TYPES,
   COUNTIES,
+  getCountyCentroid,
+  isValidKenyaLatLng,
+  resolveProfileLocation,
   type BusinessType,
   type MarketplaceRole,
 } from "@repo/types";
@@ -22,9 +25,10 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
 import { AuthSplitLayout } from "@/components/auth/auth-split-layout";
+import { ProfileLocationPicker } from "@/components/location/profile-location-picker";
+import { LayoutSkeleton } from "@/components/layout/layout-skeleton";
 import { getRoleHomePath } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
-import { LayoutSkeleton } from "@/components/layout/layout-skeleton";
 
 type OnboardingStep = "role" | "profile";
 
@@ -38,6 +42,15 @@ function roleIndicatorClassName(isSelected: boolean): string {
   return isSelected
     ? "flex size-5 shrink-0 items-center justify-center rounded-full border-2 border-accent bg-accent after:block after:size-2 after:rounded-full after:bg-accent-foreground"
     : "size-5 shrink-0 rounded-full border-2 border-foreground/45 bg-background dark:border-foreground/65";
+}
+
+function latLngStringsForCounty(county: string) {
+  const centroid = getCountyCentroid(county);
+
+  return {
+    lat: String(centroid.lat),
+    lng: String(centroid.lng),
+  };
 }
 
 export function OnboardingFlow() {
@@ -57,6 +70,9 @@ export function OnboardingFlow() {
   const [county, setCounty] = useState<string>(COUNTIES[0]);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [mpesaNumber, setMpesaNumber] = useState("");
+  const initialCoords = latLngStringsForCounty(COUNTIES[0]);
+  const [locationLat, setLocationLat] = useState(initialCoords.lat);
+  const [locationLng, setLocationLng] = useState(initialCoords.lng);
 
   useEffect(() => {
     if (!viewer?.role) {
@@ -98,14 +114,35 @@ export function OnboardingFlow() {
       return;
     }
 
+    const lat = Number(locationLat);
+    const lng = Number(locationLng);
+
+    if (!isValidKenyaLatLng(lat, lng)) {
+      setError(
+        "Enter a valid Kenya latitude (−5 to 5.5) and longitude (33.5 to 42).",
+      );
+
+      return;
+    }
+
     setError(null);
     setIsSubmitting(true);
     try {
+      const resolved = resolveProfileLocation({
+        county,
+        geoLat: lat,
+        geoLng: lng,
+        label: "Map pin",
+      });
+
       if (role === "farmer") {
         await completeOnboarding({
           farmerProfile: {
             cooperativeName,
             county,
+            locationLabel: resolved.locationLabel,
+            locationLat: resolved.locationLat,
+            locationLng: resolved.locationLng,
             phoneNumber,
             mpesaNumber,
           },
@@ -116,6 +153,9 @@ export function OnboardingFlow() {
             businessName,
             businessType,
             county,
+            locationLabel: resolved.locationLabel,
+            locationLat: resolved.locationLat,
+            locationLng: resolved.locationLng,
             phoneNumber,
           },
         });
@@ -228,8 +268,8 @@ export function OnboardingFlow() {
           </h1>
           <p className="text-sm text-muted">
             {role === "farmer"
-              ? "Tell buyers who you are and how to reach you."
-              : "Tell farmers about your business."}
+              ? "Tell buyers who you are and how to reach you. Pick your farm location on the map."
+              : "Tell farmers about your business. Pick your drop-off location on the map."}
           </p>
         </div>
 
@@ -315,7 +355,13 @@ export function OnboardingFlow() {
           selectedKey={county}
           onSelectionChange={(key) => {
             if (key) {
-              setCounty(String(key));
+              const nextCounty = String(key);
+
+              setCounty(nextCounty);
+              const coords = latLngStringsForCounty(nextCounty);
+
+              setLocationLat(coords.lat);
+              setLocationLng(coords.lng);
             }
           }}
         >
@@ -334,6 +380,15 @@ export function OnboardingFlow() {
             </ListBox>
           </Select.Popover>
         </Select>
+
+        <ProfileLocationPicker
+          locationLat={locationLat}
+          locationLng={locationLng}
+          onLocationChange={(lat, lng) => {
+            setLocationLat(lat);
+            setLocationLng(lng);
+          }}
+        />
 
         {error ? <p className="text-sm text-danger">{error}</p> : null}
 

@@ -1,10 +1,14 @@
 "use client";
 
 import type { Id } from "@repo/backend/convex/_generated/dataModel";
-import type { ListingStatus } from "@repo/types";
+import type {
+  ListingCertification,
+  ListingPackaging,
+  ListingStatus,
+  ListingTag,
+} from "@repo/types";
 
 import {
-  formatListingStatus,
   getCropTheme,
   getListingCardBgClass,
   LISTING_CARD_NOISE_DATA_URI,
@@ -16,53 +20,34 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 
 import { CropBadge } from "@/components/farmer/crop-display";
+import { ListingCardFace } from "@/components/listing/listing-card-face";
 
 export type FarmerListingCardData = {
+  certifications?: ListingCertification[];
   county: string;
   crop: string;
   description: string;
   grade?: string;
+  harvestWindowLabel?: string;
   imageUrl?: string | null;
+  minOrderKg?: number;
+  packaging?: ListingPackaging;
+  packUnitKg?: number;
   pricePerKg: number;
   quantityKg: number;
+  sizeOrCalibre?: string;
   status: ListingStatus;
+  tags?: ListingTag[];
+  variety?: string;
 };
 
 type FarmerListingCardProps = {
   compact?: boolean;
+  /** Override detail navigation (defaults to farmer listing path). */
+  href?: string;
   listing: FarmerListingCardData;
   listingId: Id<"listings">;
 };
-
-function ListingStatusPill({
-  compact = false,
-  status,
-}: {
-  compact?: boolean;
-  status: ListingStatus;
-}) {
-  const isActive = status === "active";
-
-  return (
-    <span
-      className={clsx(
-        "inline-flex shrink-0 items-center gap-1 rounded-full font-medium leading-none shadow-sm ring-1 ring-black/5",
-        compact ? "px-1 py-0.5 text-[9px]" : "px-1.5 py-0.5 text-[10px]",
-        isActive
-          ? "bg-white/95 text-emerald-800 dark:bg-stone-900/95 dark:text-emerald-300"
-          : "bg-white/95 text-stone-700 dark:bg-stone-900/95 dark:text-stone-300",
-      )}
-    >
-      <span
-        className={clsx(
-          "h-1 w-1 rounded-full",
-          isActive ? "bg-emerald-600 dark:bg-emerald-400" : "bg-stone-500",
-        )}
-      />
-      {formatListingStatus(status)}
-    </span>
-  );
-}
 
 function ListingCardNoiseOverlay() {
   return (
@@ -81,6 +66,7 @@ function ListingCardNoiseOverlay() {
 
 export function FarmerListingCard({
   compact = false,
+  href,
   listing,
   listingId,
 }: FarmerListingCardProps) {
@@ -90,7 +76,7 @@ export function FarmerListingCard({
   const isSoldOut = listing.status === "sold_out";
 
   const navigateToDetail = () => {
-    router.push(farmerListingDetailPath(listingId));
+    router.push(href ?? farmerListingDetailPath(listingId));
   };
 
   const handleCardKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
@@ -103,7 +89,7 @@ export function FarmerListingCard({
   return (
     <article
       className={clsx(
-        "group relative grid aspect-square cursor-pointer grid-rows-[1fr_auto] overflow-hidden",
+        "group relative flex cursor-pointer flex-col overflow-hidden",
         compact ? "rounded-lg" : "rounded-[0.875rem]",
         "shadow-sm transition-[box-shadow,transform] duration-200",
         "hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
@@ -115,7 +101,12 @@ export function FarmerListingCard({
       onClick={navigateToDetail}
       onKeyDown={handleCardKeyDown}
     >
-      <div className="relative min-h-0 w-full overflow-hidden">
+      <div
+        className={clsx(
+          "relative w-full shrink-0 overflow-hidden",
+          compact ? "aspect-[3/2]" : "aspect-[16/10]",
+        )}
+      >
         {listing.imageUrl ? (
           <Image
             fill
@@ -131,65 +122,17 @@ export function FarmerListingCard({
           </div>
         )}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-linear-to-t from-black/20 to-transparent" />
-        <div
-          className={clsx(
-            "absolute z-10",
-            compact ? "right-1.5 top-1.5" : "right-2 top-2",
-          )}
-        >
-          <ListingStatusPill compact={compact} status={listing.status} />
-        </div>
       </div>
 
       <ListingCardNoiseOverlay />
 
-      <div
-        className={clsx(
-          "relative z-10 flex min-h-0 flex-col",
-          compact ? "gap-0.5 px-2 pb-2 pt-1.5" : "gap-1 px-2.5 pb-2.5 pt-2",
-        )}
-      >
-        <div className="flex min-w-0 items-center gap-1.5">
-          <CropBadge crop={listing.crop} size="sm" />
-          <h2
-            className={clsx(
-              "truncate font-semibold capitalize text-neutral-900 dark:text-neutral-50",
-              compact ? "text-[10px]" : "text-xs",
-            )}
-          >
-            {theme.label}
-          </h2>
-        </div>
-
-        <p
-          className={clsx(
-            "font-semibold leading-none tracking-tight text-neutral-900 dark:text-neutral-50",
-            compact ? "text-sm" : "text-base",
-          )}
-        >
-          KES {listing.pricePerKg}
-          <span
-            className={clsx(
-              "font-medium text-neutral-600 dark:text-neutral-400",
-              compact ? "text-[10px]" : "text-[11px]",
-            )}
-          >
-            /kg
-          </span>
-        </p>
-
-        <p
-          className={clsx(
-            "truncate text-neutral-600 dark:text-neutral-400",
-            compact ? "text-[10px]" : "text-[11px]",
-          )}
-        >
-          {listing.quantityKg} kg
-          {listing.grade ? ` · ${listing.grade}` : ""}
-          {" · "}
-          {listing.county}
-        </p>
-      </div>
+      <ListingCardFace
+        compact={compact}
+        cropBadge={<CropBadge crop={listing.crop} size="sm" />}
+        cropLabel={theme.label}
+        listing={listing}
+        status={listing.status}
+      />
     </article>
   );
 }

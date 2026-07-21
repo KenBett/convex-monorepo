@@ -1,15 +1,17 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { COUNTIES } from "@repo/types";
+import { COUNTIES, isValidKenyaLatLng } from "@repo/types";
 import { v } from "convex/values";
 
 import type { Doc } from "./_generated/dataModel";
-import { mutation, query } from "./_generated/server";
+import { internalQuery, mutation, query } from "./_generated/server";
 import { requireAuthUserId } from "./lib/auth";
-import { getMarketplaceRole } from "./lib/roles";
+import { requireBuyerProfile } from "./lib/listings";
+import { getCurrentUser, getMarketplaceRole } from "./lib/roles";
 
 const marketplaceRoleValidator = v.union(
   v.literal("farmer"),
   v.literal("buyer"),
+  v.literal("driver"),
 );
 
 const businessTypeValidator = v.union(
@@ -22,6 +24,9 @@ const businessTypeValidator = v.union(
 const farmerProfileInputValidator = v.object({
   cooperativeName: v.string(),
   county: v.string(),
+  locationLabel: v.optional(v.string()),
+  locationLat: v.number(),
+  locationLng: v.number(),
   mpesaNumber: v.string(),
   phoneNumber: v.string(),
 });
@@ -30,6 +35,9 @@ const buyerProfileInputValidator = v.object({
   businessName: v.string(),
   businessType: businessTypeValidator,
   county: v.string(),
+  locationLabel: v.optional(v.string()),
+  locationLat: v.number(),
+  locationLng: v.number(),
   phoneNumber: v.string(),
 });
 
@@ -50,6 +58,54 @@ const viewerValidator = v.union(
   v.null(),
 );
 
+export const buyerFulfillmentContext = internalQuery({
+  args: {},
+  returns: v.object({
+    businessName: v.string(),
+    firstName: v.optional(v.string()),
+  }),
+  handler: async (ctx) => {
+    const buyer = await requireBuyerProfile(ctx);
+    const user = await getCurrentUser(ctx);
+    const firstName = extractFirstName(user.name);
+
+    return {
+      businessName: buyer.businessName,
+      firstName,
+    };
+  },
+});
+
+function extractFirstName(name: string | undefined): string | undefined {
+  if (!name) {
+    return undefined;
+  }
+
+  const first = name.trim().split(/\s+/)[0];
+  if (!first || first.includes("@")) {
+    return undefined;
+  }
+
+  return first;
+}
+
+export const enableDemoDriverAccount = mutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    if (process.env.DEMO_PAYMENTS !== "true") {
+      throw new Error("Demo driver setup is not enabled");
+    }
+
+    const userId = await requireAuthUserId(ctx);
+    await ctx.db.patch("users", userId, {
+      onboardingComplete: true,
+      role: "driver",
+    });
+    return null;
+  },
+});
+
 export const viewer = query({
   args: {},
   returns: viewerValidator,
@@ -69,6 +125,9 @@ export const viewer = query({
 const farmerProfileSummaryValidator = v.object({
   cooperativeName: v.string(),
   county: v.string(),
+  locationLabel: v.optional(v.string()),
+  locationLat: v.optional(v.number()),
+  locationLng: v.optional(v.number()),
   mpesaNumber: v.string(),
   phoneNumber: v.string(),
 });
@@ -77,6 +136,9 @@ const buyerProfileSummaryValidator = v.object({
   businessName: v.string(),
   businessType: businessTypeValidator,
   county: v.string(),
+  locationLabel: v.optional(v.string()),
+  locationLat: v.optional(v.number()),
+  locationLng: v.optional(v.number()),
   phoneNumber: v.string(),
 });
 
@@ -106,6 +168,9 @@ export const farmerProfile = query({
     return {
       cooperativeName: profile.cooperativeName,
       county: profile.county,
+      locationLabel: profile.locationLabel,
+      locationLat: profile.locationLat,
+      locationLng: profile.locationLng,
       mpesaNumber: profile.mpesaNumber,
       phoneNumber: profile.phoneNumber,
     };
@@ -139,6 +204,9 @@ export const buyerProfile = query({
       businessName: profile.businessName,
       businessType: profile.businessType,
       county: profile.county,
+      locationLabel: profile.locationLabel,
+      locationLat: profile.locationLat,
+      locationLng: profile.locationLng,
       phoneNumber: profile.phoneNumber,
     };
   },
@@ -177,6 +245,7 @@ export const updateFarmerProfile = mutation({
     }
 
     assertValidCounty(args.county);
+    assertValidLocation(args.locationLat, args.locationLng);
 
     const profile = await ctx.db
       .query("farmerProfiles")
@@ -189,6 +258,10 @@ export const updateFarmerProfile = mutation({
     await ctx.db.patch("farmerProfiles", profile._id, {
       cooperativeName: args.cooperativeName.trim(),
       county: args.county,
+      locationCapturedAt: Date.now(),
+      locationLabel: args.locationLabel?.trim() || undefined,
+      locationLat: args.locationLat,
+      locationLng: args.locationLng,
       mpesaNumber: args.mpesaNumber.trim(),
       phoneNumber: args.phoneNumber.trim(),
     });
@@ -207,6 +280,7 @@ export const updateBuyerProfile = mutation({
     }
 
     assertValidCounty(args.county);
+    assertValidLocation(args.locationLat, args.locationLng);
 
     const profile = await ctx.db
       .query("buyerProfiles")
@@ -220,6 +294,10 @@ export const updateBuyerProfile = mutation({
       businessName: args.businessName.trim(),
       businessType: args.businessType,
       county: args.county,
+      locationCapturedAt: Date.now(),
+      locationLabel: args.locationLabel?.trim() || undefined,
+      locationLat: args.locationLat,
+      locationLng: args.locationLng,
       phoneNumber: args.phoneNumber.trim(),
     });
     return null;
@@ -272,6 +350,10 @@ export const completeOnboarding = mutation({
         throw new Error("Farmer profile is required");
       }
       assertValidCounty(args.farmerProfile.county);
+      assertValidLocation(
+        args.farmerProfile.locationLat,
+        args.farmerProfile.locationLng,
+      );
       const existing = await ctx.db
         .query("farmerProfiles")
         .withIndex("by_userId", (q) => q.eq("userId", userId))
@@ -283,14 +365,22 @@ export const completeOnboarding = mutation({
         userId,
         cooperativeName: args.farmerProfile.cooperativeName.trim(),
         county: args.farmerProfile.county,
+        locationCapturedAt: Date.now(),
+        locationLabel: args.farmerProfile.locationLabel?.trim() || undefined,
+        locationLat: args.farmerProfile.locationLat,
+        locationLng: args.farmerProfile.locationLng,
         mpesaNumber: args.farmerProfile.mpesaNumber.trim(),
         phoneNumber: args.farmerProfile.phoneNumber.trim(),
       });
-    } else {
+    } else if (user.role === "buyer") {
       if (!args.buyerProfile) {
         throw new Error("Buyer profile is required");
       }
       assertValidCounty(args.buyerProfile.county);
+      assertValidLocation(
+        args.buyerProfile.locationLat,
+        args.buyerProfile.locationLng,
+      );
       const existing = await ctx.db
         .query("buyerProfiles")
         .withIndex("by_userId", (q) => q.eq("userId", userId))
@@ -303,8 +393,16 @@ export const completeOnboarding = mutation({
         businessName: args.buyerProfile.businessName.trim(),
         businessType: args.buyerProfile.businessType,
         county: args.buyerProfile.county,
+        locationCapturedAt: Date.now(),
+        locationLabel: args.buyerProfile.locationLabel?.trim() || undefined,
+        locationLat: args.buyerProfile.locationLat,
+        locationLng: args.buyerProfile.locationLng,
         phoneNumber: args.buyerProfile.phoneNumber.trim(),
       });
+    } else if (user.role === "driver") {
+      // Demo drivers need no marketplace profile.
+    } else {
+      throw new Error("Unsupported role");
     }
 
     await ctx.db.patch("users", userId, { onboardingComplete: true });
@@ -315,6 +413,12 @@ export const completeOnboarding = mutation({
 function assertValidCounty(county: string): void {
   if (!(COUNTIES as readonly string[]).includes(county)) {
     throw new Error("Invalid county");
+  }
+}
+
+function assertValidLocation(lat: number, lng: number): void {
+  if (!isValidKenyaLatLng(lat, lng)) {
+    throw new Error("Location must be within Kenya");
   }
 }
 
@@ -329,7 +433,7 @@ function withViewerFields(user: Doc<"users">): {
   phoneVerificationTime?: number;
   isAnonymous?: boolean;
   onboardingComplete: boolean;
-  role?: "farmer" | "buyer";
+  role?: "farmer" | "buyer" | "driver";
 } {
   return {
     _id: user._id,

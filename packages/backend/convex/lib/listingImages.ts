@@ -17,8 +17,12 @@ export async function assertListingImageStorageId(
 
 export async function getListingImageUrl(
   ctx: QueryCtx,
-  imageStorageId: Id<"_storage">,
+  imageStorageId: Id<"_storage"> | undefined,
 ): Promise<string | null> {
+  if (!imageStorageId) {
+    return null;
+  }
+
   return await ctx.storage.getUrl(imageStorageId);
 }
 

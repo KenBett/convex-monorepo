@@ -2,6 +2,9 @@ import { api } from "@repo/backend/convex/_generated/api";
 import {
   BUSINESS_TYPES,
   COUNTIES,
+  getCountyCentroid,
+  isValidKenyaLatLng,
+  resolveProfileLocation,
   type BusinessType,
 } from "@repo/types";
 import { useMutation, useQuery } from "convex/react";
@@ -14,7 +17,7 @@ import {
   Surface,
   TextField,
 } from "heroui-native";
-import { Fragment, useEffect, useState, type JSX } from "react";
+import { Fragment, useState, type JSX } from "react";
 import { Text, View } from "react-native";
 
 type SelectOption = {
@@ -31,6 +34,14 @@ const BUSINESS_TYPE_OPTIONS: SelectOption[] = BUSINESS_TYPES.map((type) => ({
   value: type,
   label: type.charAt(0).toUpperCase() + type.slice(1),
 }));
+
+function latLngStringsForCounty(county: string) {
+  const centroid = getCountyCentroid(county);
+  return {
+    lat: String(centroid.lat),
+    lng: String(centroid.lng),
+  };
+}
 
 function ProfileSelect({
   label,
@@ -110,43 +121,71 @@ export function ProfileDetailsSection(): JSX.Element | null {
   );
   const [phoneNumber, setPhoneNumber] = useState("");
   const [mpesaNumber, setMpesaNumber] = useState("");
+  const initialCoords = latLngStringsForCounty(COUNTY_OPTIONS[0]!.value);
+  const [locationLat, setLocationLat] = useState(initialCoords.lat);
+  const [locationLng, setLocationLng] = useState(initialCoords.lng);
 
-  useEffect(() => {
-    if (!viewer) {
-      return;
+  const [prevViewer, setPrevViewer] = useState(viewer);
+  if (viewer !== prevViewer) {
+    setPrevViewer(viewer);
+    if (viewer) {
+      setName(viewer.name ?? "");
     }
-    setName(viewer.name ?? "");
-  }, [viewer]);
+  }
 
-  useEffect(() => {
-    if (!farmerProfile) {
-      return;
+  const [prevFarmerProfile, setPrevFarmerProfile] = useState(farmerProfile);
+  if (farmerProfile !== prevFarmerProfile) {
+    setPrevFarmerProfile(farmerProfile);
+    if (farmerProfile) {
+      setCooperativeName(farmerProfile.cooperativeName);
+      setCountyValue({
+        value: farmerProfile.county,
+        label: farmerProfile.county,
+      });
+      setPhoneNumber(farmerProfile.phoneNumber);
+      setMpesaNumber(farmerProfile.mpesaNumber);
+      if (
+        farmerProfile.locationLat != null &&
+        farmerProfile.locationLng != null
+      ) {
+        setLocationLat(String(farmerProfile.locationLat));
+        setLocationLng(String(farmerProfile.locationLng));
+      } else {
+        const coords = latLngStringsForCounty(farmerProfile.county);
+        setLocationLat(coords.lat);
+        setLocationLng(coords.lng);
+      }
     }
-    setCooperativeName(farmerProfile.cooperativeName);
-    setCountyValue({
-      value: farmerProfile.county,
-      label: farmerProfile.county,
-    });
-    setPhoneNumber(farmerProfile.phoneNumber);
-    setMpesaNumber(farmerProfile.mpesaNumber);
-  }, [farmerProfile]);
+  }
 
-  useEffect(() => {
-    if (!buyerProfile) {
-      return;
+  const [prevBuyerProfile, setPrevBuyerProfile] = useState(buyerProfile);
+  if (buyerProfile !== prevBuyerProfile) {
+    setPrevBuyerProfile(buyerProfile);
+    if (buyerProfile) {
+      setBusinessName(buyerProfile.businessName);
+      setBusinessTypeValue(
+        BUSINESS_TYPE_OPTIONS.find(
+          (option) => option.value === buyerProfile.businessType,
+        ) ?? BUSINESS_TYPE_OPTIONS[0]!,
+      );
+      setCountyValue({
+        value: buyerProfile.county,
+        label: buyerProfile.county,
+      });
+      setPhoneNumber(buyerProfile.phoneNumber);
+      if (
+        buyerProfile.locationLat != null &&
+        buyerProfile.locationLng != null
+      ) {
+        setLocationLat(String(buyerProfile.locationLat));
+        setLocationLng(String(buyerProfile.locationLng));
+      } else {
+        const coords = latLngStringsForCounty(buyerProfile.county);
+        setLocationLat(coords.lat);
+        setLocationLng(coords.lng);
+      }
     }
-    setBusinessName(buyerProfile.businessName);
-    setBusinessTypeValue(
-      BUSINESS_TYPE_OPTIONS.find(
-        (option) => option.value === buyerProfile.businessType,
-      ) ?? BUSINESS_TYPE_OPTIONS[0]!,
-    );
-    setCountyValue({
-      value: buyerProfile.county,
-      label: buyerProfile.county,
-    });
-    setPhoneNumber(buyerProfile.phoneNumber);
-  }, [buyerProfile]);
+  }
 
   if (!viewer?.role) {
     return null;
@@ -157,16 +196,36 @@ export function ProfileDetailsSection(): JSX.Element | null {
     (viewer.role === "buyer" && buyerProfile === undefined);
 
   const handleSave = async (): Promise<void> => {
+    const lat = Number(locationLat);
+    const lng = Number(locationLng);
+    if (!isValidKenyaLatLng(lat, lng)) {
+      setError(
+        "Enter a valid Kenya latitude (−5 to 5.5) and longitude (33.5 to 42).",
+      );
+      return;
+    }
+
     setError(null);
     setSavedMessage(null);
     setIsSaving(true);
     try {
       await updateProfile({ name });
 
+      const county = countyValue.value;
+      const location = resolveProfileLocation({
+        county,
+        geoLat: lat,
+        geoLng: lng,
+        label: "Manual pin",
+      });
+
       if (viewer.role === "farmer") {
         await updateFarmerProfile({
           cooperativeName,
-          county: countyValue.value,
+          county,
+          locationLabel: location.locationLabel,
+          locationLat: location.locationLat,
+          locationLng: location.locationLng,
           phoneNumber,
           mpesaNumber,
         });
@@ -174,7 +233,10 @@ export function ProfileDetailsSection(): JSX.Element | null {
         await updateBuyerProfile({
           businessName,
           businessType: businessTypeValue.value as BusinessType,
-          county: countyValue.value,
+          county,
+          locationLabel: location.locationLabel,
+          locationLat: location.locationLat,
+          locationLng: location.locationLng,
           phoneNumber,
         });
       }
@@ -266,11 +328,39 @@ export function ProfileDetailsSection(): JSX.Element | null {
         <ProfileSelect
           label="County"
           listLabel="County"
-          onValueChange={setCountyValue}
+          onValueChange={(next) => {
+            setCountyValue(next);
+            const coords = latLngStringsForCounty(next.value);
+            setLocationLat(coords.lat);
+            setLocationLng(coords.lng);
+          }}
           options={COUNTY_OPTIONS}
           placeholder="Choose county"
           value={countyValue}
         />
+
+        <TextField isRequired>
+          <Label>Latitude</Label>
+          <Input
+            keyboardType="decimal-pad"
+            onChangeText={setLocationLat}
+            placeholder="Latitude"
+            value={locationLat}
+          />
+        </TextField>
+        <TextField isRequired>
+          <Label>Longitude</Label>
+          <Input
+            keyboardType="decimal-pad"
+            onChangeText={setLocationLng}
+            placeholder="Longitude"
+            value={locationLng}
+          />
+        </TextField>
+        <Text className="text-caption">
+          Edit latitude and longitude to simulate distant pickup/drop-off pins
+          for testing.
+        </Text>
 
         {error ? <Text className="text-sm text-danger">{error}</Text> : null}
         {savedMessage ? (

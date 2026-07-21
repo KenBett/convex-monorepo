@@ -12,38 +12,55 @@ import {
   matchesCooperative,
   matchesGrade,
 } from "../lib/listings";
+import { resolveNeededByMs } from "../lib/buyerNeededBy";
 import {
   runListingSemanticSearch,
   type ListingSearchResultRow,
 } from "./search";
 
 export type BuyerChatPreviousListing = {
+  certifications?: ListingSearchResultRow["certifications"];
   cooperativeName: string;
   county: string;
   crop: string;
   description?: string;
   grade?: string;
+  harvestWindowLabel?: string;
   listingId: Id<"listings">;
+  minOrderKg?: number;
+  packaging?: ListingSearchResultRow["packaging"];
+  packUnitKg?: number;
   pricePerKg: number;
   quantityKg: number;
+  sizeOrCalibre?: string;
   status: "active" | "expired" | "sold_out";
+  tags?: ListingSearchResultRow["tags"];
+  variety?: string;
 };
 
 function toListingResult(row: ListingSearchResultRow) {
   return {
+    certifications: row.certifications,
     cooperativeName: row.cooperativeName,
     county: row.county,
     crop: row.crop,
     description: row.description,
     grade: row.grade,
+    harvestWindowLabel: row.harvestWindowLabel,
     imageUrl: row.imageUrl,
     listingId: row.listingId,
+    minOrderKg: row.minOrderKg,
+    packaging: row.packaging,
+    packUnitKg: row.packUnitKg,
     pricePerKg: row.pricePerKg,
     quantityKg: row.quantityKg,
     score: row.score,
+    sizeOrCalibre: row.sizeOrCalibre,
     snippet: row.snippet,
     status: row.status,
+    tags: row.tags,
     title: row.title,
+    variety: row.variety,
   };
 }
 
@@ -215,13 +232,30 @@ export async function resolveOrderDraft(
   ctx: ActionCtx,
   lines: BuyerOrderLineRequest[],
   previousListings: BuyerChatPreviousListing[],
+  options?: {
+    neededByLabel?: string;
+    neededByMs?: number;
+    pointBLabel?: string;
+  },
 ): Promise<BuyerOrderDraft> {
   const resolvedLines = await Promise.all(
     lines.map((line) => resolveOrderLine(ctx, line, previousListings)),
   );
 
+  const firstResolved = resolvedLines.find((line) => line.listing)?.listing;
+  const neededByLabel =
+    options?.neededByLabel ??
+    lines.map((line) => line.neededByLabel).find(Boolean);
+  const neededByMs =
+    options?.neededByMs ??
+    (neededByLabel ? resolveNeededByMs(neededByLabel) : undefined);
+
   return {
     lines: resolvedLines,
+    neededByLabel,
+    neededByMs,
+    pointALabel: firstResolved?.cooperativeName,
+    pointBLabel: options?.pointBLabel,
     summaryText: buildOrderDraftSummary(resolvedLines),
   };
 }

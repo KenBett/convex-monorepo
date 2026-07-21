@@ -1,7 +1,34 @@
 import { v } from "convex/values";
 
+import type { Doc } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
+import type { MutationCtx } from "../_generated/server";
 import { internalMutation } from "../_generated/server";
+import {
+  confirmOrderEscrow,
+  createDriveForEscrowedOrder,
+  findDemoDriverUserId,
+} from "../lib/fulfillment";
+
+async function spawnDriveAfterEscrow(
+  ctx: MutationCtx,
+  order: Doc<"orders">,
+): Promise<void> {
+  const driverUserId = await findDemoDriverUserId(ctx);
+  if (!driverUserId) {
+    console.warn("No demo driver user — drive not created", {
+      orderId: order._id,
+    });
+    return;
+  }
+
+  const refreshed = await ctx.db.get("orders", order._id);
+  if (!refreshed || refreshed.status !== "escrowed") {
+    return;
+  }
+
+  await createDriveForEscrowedOrder(ctx, refreshed, driverUserId);
+}
 
 export const confirmEscrowInternal = internalMutation({
   args: {
@@ -24,59 +51,27 @@ export const confirmEscrowInternal = internalMutation({
       return null;
     }
 
-    if (order.status === "escrowed") {
+    const result = await confirmOrderEscrow(ctx, order, args.receiptNumber);
+
+    if (result.kind === "escrowed" || result.kind === "already_escrowed") {
+      const current = await ctx.db.get("orders", result.orderId);
+      if (current?.status === "escrowed") {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.listings.ragSync.syncListingToRag,
+          { listingId: current.listingId },
+        );
+        await spawnDriveAfterEscrow(ctx, current);
+      }
       return null;
     }
 
-    if (order.status !== "pending") {
+    if (result.kind === "invalid_state") {
       console.warn("M-PESA webhook: order not pending", {
         checkoutRequestId: args.checkoutRequestId,
-        status: order.status,
+        status: result.status,
       });
-      return null;
     }
-
-    const listing = await ctx.db.get("listings", order.listingId);
-    if (!listing) {
-      await ctx.db.patch("orders", order._id, {
-        cancelledReason: "payment_failed",
-        status: "cancelled",
-      });
-      return null;
-    }
-
-    if (
-      listing.status !== "active" ||
-      listing.quantityKg < order.quantityKg
-    ) {
-      await ctx.db.patch("orders", order._id, {
-        cancelledReason: "insufficient_stock_at_escrow",
-        status: "cancelled",
-      });
-      return null;
-    }
-
-    const remainingQuantity = listing.quantityKg - order.quantityKg;
-    const listingUpdates: {
-      quantityKg: number;
-      status?: "active" | "sold_out";
-    } = {
-      quantityKg: remainingQuantity,
-    };
-
-    if (remainingQuantity <= 0) {
-      listingUpdates.status = "sold_out";
-    }
-
-    await ctx.db.patch("listings", order.listingId, listingUpdates);
-    await ctx.db.patch("orders", order._id, {
-      mpesaReceiptNumber: args.receiptNumber,
-      status: "escrowed",
-    });
-
-    await ctx.scheduler.runAfter(0, internal.listings.ragSync.syncListingToRag, {
-      listingId: order.listingId,
-    });
 
     return null;
   },

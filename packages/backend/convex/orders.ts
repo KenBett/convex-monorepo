@@ -1,7 +1,13 @@
 import { v } from "convex/values";
 
 import type { Doc } from "./_generated/dataModel";
-import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "./_generated/server";
 import {
   assertOrderQuantityAvailable,
   requireBuyerProfile,
@@ -9,6 +15,11 @@ import {
   requireOrderAccess,
   toOrderSummary,
 } from "./lib/orders";
+import {
+  confirmOrderEscrow,
+  createDriveForEscrowedOrder,
+  findDemoDriverUserId,
+} from "./lib/fulfillment";
 
 const orderStatusValidator = v.union(
   v.literal("pending"),
@@ -41,6 +52,8 @@ const orderSummaryValidator = v.object({
 export const createOrder = mutation({
   args: {
     listingId: v.id("listings"),
+    neededByLabel: v.optional(v.string()),
+    neededByMs: v.optional(v.number()),
     quantityKg: v.number(),
   },
   returns: v.id("orders"),
@@ -63,6 +76,8 @@ export const createOrder = mutation({
       crop: listing.crop,
       farmerId: listing.farmerId,
       listingId: args.listingId,
+      neededByLabel: args.neededByLabel?.trim() || undefined,
+      neededByMs: args.neededByMs,
       quantityKg: args.quantityKg,
       status: "pending",
     });
@@ -152,6 +167,66 @@ export const markDelivered = mutation({
   },
 });
 
+export const demoPaymentsEnabled = query({
+  args: {},
+  returns: v.boolean(),
+  handler: async () => {
+    return process.env.DEMO_PAYMENTS === "true";
+  },
+});
+
+export const confirmDemoEscrow = mutation({
+  args: {
+    orderId: v.id("orders"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    if (process.env.DEMO_PAYMENTS !== "true") {
+      throw new Error("Demo payments are not enabled");
+    }
+
+    const buyerProfile = await requireBuyerProfile(ctx);
+    const order = await ctx.db.get("orders", args.orderId);
+
+    if (!order) {
+      throw new Error("Order not found");
+    }
+
+    if (order.buyerId !== buyerProfile._id) {
+      throw new Error("Unauthorized");
+    }
+
+    const result = await confirmOrderEscrow(ctx, order, "DEMO-0");
+
+    if (result.kind === "cancelled") {
+      throw new Error(`Payment could not be completed: ${result.reason}`);
+    }
+
+    if (result.kind === "invalid_state") {
+      throw new Error(`Order is ${result.status}`);
+    }
+
+    const current = await ctx.db.get("orders", result.orderId);
+    if (!current || current.status !== "escrowed") {
+      return null;
+    }
+
+    await ctx.scheduler.runAfter(0, internal.listings.ragSync.syncListingToRag, {
+      listingId: current.listingId,
+    });
+
+    const driverUserId = await findDemoDriverUserId(ctx);
+    if (!driverUserId) {
+      throw new Error(
+        "No driver account found. Set a user role to driver in the dashboard.",
+      );
+    }
+
+    await createDriveForEscrowedOrder(ctx, current, driverUserId);
+    return null;
+  },
+});
+
 export const cancelOrder = mutation({
   args: {
     orderId: v.id("orders"),
@@ -178,6 +253,38 @@ export const cancelOrder = mutation({
       status: "cancelled",
     });
 
+    return null;
+  },
+});
+
+/** Hard-deletes a buyer order and any linked drive (demo cleanup). */
+export const deleteOrder = mutation({
+  args: {
+    orderId: v.id("orders"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const buyerProfile = await requireBuyerProfile(ctx);
+    const order = await ctx.db.get("orders", args.orderId);
+
+    if (!order) {
+      throw new Error("Order not found");
+    }
+
+    if (order.buyerId !== buyerProfile._id) {
+      throw new Error("Unauthorized");
+    }
+
+    const drive = await ctx.db
+      .query("drives")
+      .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
+      .unique();
+
+    if (drive) {
+      await ctx.db.delete("drives", drive._id);
+    }
+
+    await ctx.db.delete("orders", args.orderId);
     return null;
   },
 });

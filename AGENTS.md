@@ -17,7 +17,7 @@ Detailed Convex rules apply via `.cursor/rules/convex-project.mdc` when editing 
 
 ## Phased delivery
 
-Follow `phase.md` in order. Do not skip ahead of the current phase "Done when" checklist.
+Follow `docs/phase.md` in order. Do not skip ahead of the current phase "Done when" checklist.
 
 ## Cursor context
 

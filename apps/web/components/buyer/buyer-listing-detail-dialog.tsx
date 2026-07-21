@@ -1,27 +1,36 @@
 "use client";
 
 import type {
+  BuyerSearchIntent,
   BuyerSourcingListingResult,
   ChatListingLiveStatus,
 } from "@repo/types";
 
 import {
+  formatListingGradeLabel,
   formatListingStatus,
   getBuyerListingDescription,
   getBuyerListingSnippet,
   getCropTheme,
   getListingCardBgClass,
+  LISTING_CARD_NOISE_DATA_URI,
+  LISTING_CARD_NOISE_OPACITY,
+  LISTING_CERTIFICATION_LABELS,
+  LISTING_TAG_LABELS,
+  isListingCertification,
 } from "@repo/types";
 import { Button, Chip, useOverlayState } from "@heroui/react";
 import { Modal } from "@heroui/react/modal";
 import clsx from "clsx";
-import { MapPin, ShoppingBag, Store, Tag, X } from "lucide-react";
+import { MapPin, ShoppingBag, Sparkles, Store, X } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
 import { CropBadge } from "@/components/farmer/crop-display";
 
 type BuyerListingDetailDialogProps = {
+  /** Parsed search intent from the turn that produced this card. */
+  intent?: BuyerSearchIntent | null;
   listing: BuyerSourcingListingResult | null;
   liveStatus?: ChatListingLiveStatus;
   onClose: () => void;
@@ -29,9 +38,116 @@ type BuyerListingDetailDialogProps = {
   open: boolean;
 };
 
+function normalizeMatchHaystack(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ");
+}
+
+function buildMatchReasons(
+  listing: BuyerSourcingListingResult,
+  intent?: BuyerSearchIntent | null,
+): string[] {
+  const reasons: string[] = [];
+  const query = normalizeMatchHaystack(intent?.searchText ?? "");
+  const cropTheme = getCropTheme(listing.crop);
+
+  if (intent?.crop && intent.crop === listing.crop) {
+    reasons.push(
+      `Asked for ${cropTheme.label.toLowerCase()} — this listing is ${cropTheme.label.toLowerCase()}.`,
+    );
+  } else if (
+    query.includes(listing.crop) ||
+    query.includes(cropTheme.label.toLowerCase())
+  ) {
+    reasons.push(`Your ask mentioned ${cropTheme.label.toLowerCase()}.`);
+  }
+
+  if (intent?.county && intent.county === listing.county) {
+    reasons.push(`County filter matched ${listing.county}.`);
+  } else if (query.includes(listing.county.toLowerCase())) {
+    reasons.push(`Your ask referenced ${listing.county}.`);
+  }
+
+  if (intent?.grade && listing.grade) {
+    const intentGrade = formatListingGradeLabel(intent.grade).toLowerCase();
+    const listingGrade = formatListingGradeLabel(listing.grade).toLowerCase();
+
+    if (intentGrade === listingGrade || listingGrade.includes(intentGrade)) {
+      reasons.push(`Grade aligned: ${formatListingGradeLabel(listing.grade)}.`);
+    }
+  } else if (
+    listing.grade &&
+    query.includes(normalizeMatchHaystack(listing.grade).trim())
+  ) {
+    reasons.push(
+      `Grade ${formatListingGradeLabel(listing.grade)} shows up in your ask.`,
+    );
+  }
+
+  if (listing.variety?.trim()) {
+    const variety = listing.variety.trim();
+
+    if (query.includes(normalizeMatchHaystack(variety).trim())) {
+      reasons.push(`Variety “${variety}” matches language in your ask.`);
+    }
+  }
+
+  if (listing.sizeOrCalibre?.trim()) {
+    const size = listing.sizeOrCalibre.trim();
+
+    if (query.includes(normalizeMatchHaystack(size).trim())) {
+      reasons.push(`Size/calibre “${size}” overlaps your ask.`);
+    }
+  }
+
+  for (const tag of listing.tags ?? []) {
+    const label = LISTING_TAG_LABELS[tag];
+
+    if (intent?.tags?.some((intentTag) => intentTag === tag)) {
+      reasons.push(`Hard filter matched: ${label}.`);
+      continue;
+    }
+    if (
+      query.includes(tag.replaceAll("_", " ")) ||
+      query.includes(label.toLowerCase())
+    ) {
+      reasons.push(`Tag “${label}” appears in your ask.`);
+    }
+  }
+
+  for (const cert of listing.certifications ?? []) {
+    if (!isListingCertification(cert)) {
+      continue;
+    }
+    const label = LISTING_CERTIFICATION_LABELS[cert];
+
+    if (
+      query.includes(cert.replaceAll("_", " ")) ||
+      query.includes(label.toLowerCase()) ||
+      (cert === "globalgap" && query.includes("global"))
+    ) {
+      reasons.push(`Certification “${label}” aligns with your ask.`);
+    }
+  }
+
+  if (intent?.minQuantityKg && listing.quantityKg >= intent.minQuantityKg) {
+    reasons.push(
+      `Supply covers your ${intent.minQuantityKg.toLocaleString()} kg need (${listing.quantityKg.toLocaleString()} kg available).`,
+    );
+  }
+
+  if (intent?.maxPricePerKg && listing.pricePerKg <= intent.maxPricePerKg) {
+    reasons.push(
+      `Price KES ${listing.pricePerKg}/kg is within your max KES ${intent.maxPricePerKg}/kg.`,
+    );
+  }
+
+  return reasons;
+}
+
 const DESCRIPTION_READ_MORE_THRESHOLD = 120;
 
 export function BuyerListingDetailDialog({
+  intent = null,
   listing,
   liveStatus,
   onClose,
@@ -82,6 +198,11 @@ export function BuyerListingDetailDialog({
   const showReadMore =
     description !== null &&
     description.length > DESCRIPTION_READ_MORE_THRESHOLD;
+  const matchPercent = Math.round(listing.score * 100);
+  const matchReasons = buildMatchReasons(listing, intent);
+  const buyerQuery = intent?.searchText?.trim() || null;
+  const hasMatchExplain =
+    Boolean(snippet) || matchReasons.length > 0 || listing.score > 0;
 
   const handleOrder = () => {
     if (!canOrder) {
@@ -96,27 +217,18 @@ export function BuyerListingDetailDialog({
     <Modal state={modalState}>
       <Modal.Backdrop>
         <Modal.Container scroll="inside" size="lg">
-          <Modal.Dialog className="flex flex-col gap-0 p-6">
-            <Modal.Header className="flex flex-row items-start justify-between gap-3 border-0 p-0 pb-4">
-              <Modal.Heading className="flex min-w-0 items-center gap-2 text-lg font-semibold">
-                <CropBadge crop={listing.crop} size="sm" />
-                <span className="capitalize">{theme.label}</span>
+          <Modal.Dialog className="flex flex-col gap-0 overflow-hidden p-0">
+            <Modal.Header className="sr-only">
+              <Modal.Heading>
+                {theme.label}
+                {listing.grade ? ` · ${listing.grade}` : ""}
               </Modal.Heading>
-              <Button
-                aria-label="Close"
-                className="shrink-0"
-                size="sm"
-                variant="ghost"
-                onPress={() => modalState.close()}
-              >
-                <X className="h-4 w-4" strokeWidth={1.75} />
-              </Button>
             </Modal.Header>
 
             <Modal.Body className="flex flex-col gap-0 p-0">
               <div
                 className={clsx(
-                  "relative -mx-6 h-32 overflow-hidden sm:h-36",
+                  "relative h-44 overflow-hidden sm:h-52",
                   getListingCardBgClass(listing.crop),
                 )}
               >
@@ -135,14 +247,40 @@ export function BuyerListingDetailDialog({
                   </div>
                 )}
 
-                <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0"
+                  style={{
+                    backgroundImage: `url("${LISTING_CARD_NOISE_DATA_URI}")`,
+                    backgroundRepeat: "repeat",
+                    backgroundSize: "200px 200px",
+                    opacity: LISTING_CARD_NOISE_OPACITY,
+                  }}
+                />
+
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-black/45 via-black/15 to-transparent"
+                />
+
+                <Button
+                  aria-label="Close"
+                  className="absolute right-3 top-3 z-20 size-8 min-w-8 rounded-full bg-white/90 text-foreground shadow-sm ring-1 ring-black/5 backdrop-blur-sm dark:bg-stone-900/90"
+                  size="sm"
+                  variant="ghost"
+                  onPress={() => modalState.close()}
+                >
+                  <X className="h-4 w-4" strokeWidth={1.75} />
+                </Button>
+
+                <div className="absolute left-3 top-3 z-20 flex flex-wrap gap-1.5">
                   {isUnavailable ? (
                     <Chip
-                      className="h-auto bg-white/95 px-1.5 py-0.5 shadow-sm ring-1 ring-black/5 dark:bg-stone-900/95"
+                      className="h-auto bg-white/95 px-2 py-1 shadow-sm ring-1 ring-black/5 dark:bg-stone-900/95"
                       size="sm"
                       variant="secondary"
                     >
-                      <Chip.Label className="text-[10px]">
+                      <Chip.Label className="text-[11px] font-medium">
                         {resolvedStatus === "deleted"
                           ? "No longer available"
                           : formatListingStatus(resolvedStatus)}
@@ -150,22 +288,23 @@ export function BuyerListingDetailDialog({
                     </Chip>
                   ) : (
                     <Chip
-                      className="h-auto bg-white/95 px-1.5 py-0.5 shadow-sm ring-1 ring-black/5 dark:bg-stone-900/95"
+                      className="h-auto bg-brand-deep px-2 py-1 text-white shadow-sm ring-1 ring-black/10"
                       size="sm"
-                      variant="secondary"
+                      variant="primary"
                     >
-                      <Chip.Label className="text-[10px]">
-                        {Math.round(listing.score * 100)}% match
+                      <Chip.Label className="inline-flex items-center gap-1 text-[11px] font-semibold text-white">
+                        <Sparkles className="h-3 w-3" strokeWidth={2} />
+                        {matchPercent}% match
                       </Chip.Label>
                     </Chip>
                   )}
                   {listing.grade ? (
                     <Chip
-                      className="h-auto bg-white/95 px-1.5 py-0.5 shadow-sm ring-1 ring-black/5 dark:bg-stone-900/95"
+                      className="h-auto bg-white/95 px-2 py-1 shadow-sm ring-1 ring-black/5 dark:bg-stone-900/95"
                       size="sm"
                       variant="secondary"
                     >
-                      <Chip.Label className="text-[10px]">
+                      <Chip.Label className="text-[11px] font-medium">
                         {listing.grade}
                       </Chip.Label>
                     </Chip>
@@ -173,53 +312,78 @@ export function BuyerListingDetailDialog({
                 </div>
               </div>
 
-              <div className="flex flex-col gap-4 pt-4">
-                <p className="text-3xl font-bold tracking-tight text-foreground">
-                  KES {listing.pricePerKg}
-                  <span className="text-base font-medium text-muted"> /kg</span>
-                </p>
+              <div className="flex flex-col gap-5 px-5 pb-2 pt-5 sm:px-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex min-w-0 flex-col gap-1">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <CropBadge crop={listing.crop} size="sm" />
+                      <h2 className="truncate text-xl font-semibold capitalize tracking-tight text-foreground">
+                        {theme.label}
+                      </h2>
+                    </div>
+                    <p className="flex min-w-0 items-center gap-1.5 text-sm text-muted">
+                      <Store
+                        aria-hidden
+                        className="h-3.5 w-3.5 shrink-0"
+                        strokeWidth={1.75}
+                      />
+                      <span className="truncate">
+                        {listing.cooperativeName}
+                      </span>
+                    </p>
+                  </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  <Chip size="sm" variant="secondary">
-                    <Chip.Label>
-                      {listing.quantityKg.toLocaleString()} kg available
-                    </Chip.Label>
-                  </Chip>
-                  <Chip size="sm" variant="secondary">
-                    <Chip.Label>{listing.county}</Chip.Label>
-                  </Chip>
+                  <p className="shrink-0 text-right tabular-nums">
+                    <span className="block text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+                      KES
+                    </span>
+                    <span className="text-3xl font-bold leading-none tracking-tight text-foreground">
+                      {listing.pricePerKg}
+                    </span>
+                    <span className="ml-0.5 text-sm font-medium text-muted">
+                      /kg
+                    </span>
+                  </p>
                 </div>
 
-                <div className="flex items-center gap-2 border-t border-separator pt-4">
-                  <Store
-                    aria-hidden
-                    className="h-4 w-4 shrink-0 text-muted"
-                    strokeWidth={1.75}
-                  />
-                  <span className="min-w-0 truncate text-sm text-foreground">
-                    {listing.cooperativeName}
-                  </span>
-                  <span aria-hidden className="shrink-0 text-muted">
-                    ·
-                  </span>
-                  <MapPin
-                    aria-hidden
-                    className="h-3.5 w-3.5 shrink-0 text-muted"
-                    strokeWidth={1.75}
-                  />
-                  <span className="min-w-0 truncate text-sm text-muted">
-                    {listing.county} County
-                  </span>
+                <div
+                  aria-label="Listing facts"
+                  className="grid grid-cols-2 divide-x divide-separator overflow-hidden rounded-xl bg-white shadow-sm sm:grid-cols-2"
+                  role="group"
+                >
+                  <div className="flex min-w-0 flex-col items-center gap-0.5 px-3 py-3 text-center">
+                    <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted">
+                      Supply
+                    </span>
+                    <span className="w-full truncate text-base font-semibold tabular-nums tracking-tight text-foreground">
+                      {listing.quantityKg.toLocaleString()} kg
+                    </span>
+                    <span className="text-[11px] text-muted">available</span>
+                  </div>
+                  <div className="flex min-w-0 flex-col items-center gap-0.5 px-3 py-3 text-center">
+                    <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted">
+                      Where
+                    </span>
+                    <span className="inline-flex w-full max-w-full items-center justify-center gap-1 truncate text-base font-semibold tracking-tight text-foreground">
+                      <MapPin
+                        aria-hidden
+                        className="h-3.5 w-3.5 shrink-0 text-muted"
+                        strokeWidth={1.75}
+                      />
+                      <span className="truncate">{listing.county}</span>
+                    </span>
+                    <span className="text-[11px] text-muted">County</span>
+                  </div>
                 </div>
 
                 {description ? (
-                  <div className="flex flex-col gap-1.5 border-t border-separator pt-4">
-                    <h3 className="text-xs font-medium text-muted">
+                  <div className="flex flex-col gap-2">
+                    <h3 className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted">
                       Description
                     </h3>
                     <p
                       className={clsx(
-                        "text-xs leading-relaxed text-foreground/80",
+                        "text-sm leading-relaxed text-foreground/85",
                         !descriptionExpanded && showReadMore && "line-clamp-3",
                       )}
                     >
@@ -227,7 +391,7 @@ export function BuyerListingDetailDialog({
                     </p>
                     {showReadMore ? (
                       <button
-                        className="self-start text-xs font-medium text-accent"
+                        className="self-start text-sm font-medium text-accent underline-offset-2 hover:underline"
                         type="button"
                         onClick={() =>
                           setDescriptionExpanded((expanded) => !expanded)
@@ -239,29 +403,65 @@ export function BuyerListingDetailDialog({
                   </div>
                 ) : null}
 
-                {snippet ? (
-                  <div className="flex flex-col gap-1.5 rounded-[0.875rem] bg-default px-3 py-2.5">
-                    <h3 className="inline-flex items-center gap-1.5 text-xs font-medium text-muted">
-                      <Tag
+                {hasMatchExplain ? (
+                  <div className="relative overflow-hidden rounded-xl bg-white px-4 py-3.5 shadow-sm">
+                    <div
+                      aria-hidden
+                      className="absolute inset-y-3 left-0 w-1 rounded-full bg-brand-deep"
+                    />
+                    <h3 className="mb-1.5 inline-flex items-center gap-1.5 pl-2 text-[10px] font-medium uppercase tracking-[0.14em] text-muted">
+                      <Sparkles
                         aria-hidden
-                        className="h-3.5 w-3.5"
+                        className="h-3 w-3 text-brand-deep"
                         strokeWidth={1.75}
                       />
                       Why this matched
+                      {listing.score > 0 ? (
+                        <span className="font-semibold normal-case tracking-normal text-brand-deep">
+                          · {matchPercent}%
+                        </span>
+                      ) : null}
                     </h3>
-                    <p className="text-sm leading-relaxed text-foreground/90">
-                      {snippet}
-                    </p>
+                    {buyerQuery ? (
+                      <p className="mb-2 pl-2 text-xs leading-relaxed text-muted">
+                        Against your ask: “{buyerQuery}”
+                      </p>
+                    ) : null}
+                    {snippet ? (
+                      <p className="pl-2 text-sm leading-relaxed text-foreground/90">
+                        {snippet}
+                      </p>
+                    ) : null}
+                    {matchReasons.length > 0 ? (
+                      <ul
+                        className={clsx(
+                          "flex list-disc flex-col gap-1 pl-6 text-sm leading-relaxed text-foreground/90",
+                          snippet && "mt-2",
+                        )}
+                      >
+                        {matchReasons.map((reason) => (
+                          <li key={reason}>{reason}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {!snippet &&
+                    matchReasons.length === 0 &&
+                    listing.score > 0 ? (
+                      <p className="pl-2 text-sm leading-relaxed text-foreground/90">
+                        Semantic search ranked this listing highly against your
+                        ask ({matchPercent}% match).
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
               </div>
             </Modal.Body>
 
             {canOrder ? (
-              <Modal.Footer className="border-0 p-0 pt-4">
+              <Modal.Footer className="border-0 border-t border-separator bg-overlay p-5 pt-4 sm:px-6">
                 <Button
-                  className="w-full rounded-full"
-                  size="md"
+                  className="w-full rounded-full font-semibold"
+                  size="lg"
                   variant="primary"
                   onPress={handleOrder}
                 >

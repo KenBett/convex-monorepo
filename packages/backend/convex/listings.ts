@@ -4,6 +4,14 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, mutation, query } from "./_generated/server";
 import {
+  assertValidListingCertifications,
+  assertValidListingPackaging,
+  assertValidListingTags,
+  listingCertificationValidator,
+  listingPackagingValidator,
+  listingTagValidator,
+} from "./lib/listingAttributes";
+import {
   assertListingImageStorageId,
   getListingImageUrl,
 } from "./lib/listingImages";
@@ -24,16 +32,24 @@ const listingSummaryValidator = v.object({
   _creationTime: v.number(),
   _id: v.id("listings"),
   availableFrom: v.optional(v.number()),
+  certifications: v.optional(v.array(listingCertificationValidator)),
   county: v.string(),
   crop: v.string(),
   description: v.string(),
   farmerId: v.id("farmerProfiles"),
   grade: v.optional(v.string()),
-  imageStorageId: v.id("_storage"),
+  harvestWindowLabel: v.optional(v.string()),
+  imageStorageId: v.optional(v.id("_storage")),
   imageUrl: v.union(v.string(), v.null()),
+  minOrderKg: v.optional(v.number()),
+  packaging: v.optional(listingPackagingValidator),
+  packUnitKg: v.optional(v.number()),
   pricePerKg: v.number(),
   quantityKg: v.number(),
+  sizeOrCalibre: v.optional(v.string()),
   status: listingStatusValidator,
+  tags: v.optional(v.array(listingTagValidator)),
+  variety: v.optional(v.string()),
 });
 
 async function toListingSummary(
@@ -46,16 +62,24 @@ async function toListingSummary(
     _creationTime: listing._creationTime,
     _id: listing._id,
     availableFrom: listing.availableFrom,
+    certifications: listing.certifications,
     county: listing.county,
     crop: listing.crop,
     description: listing.description,
     farmerId: listing.farmerId,
     grade: listing.grade,
+    harvestWindowLabel: listing.harvestWindowLabel,
     imageStorageId: listing.imageStorageId,
     imageUrl,
+    minOrderKg: listing.minOrderKg,
+    packaging: listing.packaging,
+    packUnitKg: listing.packUnitKg,
     pricePerKg: listing.pricePerKg,
     quantityKg: listing.quantityKg,
+    sizeOrCalibre: listing.sizeOrCalibre,
     status: listing.status,
+    tags: listing.tags,
+    variety: listing.variety,
   };
 }
 
@@ -103,13 +127,21 @@ export const getListingById = query({
 
 export const createListing = mutation({
   args: {
+    certifications: v.optional(v.array(listingCertificationValidator)),
     county: v.string(),
     crop: v.string(),
     description: v.string(),
     grade: v.optional(v.string()),
+    harvestWindowLabel: v.optional(v.string()),
     imageStorageId: v.id("_storage"),
+    minOrderKg: v.optional(v.number()),
+    packaging: v.optional(listingPackagingValidator),
+    packUnitKg: v.optional(v.number()),
     pricePerKg: v.number(),
     quantityKg: v.number(),
+    sizeOrCalibre: v.optional(v.string()),
+    tags: v.optional(v.array(listingTagValidator)),
+    variety: v.optional(v.string()),
   },
   returns: v.id("listings"),
   handler: async (ctx, args) => {
@@ -119,6 +151,12 @@ export const createListing = mutation({
     assertValidCounty(args.county);
     assertPositiveNumber(args.quantityKg, "Quantity");
     assertPositiveNumber(args.pricePerKg, "Price");
+    if (args.minOrderKg !== undefined) {
+      assertPositiveNumber(args.minOrderKg, "Minimum order");
+    }
+    if (args.packUnitKg !== undefined) {
+      assertPositiveNumber(args.packUnitKg, "Pack unit");
+    }
     await assertListingImageStorageId(ctx, args.imageStorageId);
 
     const description = args.description.trim();
@@ -126,16 +164,33 @@ export const createListing = mutation({
       throw new Error("Description is required");
     }
 
+    const tags = assertValidListingTags(args.tags ?? []);
+    const certifications = assertValidListingCertifications(
+      args.certifications ?? [],
+    );
+    const packaging = assertValidListingPackaging(args.packaging);
+    const variety = args.variety?.trim() || undefined;
+    const harvestWindowLabel = args.harvestWindowLabel?.trim() || undefined;
+    const sizeOrCalibre = args.sizeOrCalibre?.trim() || undefined;
+
     const listingId = await ctx.db.insert("listings", {
+      certifications: certifications.length > 0 ? certifications : undefined,
       county: args.county,
       crop: args.crop,
       description,
       farmerId: profile._id,
       grade: args.grade?.trim() || undefined,
+      harvestWindowLabel,
       imageStorageId: args.imageStorageId,
+      minOrderKg: args.minOrderKg,
+      packaging,
+      packUnitKg: args.packUnitKg,
       pricePerKg: args.pricePerKg,
       quantityKg: args.quantityKg,
+      sizeOrCalibre,
       status: "active",
+      tags: tags.length > 0 ? tags : undefined,
+      variety,
     });
 
     await ctx.scheduler.runAfter(0, internal.listings.ragSync.syncListingToRag, {
@@ -148,14 +203,22 @@ export const createListing = mutation({
 
 export const updateListing = mutation({
   args: {
+    certifications: v.optional(v.array(listingCertificationValidator)),
     county: v.optional(v.string()),
     crop: v.optional(v.string()),
     description: v.optional(v.string()),
     grade: v.optional(v.string()),
+    harvestWindowLabel: v.optional(v.string()),
     imageStorageId: v.optional(v.id("_storage")),
     listingId: v.id("listings"),
+    minOrderKg: v.optional(v.union(v.number(), v.null())),
+    packaging: v.optional(listingPackagingValidator),
+    packUnitKg: v.optional(v.union(v.number(), v.null())),
     pricePerKg: v.optional(v.number()),
     quantityKg: v.optional(v.number()),
+    sizeOrCalibre: v.optional(v.string()),
+    tags: v.optional(v.array(listingTagValidator)),
+    variety: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -171,13 +234,21 @@ export const updateListing = mutation({
     }
 
     const updates: {
+      certifications?: Doc<"listings">["certifications"];
       county?: string;
       crop?: string;
       description?: string;
       grade?: string;
+      harvestWindowLabel?: string;
       imageStorageId?: Id<"_storage">;
+      minOrderKg?: number;
+      packaging?: Doc<"listings">["packaging"];
+      packUnitKg?: number;
       pricePerKg?: number;
       quantityKg?: number;
+      sizeOrCalibre?: string;
+      tags?: Doc<"listings">["tags"];
+      variety?: string;
     } = {};
 
     if (args.crop !== undefined) {
@@ -215,6 +286,53 @@ export const updateListing = mutation({
     if (args.imageStorageId !== undefined) {
       await assertListingImageStorageId(ctx, args.imageStorageId);
       updates.imageStorageId = args.imageStorageId;
+    }
+
+    if (args.tags !== undefined) {
+      const tags = assertValidListingTags(args.tags);
+      updates.tags = tags.length > 0 ? tags : undefined;
+    }
+
+    if (args.certifications !== undefined) {
+      const certifications = assertValidListingCertifications(
+        args.certifications,
+      );
+      updates.certifications =
+        certifications.length > 0 ? certifications : undefined;
+    }
+
+    if (args.packaging !== undefined) {
+      updates.packaging = assertValidListingPackaging(args.packaging);
+    }
+
+    if (args.variety !== undefined) {
+      updates.variety = args.variety.trim() || undefined;
+    }
+
+    if (args.harvestWindowLabel !== undefined) {
+      updates.harvestWindowLabel = args.harvestWindowLabel.trim() || undefined;
+    }
+
+    if (args.sizeOrCalibre !== undefined) {
+      updates.sizeOrCalibre = args.sizeOrCalibre.trim() || undefined;
+    }
+
+    if (args.minOrderKg !== undefined) {
+      if (args.minOrderKg === null) {
+        updates.minOrderKg = undefined;
+      } else {
+        assertPositiveNumber(args.minOrderKg, "Minimum order");
+        updates.minOrderKg = args.minOrderKg;
+      }
+    }
+
+    if (args.packUnitKg !== undefined) {
+      if (args.packUnitKg === null) {
+        updates.packUnitKg = undefined;
+      } else {
+        assertPositiveNumber(args.packUnitKg, "Pack unit");
+        updates.packUnitKg = args.packUnitKg;
+      }
     }
 
     if (Object.keys(updates).length === 0) {
