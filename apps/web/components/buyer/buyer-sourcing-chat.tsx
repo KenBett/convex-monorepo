@@ -1458,7 +1458,7 @@ export function BuyerSourcingChat() {
       <div className="flex min-h-0 flex-1 flex-col gap-3">
         <div
           ref={chatScrollRef}
-          className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain"
+          className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           onScroll={handleChatScroll}
         >
           {messages.length === 0 ? (
