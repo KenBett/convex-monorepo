@@ -332,7 +332,7 @@ export function BuyerListingDetailDialog({
 
                 <div
                   aria-label="Listing facts"
-                  className="grid grid-cols-2 divide-x divide-separator overflow-hidden rounded-xl bg-white shadow-sm sm:grid-cols-2"
+                  className="grid grid-cols-2 divide-x divide-separator overflow-hidden rounded-xl bg-background shadow-sm dark:bg-surface dark:shadow-none sm:grid-cols-2"
                   role="group"
                 >
                   <div className="flex min-w-0 flex-col items-center gap-0.5 px-3 py-3 text-center">
@@ -361,7 +361,7 @@ export function BuyerListingDetailDialog({
                 </div>
 
                 {hasMatchExplain ? (
-                  <div className="relative overflow-hidden rounded-xl bg-white px-4 py-3.5 shadow-sm">
+                  <div className="relative overflow-hidden rounded-xl bg-background px-4 py-3.5 shadow-sm dark:bg-surface dark:shadow-none">
                     <div
                       aria-hidden
                       className="absolute inset-y-3 left-0 w-1 rounded-full bg-brand-deep"

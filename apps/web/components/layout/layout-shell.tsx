@@ -13,6 +13,7 @@ import {
 import { LayoutSkeleton } from "./layout-skeleton";
 import { MobileTabBar } from "./mobile-tab-bar";
 import { Navbar } from "./navbar";
+import { NavbarActionsProvider } from "./navbar-actions-context";
 import { Sidebar } from "./sidebar";
 import { SidebarProvider, useSidebar } from "./sidebar-context";
 
@@ -79,9 +80,11 @@ export const LayoutShell = ({
 
   return (
     <SidebarProvider>
-      <LayoutShellContent hideNavbar={hideNavbar}>
-        {children}
-      </LayoutShellContent>
+      <NavbarActionsProvider>
+        <LayoutShellContent hideNavbar={hideNavbar}>
+          {children}
+        </LayoutShellContent>
+      </NavbarActionsProvider>
     </SidebarProvider>
   );
 };

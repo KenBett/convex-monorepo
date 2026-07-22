@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import {
   FormEvent,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -46,6 +47,7 @@ import { VunrLogo } from "@/components/marketing/vunr-logo";
 import { SourcingChatEmptyState } from "@/components/buyer/sourcing-chat-empty-state";
 import { OrderDraftConfirmDialog } from "@/components/buyer/order-draft-confirm-dialog";
 import { OrderCheckoutDialog } from "@/components/buyer/order-checkout-dialog";
+import { useNavbarPageActions } from "@/components/layout/navbar-actions-context";
 import {
   clearBuyerSourcingMessages,
   loadBuyerSourcingMessages,
@@ -64,8 +66,11 @@ const defaultAvatarInitials = siteConfig.name.slice(0, 2).toUpperCase();
 const ASSISTANT_BUBBLE =
   "rounded-[0.875rem] bg-background text-foreground shadow-sm";
 
+const USER_BUBBLE =
+  "rounded-[0.875rem] bg-background text-foreground shadow-sm dark:bg-surface dark:text-surface-foreground dark:shadow-none";
+
 const COMPOSER_SURFACE =
-  "rounded-[1.125rem] bg-background shadow-sm transition-shadow duration-200 focus-within:shadow-md";
+  "rounded-[1.125rem] bg-background shadow-sm transition-shadow duration-200 focus-within:shadow-md dark:bg-surface dark:shadow-none dark:focus-within:shadow-none";
 
 const COMPOSER_INPUT =
   "min-h-20 w-full resize-none bg-transparent px-4 py-3.5 pr-14 text-sm leading-6 text-foreground outline-none placeholder:text-muted";
@@ -384,12 +389,38 @@ function getVisibleSearchGroups(
     .filter((group) => group.listings.length > 0);
 }
 
+function getVisibleListings(
+  sourcing: BuyerSourcingStreamData,
+  liveStatusMap: Map<string, ChatListingLiveStatus>,
+): BuyerSourcingListingResult[] {
+  return sourcing.listings.filter(
+    (listing) => resolveLiveStatus(listing, liveStatusMap) !== "deleted",
+  );
+}
+
 /** Intrinsic listing-card width at 1× (keeps Where/Supply untruncated). */
-const CHAT_LISTING_CARD_WIDTH_REM = 18.5;
+const CHAT_LISTING_CARD_WIDTH_REM = 24;
 /** Base display scale for carousel cards. */
 const CHAT_LISTING_CARD_SCALE = 0.82;
+/** Display width after zoom (used for CSS scroller padding). */
+const CHAT_LISTING_CARD_DISPLAY_WIDTH_REM =
+  CHAT_LISTING_CARD_WIDTH_REM * CHAT_LISTING_CARD_SCALE;
+/**
+ * Intrinsic min-height at 1× — image (16/10 of 24rem = 15rem) + reserved body
+ * (emphasized face with 3-fact strip + one Quality row + coop chip, no snippet).
+ */
+const CHAT_LISTING_CARD_MIN_HEIGHT_REM = 26.5;
+/** Carousel row slot: scaled focused card + scroller py-3. */
+const CHAT_LISTING_CAROUSEL_SLOT_MIN_HEIGHT = `calc(${CHAT_LISTING_CARD_MIN_HEIGHT_REM * CHAT_LISTING_CARD_SCALE * 1.06}rem + 1.5rem)`;
+/** Side pad so first/last cards center without a JS padding flash. */
+const CHAT_LISTING_SCROLLER_PAD_STYLE = {
+  paddingInline: `max(0px, calc((100% - ${CHAT_LISTING_CARD_DISPLAY_WIDTH_REM}rem) / 2))`,
+} as const;
 /** Snappy glide between cards (ms). */
 const CHAT_LISTING_SCROLL_MS = 280;
+/** Placeholder cards while a follow-up search is in flight — mirrors first live finding (focus + right peek). */
+const CHAT_LISTING_SKELETON_COUNT = 2;
+const CHAT_LISTING_SKELETON_FOCUS_INDEX = 0;
 
 function prefersReducedMotion(): boolean {
   if (typeof window === "undefined" || !window.matchMedia) {
@@ -473,6 +504,130 @@ const buyerChatRequestContext = {
   focusedListingId: null as string | null,
 };
 
+function BuyerListingCardSkeleton() {
+  return (
+    <div
+      aria-hidden
+      className="w-full animate-pulse rounded-[0.875rem] bg-default shadow-sm dark:shadow-none"
+      style={{ minHeight: `${CHAT_LISTING_CARD_MIN_HEIGHT_REM}rem` }}
+    />
+  );
+}
+
+function ChatListingCardFrame({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className="origin-top-left overflow-hidden"
+      style={{
+        width: `${CHAT_LISTING_CARD_WIDTH_REM}rem`,
+        minHeight: `${CHAT_LISTING_CARD_MIN_HEIGHT_REM}rem`,
+        zoom: CHAT_LISTING_CARD_SCALE,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Same carousel chrome as live results — keeps height while the agent searches. */
+function ChatListingCarouselSkeleton() {
+  const scrollerRef = useRef<HTMLUListElement>(null);
+  const focusedCardHalfRem =
+    (CHAT_LISTING_CARD_DISPLAY_WIDTH_REM * 1.06) / 2;
+  const arrowInset = `calc(50% - ${focusedCardHalfRem}rem - 0.2rem)`;
+
+  const centerFocusedCard = () => {
+    const scroller = scrollerRef.current;
+    const focusedItem = scroller?.children[
+      CHAT_LISTING_SKELETON_FOCUS_INDEX
+    ] as HTMLElement | undefined;
+
+    if (!scroller || !focusedItem) {
+      return;
+    }
+
+    scroller.scrollLeft =
+      focusedItem.offsetLeft -
+      (scroller.clientWidth - focusedItem.offsetWidth) / 2;
+  };
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      centerFocusedCard();
+    });
+
+    const scroller = scrollerRef.current;
+
+    if (!scroller || typeof ResizeObserver === "undefined") {
+      return () => cancelAnimationFrame(frame);
+    }
+
+    const observer = new ResizeObserver(() => {
+      centerFocusedCard();
+    });
+
+    observer.observe(scroller);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, []);
+
+  return (
+    <div
+      aria-busy="true"
+      aria-label="Searching for matching listings"
+      className="relative w-full"
+      role="status"
+      style={{ minHeight: CHAT_LISTING_CAROUSEL_SLOT_MIN_HEIGHT }}
+    >
+      <ul
+        ref={scrollerRef}
+        className="chat-listing-carousel-scroller flex w-full gap-3 overflow-x-hidden overflow-y-visible py-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={CHAT_LISTING_SCROLLER_PAD_STYLE}
+      >
+        {Array.from({ length: CHAT_LISTING_SKELETON_COUNT }, (_, index) => {
+          const isActive = index === CHAT_LISTING_SKELETON_FOCUS_INDEX;
+
+          return (
+            <li
+              key={index}
+              className="chat-listing-carousel-snap shrink-0"
+              style={{
+                width: `${CHAT_LISTING_CARD_DISPLAY_WIDTH_REM}rem`,
+              }}
+            >
+              <div
+                className={clsx(
+                  "chat-listing-carousel-card origin-center",
+                  isActive
+                    ? "z-[1] scale-[1.06] blur-none"
+                    : "scale-[0.9] blur-[2.5px]",
+                )}
+              >
+                <ChatListingCardFrame>
+                  <BuyerListingCardSkeleton />
+                </ChatListingCardFrame>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      <button
+        aria-hidden
+        className="pointer-events-none absolute top-1/2 z-10 flex h-8 w-8 translate-x-full -translate-y-1/2 items-center justify-center rounded-full bg-background text-foreground/50 shadow-sm"
+        style={{ right: arrowInset }}
+        tabIndex={-1}
+        type="button"
+      >
+        <ChevronRight className="h-4 w-4" strokeWidth={2} />
+      </button>
+    </div>
+  );
+}
+
 function ChatListingCardCarousel({
   listings,
   liveStatusMap,
@@ -489,28 +644,17 @@ function ChatListingCardCarousel({
   const scrollerRef = useRef<HTMLUListElement>(null);
   const scrollAnimRef = useRef<number | null>(null);
   const scrollEndTimerRef = useRef<number | null>(null);
+  const activeIndexRef = useRef(0);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [sidePadPx, setSidePadPx] = useState(0);
   const listingKey = listings.map((listing) => listing.listingId).join("|");
   const canGoPrev = listings.length > 1 && activeIndex > 0;
   const canGoNext = listings.length > 1 && activeIndex < listings.length - 1;
   const focusedListing = listings[activeIndex] ?? null;
   const focusedCardHalfRem =
-    (CHAT_LISTING_CARD_WIDTH_REM * CHAT_LISTING_CARD_SCALE * 1.06) / 2;
+    (CHAT_LISTING_CARD_DISPLAY_WIDTH_REM * 1.06) / 2;
   const arrowInset = `calc(50% - ${focusedCardHalfRem}rem - 0.2rem)`;
 
-  const updateSidePadding = () => {
-    const scroller = scrollerRef.current;
-    const firstItem = scroller?.children[0] as HTMLElement | undefined;
-
-    if (!scroller || !firstItem) {
-      return;
-    }
-
-    setSidePadPx(
-      Math.max(0, (scroller.clientWidth - firstItem.offsetWidth) / 2),
-    );
-  };
+  activeIndexRef.current = activeIndex;
 
   const getCenteredScrollLeft = (index: number) => {
     const scroller = scrollerRef.current;
@@ -555,12 +699,12 @@ function ChatListingCardCarousel({
 
   useEffect(() => {
     setActiveIndex(0);
+    activeIndexRef.current = 0;
     if (scrollAnimRef.current !== null) {
       cancelAnimationFrame(scrollAnimRef.current);
       scrollAnimRef.current = null;
     }
     requestAnimationFrame(() => {
-      updateSidePadding();
       const scroller = scrollerRef.current;
 
       if (scroller) {
@@ -577,28 +721,17 @@ function ChatListingCardCarousel({
     }
 
     const observer = new ResizeObserver(() => {
-      updateSidePadding();
+      if (scrollAnimRef.current !== null) {
+        return;
+      }
+
+      scroller.scrollLeft = getCenteredScrollLeft(activeIndexRef.current);
     });
 
     observer.observe(scroller);
-    updateSidePadding();
 
     return () => observer.disconnect();
   }, [listingKey]);
-
-  useEffect(() => {
-    if (scrollAnimRef.current !== null) {
-      return;
-    }
-
-    const scroller = scrollerRef.current;
-
-    if (!scroller) {
-      return;
-    }
-
-    scroller.scrollLeft = getCenteredScrollLeft(activeIndex);
-  }, [sidePadPx]);
 
   useEffect(() => {
     onFocusedListingChange?.(focusedListing);
@@ -661,15 +794,15 @@ function ChatListingCardCarousel({
   };
 
   return (
-    <div className="relative w-full">
+    <div
+      className="relative w-full"
+      style={{ minHeight: CHAT_LISTING_CAROUSEL_SLOT_MIN_HEIGHT }}
+    >
       <ul
         ref={scrollerRef}
         aria-label="Matching listings"
         className="chat-listing-carousel-scroller flex w-full gap-3 overflow-x-auto overflow-y-visible py-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        style={{
-          paddingLeft: sidePadPx,
-          paddingRight: sidePadPx,
-        }}
+        style={CHAT_LISTING_SCROLLER_PAD_STYLE}
         onScroll={handleScrollerScroll}
       >
         {listings.map((listing, index) => {
@@ -680,40 +813,27 @@ function ChatListingCardCarousel({
               key={listing.listingId}
               className="chat-listing-carousel-snap shrink-0"
               style={{
-                width: `${CHAT_LISTING_CARD_WIDTH_REM * CHAT_LISTING_CARD_SCALE}rem`,
+                width: `${CHAT_LISTING_CARD_DISPLAY_WIDTH_REM}rem`,
               }}
             >
               <div
-                className="motion-safe-chat-listing-card-in"
-                style={{
-                  animationDelay: `${Math.min(index, 5) * 40}ms`,
-                }}
+                className={clsx(
+                  "chat-listing-carousel-card origin-center",
+                  isActive
+                    ? "z-[1] scale-[1.06] blur-none"
+                    : "scale-[0.9] blur-[2.5px]",
+                )}
               >
-                <div
-                  className={clsx(
-                    "chat-listing-carousel-card origin-center",
-                    isActive
-                      ? "z-[1] scale-[1.06] blur-none"
-                      : "scale-[0.9] blur-[2.5px]",
-                  )}
-                >
-                  <div
-                    className="origin-top-left"
-                    style={{
-                      width: `${CHAT_LISTING_CARD_WIDTH_REM}rem`,
-                      zoom: CHAT_LISTING_CARD_SCALE,
-                    }}
-                  >
-                    <BuyerListingCard
-                      emphasized
-                      liveStatus={resolveLiveStatus(listing, liveStatusMap)}
-                      result={listing}
-                      scaleOnHover={false}
-                      onOrder={onOrderListing}
-                      onSelect={onSelectListing}
-                    />
-                  </div>
-                </div>
+                <ChatListingCardFrame>
+                  <BuyerListingCard
+                    emphasized
+                    liveStatus={resolveLiveStatus(listing, liveStatusMap)}
+                    result={listing}
+                    scaleOnHover={false}
+                    onOrder={onOrderListing}
+                    onSelect={onSelectListing}
+                  />
+                </ChatListingCardFrame>
               </div>
             </li>
           );
@@ -811,10 +931,9 @@ function ChatMessage({
       ? getBuyerSourcingIntroMessage(sourcing)
       : text;
 
-  const visibleListings =
-    sourcing?.listings.filter(
-      (listing) => resolveLiveStatus(listing, liveStatusMap) !== "deleted",
-    ) ?? [];
+  const visibleListings = sourcing
+    ? getVisibleListings(sourcing, liveStatusMap)
+    : [];
 
   const visibleGroups = sourcing
     ? getVisibleSearchGroups(sourcing, liveStatusMap)
@@ -828,10 +947,11 @@ function ChatMessage({
 
   const hasListingResults =
     visibleGroups.length > 0 || visibleListings.length > 0;
+  const showResultsSkeleton = Boolean(showLoading && !hasListingResults);
 
   const messageColumnClass = isUser
     ? "flex min-w-0 w-full max-w-[50%] flex-col gap-3"
-    : hasListingResults
+    : hasListingResults || showResultsSkeleton
       ? "flex min-w-0 w-full max-w-[92%] flex-col gap-3"
       : "flex min-w-0 max-w-[85%] flex-col gap-3 sm:max-w-[92%]";
 
@@ -849,12 +969,18 @@ function ChatMessage({
         className={`${messageColumnClass} ${isUser ? "items-end" : "items-start"}`}
       >
         {isUser && text ? (
-          <div className="w-fit max-w-full rounded-[0.875rem] bg-accent px-4 py-3 text-sm leading-6 text-accent-foreground shadow-sm dark:shadow-none">
+          <div
+            className={`w-fit max-w-full px-4 py-3 text-sm leading-6 ${USER_BUBBLE}`}
+          >
             <p className="whitespace-pre-wrap break-words">{text}</p>
           </div>
         ) : null}
 
-        {!isUser && showLoading && !hasVisibleContent && loadingPhase ? (
+        {!isUser &&
+        showLoading &&
+        !hasVisibleContent &&
+        !showResultsSkeleton &&
+        loadingPhase ? (
           <LoadingBubble />
         ) : null}
 
@@ -886,31 +1012,42 @@ function ChatMessage({
           </Button>
         ) : null}
 
-        {visibleGroups.length > 1 ? (
-          <div className="flex w-full flex-col gap-4">
-            {visibleGroups.map((group) => (
-              <div key={group.key} className="flex flex-col gap-2">
-                <span className="w-fit rounded-full bg-default px-3 py-1 text-xs font-medium text-foreground/80">
-                  {group.label}
-                </span>
-                <ChatListingCardCarousel
-                  listings={group.listings}
-                  liveStatusMap={liveStatusMap}
-                  onFocusedListingChange={onFocusedListingChange}
-                  onOrderListing={onOrderListing}
-                  onSelectListing={selectFromThisTurn}
-                />
+        {showResultsSkeleton ||
+        visibleGroups.length > 1 ||
+        visibleListings.length > 0 ? (
+          <div
+            className="relative w-full"
+            style={{ minHeight: CHAT_LISTING_CAROUSEL_SLOT_MIN_HEIGHT }}
+          >
+            {showResultsSkeleton ? (
+              <ChatListingCarouselSkeleton />
+            ) : visibleGroups.length > 1 ? (
+              <div className="flex w-full flex-col gap-4">
+                {visibleGroups.map((group) => (
+                  <div key={group.key} className="flex flex-col gap-2">
+                    <span className="w-fit rounded-full bg-default px-3 py-1 text-xs font-medium text-foreground/80">
+                      {group.label}
+                    </span>
+                    <ChatListingCardCarousel
+                      listings={group.listings}
+                      liveStatusMap={liveStatusMap}
+                      onFocusedListingChange={onFocusedListingChange}
+                      onOrderListing={onOrderListing}
+                      onSelectListing={selectFromThisTurn}
+                    />
+                  </div>
+                ))}
               </div>
-            ))}
+            ) : (
+              <ChatListingCardCarousel
+                listings={visibleListings}
+                liveStatusMap={liveStatusMap}
+                onFocusedListingChange={onFocusedListingChange}
+                onOrderListing={onOrderListing}
+                onSelectListing={selectFromThisTurn}
+              />
+            )}
           </div>
-        ) : visibleListings.length > 0 ? (
-          <ChatListingCardCarousel
-            listings={visibleListings}
-            liveStatusMap={liveStatusMap}
-            onFocusedListingChange={onFocusedListingChange}
-            onOrderListing={onOrderListing}
-            onSelectListing={selectFromThisTurn}
-          />
         ) : null}
       </div>
 
@@ -945,12 +1082,13 @@ function ChatLoadingIndicator({
         <VunrLogo className="h-4 w-4" size={16} />
       </div>
 
-      <div className="flex min-w-0 max-w-[85%] flex-col gap-2 sm:max-w-[92%]">
+      <div className="flex min-w-0 w-full max-w-[92%] flex-col gap-2">
         {trail && trail.length > 0 ? (
           <BuyerChatTrailStrip className="w-full max-w-md" steps={trail} />
         ) : (
           <LoadingBubble />
         )}
+        <ChatListingCarouselSkeleton />
       </div>
     </div>
   );
@@ -1060,6 +1198,7 @@ export function BuyerSourcingChat() {
   const [activeOrderDraft, setActiveOrderDraft] =
     useState<BuyerOrderDraft | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
+  const stickToBottomRef = useRef(true);
   const isBusy = status === "submitted" || status === "streaming";
   const statusPhase = useMemo(
     () => (isBusy ? getStatusPhase(messages) : "working"),
@@ -1098,13 +1237,65 @@ export function BuyerSourcingChat() {
     () => buildLiveStatusMap(liveAvailability),
     [liveAvailability],
   );
+  const latestSourcingMessageId = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+
+      if (!message || message.role !== "assistant") {
+        continue;
+      }
+
+      const sourcing = getSourcingData(message);
+
+      if (
+        sourcing &&
+        (getVisibleSearchGroups(sourcing, liveStatusMap).length > 0 ||
+          getVisibleListings(sourcing, liveStatusMap).length > 0)
+      ) {
+        return message.id;
+      }
+    }
+
+    return null;
+  }, [liveStatusMap, messages]);
+
+  const scrollChatToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    const scroller = chatScrollRef.current;
+
+    if (!scroller) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        scroller.scrollTo({
+          top: scroller.scrollHeight,
+          behavior,
+        });
+      });
+    });
+  }, []);
+
+  const handleChatScroll = () => {
+    const scroller = chatScrollRef.current;
+
+    if (!scroller) {
+      return;
+    }
+
+    const distanceFromBottom =
+      scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
+
+    stickToBottomRef.current = distanceFromBottom < 96;
+  };
 
   useEffect(() => {
-    chatScrollRef.current?.scrollTo({
-      top: chatScrollRef.current.scrollHeight,
-      behavior: "smooth",
-    });
-  }, [messages.length, isBusy]);
+    if (!stickToBottomRef.current) {
+      return;
+    }
+
+    scrollChatToBottom(isBusy ? "auto" : "smooth");
+  }, [isBusy, messages, scrollChatToBottom]);
 
   // Auto-open only for drafts created in this session — never for messages
   // restored from storage on refresh / navigation.
@@ -1153,6 +1344,7 @@ export function BuyerSourcingChat() {
       return;
     }
 
+    stickToBottomRef.current = true;
     setInput("");
     await sendMessage({ text: trimmed });
   };
@@ -1211,7 +1403,7 @@ export function BuyerSourcingChat() {
     setCheckoutDefaultQty(undefined);
   };
 
-  const handleNewChat = () => {
+  const handleNewChat = useCallback(() => {
     if (isBusy) {
       stop();
     }
@@ -1225,7 +1417,9 @@ export function BuyerSourcingChat() {
     setCheckoutOpen(false);
     setActiveOrderDraft(null);
     setOrderDraftOpen(false);
-    handleDetailClose();
+    setDetailOpen(false);
+    setDetailListing(null);
+    setDetailIntent(null);
     buyerChatRequestContext.focusedListingId = null;
     lastAutoOpenedDraftRef.current = null;
     dismissedDraftKeysRef.current = new Set();
@@ -1234,33 +1428,38 @@ export function BuyerSourcingChat() {
     if (chatStorageKey) {
       clearBuyerSourcingMessages(chatStorageKey);
     }
-  };
+  }, [chatStorageKey, clearError, isBusy, setMessages, stop]);
+
+  const newChatNavbarAction = useMemo(() => {
+    if (messages.length === 0) {
+      return null;
+    }
+
+    return (
+      <Button
+        aria-label="Start a new chat"
+        className="bg-background text-foreground shadow-sm hover:bg-surface-secondary dark:bg-surface dark:shadow-none dark:hover:bg-surface-secondary"
+        isDisabled={!isAuthReady}
+        size="sm"
+        type="button"
+        variant="ghost"
+        onPress={handleNewChat}
+      >
+        <MessageSquarePlus className="h-4 w-4" strokeWidth={1.75} />
+        New chat
+      </Button>
+    );
+  }, [handleNewChat, isAuthReady, messages.length]);
+
+  useNavbarPageActions(newChatNavbarAction);
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
-      {messages.length > 0 ? (
-        <div className="flex justify-end">
-          <Button
-            aria-label="Start a new chat"
-            className="bg-background text-foreground shadow-sm hover:bg-surface-secondary dark:bg-surface dark:shadow-none dark:hover:bg-surface-secondary"
-            isDisabled={!isAuthReady}
-            size="sm"
-            type="button"
-            variant="ghost"
-            onPress={handleNewChat}
-          >
-            <MessageSquarePlus className="h-4 w-4" strokeWidth={1.75} />
-            New chat
-          </Button>
-        </div>
-      ) : null}
-
-      <div
-        className={`flex w-full flex-col gap-4${messages.length > 0 ? " min-h-112" : ""}`}
-      >
+    <div className="mx-auto flex h-[calc(100dvh-3rem-4rem-env(safe-area-inset-bottom)-0.75rem)] w-full max-w-4xl flex-col md:h-[calc(100dvh-3.5rem-2rem)]">
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
         <div
           ref={chatScrollRef}
-          className="flex flex-1 flex-col gap-4 overflow-y-auto"
+          className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain"
+          onScroll={handleChatScroll}
         >
           {messages.length === 0 ? (
             <SourcingChatEmptyState firstName={userFirstName} />
@@ -1279,7 +1478,11 @@ export function BuyerSourcingChat() {
                 userDisplayName={userDisplayName}
                 userImage={viewer?.image}
                 userInitials={userInitials}
-                onFocusedListingChange={handleFocusedListingChange}
+                onFocusedListingChange={
+                  message.id === latestSourcingMessageId
+                    ? handleFocusedListingChange
+                    : undefined
+                }
                 onOpenOrderDraft={handleOpenOrderDraft}
                 onOrderListing={handleOrder}
                 onSelectListing={handleSelectListing}
@@ -1294,12 +1497,12 @@ export function BuyerSourcingChat() {
           ) : null}
         </div>
 
-        {error ? <p className="text-sm text-danger">{error.message}</p> : null}
+        {error ? <p className="shrink-0 text-sm text-danger">{error.message}</p> : null}
         {!isAuthReady ? (
-          <p className="text-sm text-muted">Signing you in…</p>
+          <p className="shrink-0 text-sm text-muted">Signing you in…</p>
         ) : null}
 
-        <form className="flex flex-col gap-3 pt-2" onSubmit={handleSubmit}>
+        <form className="flex shrink-0 flex-col gap-3" onSubmit={handleSubmit}>
           <div className={`relative ${COMPOSER_SURFACE}`}>
             <textarea
               aria-label="Sourcing request"

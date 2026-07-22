@@ -1,6 +1,6 @@
 "use client";
 
-import type { BuyerChatTrailStep } from "@repo/types";
+import type { BuyerChatTrailStep, BuyerChatTrailStepId } from "@repo/types";
 
 import clsx from "clsx";
 import { Check } from "lucide-react";
@@ -10,13 +10,18 @@ type BuyerChatTrailStripProps = {
   steps: BuyerChatTrailStep[];
 };
 
+/** Steps that gain a detail line when the trail completes — reserve height up front. */
+const DETAIL_SLOT_STEP_IDS = new Set<BuyerChatTrailStepId>([
+  "search",
+  "filter",
+  "rank",
+]);
+
 export function BuyerChatTrailStrip({
   className,
   steps,
 }: BuyerChatTrailStripProps) {
-  const visibleSteps = steps.filter((step) => step.state !== "pending");
-
-  if (visibleSteps.length === 0) {
+  if (steps.length === 0) {
     return null;
   }
 
@@ -24,41 +29,53 @@ export function BuyerChatTrailStrip({
     <ol
       aria-label="Sourcing steps"
       className={clsx(
-        "flex w-full flex-col gap-1.5 rounded-[0.875rem] bg-background px-3.5 py-3 text-sm shadow-sm dark:bg-surface dark:shadow-none",
+        "flex w-full flex-col gap-1 rounded-[0.875rem] bg-background px-3 py-2.5 text-xs shadow-sm dark:bg-surface dark:shadow-none",
         className,
       )}
     >
-      {visibleSteps.map((step) => {
+      {steps.map((step) => {
         const isActive = step.state === "active";
+        const isPending = step.state === "pending";
+        const isDone = step.state === "done";
+        const showDetailSlot =
+          DETAIL_SLOT_STEP_IDS.has(step.id) || Boolean(step.detail);
 
         return (
-          <li key={step.id} className="flex items-start gap-2.5">
+          <li key={step.id} className="flex items-start gap-2">
             <span
               aria-hidden
               className={clsx(
-                "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
-                step.state === "done" && "bg-accent text-accent-foreground",
+                "mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full",
+                isDone && "bg-accent text-accent-foreground",
                 isActive && "bg-brand-deep/15 text-brand-deep",
+                isPending && "bg-default text-muted",
               )}
             >
-              {step.state === "done" ? (
-                <Check className="h-3 w-3" strokeWidth={2.5} />
+              {isDone ? (
+                <Check className="h-2.5 w-2.5" strokeWidth={2.5} />
               ) : (
-                <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                <span className="h-1 w-1 rounded-full bg-current" />
               )}
             </span>
             <span className="min-w-0 flex-1 leading-snug">
               <span
                 className={clsx(
                   "font-medium",
-                  isActive ? "trail-step-shimmer" : "text-foreground",
+                  isActive && "trail-step-shimmer",
+                  isDone && "text-foreground",
+                  isPending && "text-muted",
                 )}
               >
                 {step.label}
               </span>
-              {step.detail ? (
-                <span className="mt-0.5 block text-xs text-muted">
-                  {step.detail}
+              {showDetailSlot ? (
+                <span
+                  className={clsx(
+                    "mt-0.5 block min-h-3.5 text-[10px] leading-tight",
+                    step.detail ? "text-muted" : "text-transparent",
+                  )}
+                >
+                  {step.detail || "\u00a0"}
                 </span>
               ) : null}
             </span>

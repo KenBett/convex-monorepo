@@ -97,6 +97,7 @@ export function BuyerListingCard({
         "relative flex flex-col overflow-hidden rounded-[0.875rem]",
         "shadow-sm transition-transform duration-200",
         getListingCardBgClass(result.crop),
+        !scaleOnHover && "min-h-full",
         isUnavailable && "opacity-60 saturate-50",
         isInteractive && "cursor-pointer focus-visible:outline-none",
         isInteractive &&
@@ -212,7 +213,8 @@ export function BuyerListingCard({
           </Chip.Label>
         </Chip>
 
-        {matchSnippet && !isUnavailable ? (
+        {/* Carousel owns height — omit snippet so live cards match skeleton frame. */}
+        {matchSnippet && !isUnavailable && scaleOnHover ? (
           <p
             className={clsx(
               "italic text-neutral-600",

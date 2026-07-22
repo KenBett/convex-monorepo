@@ -23,6 +23,7 @@ import {
   NAVBAR_HEIGHT_CLASSES,
 } from "@/constants/layout";
 
+import { useNavbarActions } from "./navbar-actions-context";
 import { useSidebar } from "./sidebar-context";
 
 const avatarInitials = siteConfig.name.slice(0, 2).toUpperCase();
@@ -33,6 +34,7 @@ export const Navbar = () => {
   const showPageTitle = !ROUTES_WITH_PAGE_HEADER.has(pathname);
   const { isExpanded } = useSidebar();
   const { navbarLeft } = getSidebarLayoutClasses(isExpanded);
+  const { actions: pageActions } = useNavbarActions();
   const viewer = useQuery(api.users.viewer);
   const { signOut } = useAuthActions();
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -60,7 +62,7 @@ export const Navbar = () => {
     <nav
       suppressHydrationWarning
       className={clsx(
-        "fixed top-0 right-0 z-30 bg-background transition-[left] duration-200 ease-in-out",
+        "fixed top-0 right-0 z-30 bg-background/70 backdrop-blur-xl transition-[left] duration-200 ease-in-out supports-[backdrop-filter]:bg-background/55",
         NAVBAR_HEIGHT_CLASSES,
         navbarLeft,
       )}
@@ -102,6 +104,8 @@ export const Navbar = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          {pageActions}
+
           {ordersPath ? (
             <Tooltip delay={0}>
               <NextLink
