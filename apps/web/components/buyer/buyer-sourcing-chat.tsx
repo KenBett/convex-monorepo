@@ -38,6 +38,7 @@ import {
 import { getAssistantReplyToLatestUser } from "@repo/backend/convex/listings/buyerChatMessages";
 import { resolveNeededByFromText } from "@repo/backend/convex/lib/buyerNeededBy";
 import clsx from "clsx";
+import { HashLoader } from "react-spinners";
 
 import { siteConfig } from "@/config/site";
 import { BuyerChatTrailStrip } from "@/components/buyer/buyer-chat-trail-strip";
@@ -48,6 +49,7 @@ import { VunrLogo } from "@/components/marketing/vunr-logo";
 import { SourcingChatEmptyState } from "@/components/buyer/sourcing-chat-empty-state";
 import { OrderDraftConfirmDialog } from "@/components/buyer/order-draft-confirm-dialog";
 import { OrderCheckoutDialog } from "@/components/buyer/order-checkout-dialog";
+import { useHideTopChrome } from "@/components/layout/navbar-actions-context";
 import {
   clearBuyerSourcingMessages,
   loadBuyerSourcingMessages,
@@ -77,6 +79,27 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
   }, [delayMs, value]);
 
   return debounced;
+}
+
+/** True below the md breakpoint (matches Tailwind `md:`). */
+function useIsMobileViewport(): boolean {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined"
+      ? window.matchMedia("(max-width: 767px)").matches
+      : false,
+  );
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const sync = () => setIsMobile(mediaQuery.matches);
+
+    sync();
+    mediaQuery.addEventListener("change", sync);
+
+    return () => mediaQuery.removeEventListener("change", sync);
+  }, []);
+
+  return isMobile;
 }
 const defaultAvatarInitials = siteConfig.name.slice(0, 2).toUpperCase();
 
@@ -926,13 +949,27 @@ function LiveBrowseIdleEmptyState({ compact = false }: { compact?: boolean }) {
   );
 }
 
-/** Fixed-height crossfade between skeleton and live preview cards. */
+/** HashLoader while live browse is pending — replaced by carousel cards. */
+function LiveBrowseLoadingIndicator() {
+  return (
+    <div
+      aria-busy="true"
+      aria-label="Searching for matching listings"
+      className="flex w-full items-center justify-center py-10 text-foreground"
+      role="status"
+    >
+      <HashLoader color="currentColor" size={40} />
+    </div>
+  );
+}
+
+/** HashLoader stays mounted until carousel cards replace it (no restart flicker). */
 function LiveBrowsePreviewSlot({
   intent,
   listings,
   liveStatusMap,
   showCards,
-  showSkeleton,
+  showLoader,
   onFocusedListingChange,
   onOrderListing,
   onSelectListing,
@@ -941,7 +978,7 @@ function LiveBrowsePreviewSlot({
   listings: BuyerSourcingListingResult[];
   liveStatusMap: Map<string, ChatListingLiveStatus>;
   showCards: boolean;
-  showSkeleton: boolean;
+  showLoader: boolean;
   onFocusedListingChange?: (listing: BuyerSourcingListingResult | null) => void;
   onOrderListing: (listing: BuyerSourcingListingResult) => void;
   onSelectListing: (
@@ -951,19 +988,13 @@ function LiveBrowsePreviewSlot({
 }) {
   const listingKey = listings.map((listing) => listing.listingId).join("|");
 
-  // Keep carousel in normal document flow (not a grid/absolute stack) so
-  // scroll-padding + centering match the chat listing carousels.
-  if (showSkeleton && !showCards) {
-    return (
-      <div aria-live="polite" className="live-browse-slot">
-        <ChatListingCarouselSkeleton />
-      </div>
-    );
+  if (!showLoader && !showCards) {
+    return null;
   }
 
-  if (showCards && listings.length > 0) {
-    return (
-      <div aria-live="polite" className="live-browse-slot">
+  return (
+    <div aria-live="polite" className="live-browse-slot">
+      {showCards && listings.length > 0 ? (
         <ChatListingCardCarousel
           key={listingKey}
           animateEntrance
@@ -973,11 +1004,11 @@ function LiveBrowsePreviewSlot({
           onOrderListing={onOrderListing}
           onSelectListing={(listing) => onSelectListing(listing, intent)}
         />
-      </div>
-    );
-  }
-
-  return null;
+      ) : (
+        <LiveBrowseLoadingIndicator />
+      )}
+    </div>
+  );
 }
 
 function LoadingBubble() {
@@ -1297,6 +1328,8 @@ export function BuyerSourcingChat() {
   }, [chatStorageKey, messages]);
 
   const [input, setInput] = useState("");
+  const [isComposerFocused, setIsComposerFocused] = useState(false);
+  const isMobileViewport = useIsMobileViewport();
   const [displayedLiveListings, setDisplayedLiveListings] = useState<
     BuyerSourcingListingResult[]
   >([]);
@@ -1453,15 +1486,21 @@ export function BuyerSourcingChat() {
     liveBrowse !== undefined &&
     displayedLiveQueryKey !== trimmedDebounced;
   const liveBrowsePending =
-    !isBusy &&
-    trimmedInput.length >= LIVE_BROWSE_MIN_QUERY_LENGTH &&
-    (inputPending || queryPending || resultsPendingForQuery);
-  const showLiveBrowseSkeleton = liveBrowsePending;
+    inputPending || queryPending || resultsPendingForQuery;
+  /** Active live-browse session — keep HashLoader until cards replace it. */
+  const hasLiveBrowseQuery =
+    !isBusy && trimmedInput.length >= LIVE_BROWSE_MIN_QUERY_LENGTH;
   const showLiveBrowseCards =
-    !isBusy &&
+    hasLiveBrowseQuery &&
     !liveBrowsePending &&
     visibleLiveListings.length > 0;
-  const showLiveBrowse = showLiveBrowseSkeleton || showLiveBrowseCards;
+  const showLiveBrowseLoader = hasLiveBrowseQuery && !showLiveBrowseCards;
+  const showLiveBrowse = showLiveBrowseLoader || showLiveBrowseCards;
+  const isComposerActive =
+    isComposerFocused || trimmedInput.length > 0;
+  const compactMobileChrome = isMobileViewport && isComposerActive;
+
+  useHideTopChrome(compactMobileChrome);
   const scrollChatToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     const scroller = chatScrollRef.current;
 
@@ -1636,41 +1675,51 @@ export function BuyerSourcingChat() {
   }, [chatStorageKey, clearError, clearLiveBrowse, isBusy, setMessages, stop]);
 
   return (
-    <div className="mx-auto flex h-[calc(100svh-3rem-1.5rem-env(safe-area-inset-top,0px))] w-full max-w-4xl flex-col overflow-hidden md:h-[calc(100dvh-3.5rem-2rem)]">
+    <div
+      className={clsx(
+        "mx-auto flex w-full max-w-4xl flex-col overflow-hidden",
+        compactMobileChrome
+          ? // Fill the keyboard-resized main (layout sets h-dvh when chrome is hidden).
+            "h-full min-h-0 flex-1"
+          : "h-[calc(100svh-3rem-1.5rem-env(safe-area-inset-top,0px))] md:h-[calc(100dvh-3.5rem-2rem)]",
+      )}
+    >
       <div className="flex min-h-0 flex-1 flex-col gap-2 sm:gap-3">
         <div
           ref={chatScrollRef}
           className="scrollbar-none flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain"
           onScroll={handleChatScroll}
         >
-          {messages.length === 0 ? (
+          {messages.length === 0 && !compactMobileChrome ? (
             <SourcingChatEmptyState firstName={userFirstName} />
-          ) : (
-            messages.map((message, index) => (
-              <ChatMessage
-                key={message.id}
-                liveStatusMap={liveStatusMap}
-                loadingPhase={statusPhase}
-                message={message}
-                showLoading={
-                  isBusy &&
-                  index === messages.length - 1 &&
-                  message.role === "assistant"
-                }
-                userDisplayName={userDisplayName}
-                userImage={viewer?.image}
-                userInitials={userInitials}
-                onFocusedListingChange={
-                  message.id === latestSourcingMessageId
-                    ? handleFocusedListingChange
-                    : undefined
-                }
-                onOpenOrderDraft={handleOpenOrderDraft}
-                onOrderListing={handleOrder}
-                onSelectListing={handleSelectListing}
-              />
-            ))
-          )}
+          ) : null}
+
+          {messages.length > 0
+            ? messages.map((message, index) => (
+                <ChatMessage
+                  key={message.id}
+                  liveStatusMap={liveStatusMap}
+                  loadingPhase={statusPhase}
+                  message={message}
+                  showLoading={
+                    isBusy &&
+                    index === messages.length - 1 &&
+                    message.role === "assistant"
+                  }
+                  userDisplayName={userDisplayName}
+                  userImage={viewer?.image}
+                  userInitials={userInitials}
+                  onFocusedListingChange={
+                    message.id === latestSourcingMessageId
+                      ? handleFocusedListingChange
+                      : undefined
+                  }
+                  onOpenOrderDraft={handleOpenOrderDraft}
+                  onOrderListing={handleOrder}
+                  onSelectListing={handleSelectListing}
+                />
+              ))
+            : null}
 
           {isBusy &&
           (messages.length === 0 ||
@@ -1690,12 +1739,13 @@ export function BuyerSourcingChat() {
             listings={visibleLiveListings}
             liveStatusMap={liveStatusMap}
             showCards={showLiveBrowseCards}
-            showSkeleton={showLiveBrowseSkeleton}
+            showLoader={showLiveBrowseLoader}
             onFocusedListingChange={handleFocusedListingChange}
             onOrderListing={handleOrder}
             onSelectListing={handleSelectListing}
           />
         ) : !isBusy &&
+          !compactMobileChrome &&
           trimmedInput.length < LIVE_BROWSE_MIN_QUERY_LENGTH ? (
           <LiveBrowseIdleEmptyState compact={messages.length > 0} />
         ) : null}
@@ -1725,7 +1775,9 @@ export function BuyerSourcingChat() {
                 className={COMPOSER_INPUT}
                 rows={2}
                 value={input}
+                onBlur={() => setIsComposerFocused(false)}
                 onChange={(event) => setInput(event.target.value)}
+                onFocus={() => setIsComposerFocused(true)}
                 onKeyDown={(event) => {
                   if (
                     event.key === "Enter" &&

@@ -12,7 +12,10 @@ import {
 import { LayoutSkeleton } from "./layout-skeleton";
 import { MobileSidebar } from "./mobile-sidebar";
 import { Navbar } from "./navbar";
-import { NavbarActionsProvider } from "./navbar-actions-context";
+import {
+  NavbarActionsProvider,
+  useNavbarActions,
+} from "./navbar-actions-context";
 import { Sidebar } from "./sidebar";
 import { SidebarProvider, useSidebar } from "./sidebar-context";
 
@@ -27,13 +30,15 @@ function LayoutShellContent({
   hideNavbar = false,
 }: LayoutShellProps) {
   const { isExpanded } = useSidebar();
+  const { hideTopChrome } = useNavbarActions();
   const { mainMargin } = getSidebarLayoutClasses(isExpanded);
+  const navbarHidden = hideNavbar || hideTopChrome;
 
   return (
     <>
       <Sidebar />
       <MobileSidebar />
-      {hideNavbar ? null : <Navbar />}
+      {navbarHidden ? null : <Navbar />}
       <div
         className={clsx(
           mainMargin,
@@ -42,11 +47,18 @@ function LayoutShellContent({
       >
         <main
           className={clsx(
-            "flex min-h-dvh flex-col",
-            hideNavbar
-              ? "p-0 md:h-dvh md:overflow-hidden"
+            "flex flex-col",
+            navbarHidden
+              ? hideNavbar
+                ? "min-h-dvh p-0 md:h-dvh md:overflow-hidden"
+                : clsx(
+                    // Composer focus: drop navbar offset; h-dvh tracks soft keyboard
+                    // when interactive-widget=resizes-content.
+                    "h-dvh overflow-hidden pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] pt-[env(safe-area-inset-top,0px)]",
+                    CONTENT_CONTAINER_CLASSES,
+                  )
               : clsx(
-                  "pb-6 md:pb-8",
+                  "min-h-dvh pb-6 md:pb-8",
                   NAVBAR_OFFSET_CLASSES,
                   CONTENT_CONTAINER_CLASSES,
                 ),
