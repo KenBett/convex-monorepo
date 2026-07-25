@@ -10,8 +10,8 @@ export function SourcingChatEmptyState({
   firstName,
 }: SourcingChatEmptyStateProps) {
   const greeting = firstName
-    ? `Hey, ${firstName} — what are you sourcing today?`
-    : "Hey — what are you sourcing today?";
+    ? `Hey, ${firstName}, what are you sourcing today?`
+    : "Hey, what are you sourcing today?";
 
   return (
     <div className="motion-safe-fade-in flex items-center gap-3 py-2">

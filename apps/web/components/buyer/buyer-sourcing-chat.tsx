@@ -434,8 +434,6 @@ const CHAT_LISTING_CARD_MIN_HEIGHT_REM = 26.5;
  * floor (Quality + Standards rows) without overlapping the composer.
  */
 const CHAT_LISTING_CAROUSEL_SLOT_MIN_HEIGHT = `calc(${CHAT_LISTING_CARD_MIN_HEIGHT_REM * CHAT_LISTING_CARD_SCALE * 1.06}rem + 1.5rem)`;
-/** Delay before the “found it” shake on the first live result card. */
-const LIVE_BROWSE_FOUND_SHAKE_DELAY_MS = 300;
 /** Side pad so first/last cards center without a JS padding flash. */
 const CHAT_LISTING_SCROLLER_PAD_STYLE = {
   paddingInline: `max(0px, calc((100% - var(--chat-listing-card-display-width, ${CHAT_LISTING_CARD_DISPLAY_WIDTH_REM}rem)) / 2))`,
@@ -605,9 +603,9 @@ function ChatListingCarouselSkeleton() {
       role="status"
         style={{
         minHeight:
-          "min(100%, var(--chat-listing-carousel-slot-min-height, " +
+          "var(--chat-listing-carousel-slot-min-height, " +
           CHAT_LISTING_CAROUSEL_SLOT_MIN_HEIGHT +
-          "))",
+          ")",
       }}
     >
       <ul
@@ -831,9 +829,9 @@ function ChatListingCardCarousel({
       className="relative w-full"
       style={{
         minHeight:
-          "min(100%, var(--chat-listing-carousel-slot-min-height, " +
+          "var(--chat-listing-carousel-slot-min-height, " +
           CHAT_LISTING_CAROUSEL_SLOT_MIN_HEIGHT +
-          "))",
+          ")",
       }}
     >
       <ul
@@ -872,31 +870,16 @@ function ChatListingCardCarousel({
                     : "scale-[0.9] blur-[2.5px]",
                 )}
               >
-                <div
-                  className={clsx(
-                    animateEntrance &&
-                      index === 0 &&
-                      "motion-safe-chat-listing-card-found",
-                  )}
-                  style={
-                    animateEntrance && index === 0
-                      ? {
-                          animationDelay: `${LIVE_BROWSE_FOUND_SHAKE_DELAY_MS}ms`,
-                        }
-                      : undefined
-                  }
-                >
-                  <ChatListingCardFrame>
-                    <BuyerListingCard
-                      emphasized
-                      liveStatus={resolveLiveStatus(listing, liveStatusMap)}
-                      result={listing}
-                      scaleOnHover={false}
-                      onOrder={onOrderListing}
-                      onSelect={onSelectListing}
-                    />
-                  </ChatListingCardFrame>
-                </div>
+                <ChatListingCardFrame>
+                  <BuyerListingCard
+                    emphasized
+                    liveStatus={resolveLiveStatus(listing, liveStatusMap)}
+                    result={listing}
+                    scaleOnHover={false}
+                    onOrder={onOrderListing}
+                    onSelect={onSelectListing}
+                  />
+                </ChatListingCardFrame>
               </div>
             </li>
           );
@@ -1676,21 +1659,12 @@ export function BuyerSourcingChat() {
 
   useNavbarPageActions(newChatNavbarAction);
 
-  const showLiveBrowseSlot =
-    !isBusy &&
-    (showLiveBrowse || trimmedInput.length < LIVE_BROWSE_MIN_QUERY_LENGTH);
-
   return (
-    <div className="mx-auto flex h-[calc(100dvh-3rem-1.5rem)] w-full max-w-4xl flex-col overflow-hidden md:h-[calc(100dvh-3.5rem-2rem)]">
+    <div className="mx-auto flex h-[calc(100svh-3rem-1.5rem-env(safe-area-inset-top,0px))] w-full max-w-4xl flex-col overflow-hidden md:h-[calc(100dvh-3.5rem-2rem)]">
       <div className="flex min-h-0 flex-1 flex-col gap-2 sm:gap-3">
         <div
           ref={chatScrollRef}
-          className={clsx(
-            "scrollbar-none flex min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain",
-            showLiveBrowseSlot && messages.length === 0
-              ? "shrink-0"
-              : "flex-1",
-          )}
+          className="scrollbar-none flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain"
           onScroll={handleChatScroll}
         >
           {messages.length === 0 ? (

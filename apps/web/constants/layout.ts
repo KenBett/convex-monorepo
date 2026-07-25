@@ -27,13 +27,15 @@ export function getSidebarLayoutClasses(isExpanded: boolean) {
   };
 }
 
-export const NAVBAR_HEIGHT_CLASSES = "h-12 md:h-14";
+export const NAVBAR_HEIGHT_CLASSES =
+  "h-[calc(3rem+env(safe-area-inset-top,0px))] md:h-14";
 
-export const NAVBAR_OFFSET_CLASSES = "pt-12 md:pt-14";
+export const NAVBAR_OFFSET_CLASSES =
+  "pt-[calc(3rem+env(safe-area-inset-top,0px))] md:pt-14";
 
 /** Viewport frame under the fixed navbar (mobile uses main pb-6 = 1.5rem). */
 export const PAGE_FRAME_HEIGHT_CLASSES =
-  "h-[calc(100dvh-3rem-1.5rem)] md:h-[calc(100dvh-3.5rem-2rem)]";
+  "h-[calc(100svh-3rem-1.5rem-env(safe-area-inset-top,0px))] md:h-[calc(100dvh-3.5rem-2rem)]";
 
 export const CONTENT_CONTAINER_CLASSES =
   "mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8";
