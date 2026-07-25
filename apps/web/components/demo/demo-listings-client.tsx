@@ -19,8 +19,7 @@ import { DemoSearchPromptPanel } from "@/components/demo/demo-search-prompt-pane
 /** Temporary — remove with /demo/listings when demos are done. */
 const PAGE_FRAME_CLASSES = clsx(
   "mx-auto flex w-full max-w-4xl flex-col gap-4",
-  "h-[calc(100dvh-3rem-4rem-env(safe-area-inset-bottom,0px))]",
-  "md:h-[calc(100dvh-3.5rem-2rem)]",
+  "h-[calc(100dvh-3rem-1.5rem)] md:h-[calc(100dvh-3.5rem-2rem)]",
 );
 
 type ListingStat = {

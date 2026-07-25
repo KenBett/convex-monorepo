@@ -32,11 +32,13 @@ import type * as listings_buyerChatOrchestrate from "../listings/buyerChatOrches
 import type * as listings_buyerChatParse from "../listings/buyerChatParse.js";
 import type * as listings_buyerChatStream from "../listings/buyerChatStream.js";
 import type * as listings_buyerChatTrail from "../listings/buyerChatTrail.js";
+import type * as listings_buyerLiveBrowse from "../listings/buyerLiveBrowse.js";
 import type * as listings_buyerOrderDraftValidators from "../listings/buyerOrderDraftValidators.js";
 import type * as listings_buyerOrderResolve from "../listings/buyerOrderResolve.js";
 import type * as listings_buyerSearchExecute from "../listings/buyerSearchExecute.js";
 import type * as listings_buyerSearchIntentNormalize from "../listings/buyerSearchIntentNormalize.js";
 import type * as listings_buyerSearchIntentParse from "../listings/buyerSearchIntentParse.js";
+import type * as listings_buyerSearchRank from "../listings/buyerSearchRank.js";
 import type * as listings_buyerSourcing from "../listings/buyerSourcing.js";
 import type * as listings_demoHotelSeed from "../listings/demoHotelSeed.js";
 import type * as listings_demoInventory from "../listings/demoInventory.js";
@@ -83,11 +85,13 @@ declare const fullApi: ApiFromModules<{
   "listings/buyerChatParse": typeof listings_buyerChatParse;
   "listings/buyerChatStream": typeof listings_buyerChatStream;
   "listings/buyerChatTrail": typeof listings_buyerChatTrail;
+  "listings/buyerLiveBrowse": typeof listings_buyerLiveBrowse;
   "listings/buyerOrderDraftValidators": typeof listings_buyerOrderDraftValidators;
   "listings/buyerOrderResolve": typeof listings_buyerOrderResolve;
   "listings/buyerSearchExecute": typeof listings_buyerSearchExecute;
   "listings/buyerSearchIntentNormalize": typeof listings_buyerSearchIntentNormalize;
   "listings/buyerSearchIntentParse": typeof listings_buyerSearchIntentParse;
+  "listings/buyerSearchRank": typeof listings_buyerSearchRank;
   "listings/buyerSourcing": typeof listings_buyerSourcing;
   "listings/demoHotelSeed": typeof listings_demoHotelSeed;
   "listings/demoInventory": typeof listings_demoInventory;

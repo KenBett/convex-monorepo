@@ -6,8 +6,7 @@ const SURFACE_CARD = "rounded-[0.875rem] bg-surface shadow-sm dark:shadow-none";
 /** Match MyProductsClient viewport frame so skeleton doesn't jump layout. */
 const PAGE_FRAME_CLASSES = clsx(
   "mx-auto flex w-full max-w-4xl flex-col gap-4",
-  "h-[calc(100dvh-3rem-4rem-env(safe-area-inset-bottom,0px))]",
-  "md:h-[calc(100dvh-3.5rem-2rem)]",
+  "h-[calc(100dvh-3rem-1.5rem)] md:h-[calc(100dvh-3.5rem-2rem)]",
 );
 
 function ListingStatCardSkeleton() {

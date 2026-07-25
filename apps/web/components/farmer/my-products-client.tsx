@@ -13,13 +13,10 @@ import { FarmerListingCard } from "@/components/farmer/listing-card";
 import { ListingForm } from "@/components/farmer/listing-form";
 import { MyProductsSkeleton } from "@/components/farmer/my-products-skeleton";
 
-/** Fills viewport below fixed navbar (and mobile tab bar), so only the grid scrolls. */
+/** Fills viewport below fixed navbar, so only the grid scrolls. */
 const PAGE_FRAME_CLASSES = clsx(
   "mx-auto flex w-full max-w-4xl flex-col gap-4",
-  // mobile: navbar (3rem) + tab bar (4rem + safe)
-  "h-[calc(100dvh-3rem-4rem-env(safe-area-inset-bottom,0px))]",
-  // desktop: navbar (3.5rem) + main pb-8 (2rem)
-  "md:h-[calc(100dvh-3.5rem-2rem)]",
+  "h-[calc(100dvh-3rem-1.5rem)] md:h-[calc(100dvh-3.5rem-2rem)]",
 );
 
 type ListingStat = {

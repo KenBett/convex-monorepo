@@ -6,7 +6,7 @@ import { getInitials } from "@repo/utils";
 import { Avatar, Tooltip } from "@heroui/react";
 import { useQuery } from "convex/react";
 import clsx from "clsx";
-import { Bell, LogOut } from "lucide-react";
+import { Bell, LogOut, Menu } from "lucide-react";
 import NextLink from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -32,7 +32,7 @@ export const Navbar = () => {
   const pathname = usePathname();
   const pageTitle = getPageTitle(pathname);
   const showPageTitle = !ROUTES_WITH_PAGE_HEADER.has(pathname);
-  const { isExpanded } = useSidebar();
+  const { isExpanded, isMobileNavOpen, toggleMobileNav } = useSidebar();
   const { navbarLeft } = getSidebarLayoutClasses(isExpanded);
   const { actions: pageActions } = useNavbarActions();
   const viewer = useQuery(api.users.viewer);
@@ -74,6 +74,19 @@ export const Navbar = () => {
         )}
       >
         <div className="flex min-w-0 items-center gap-2">
+          <button
+            aria-controls="mobile-sidebar"
+            aria-expanded={isMobileNavOpen}
+            aria-label={isMobileNavOpen ? "Close menu" : "Open menu"}
+            className={clsx(
+              "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full md:hidden",
+              "text-muted transition-colors hover:bg-default/40 hover:text-foreground",
+            )}
+            type="button"
+            onClick={toggleMobileNav}
+          >
+            <Menu className="h-5 w-5" strokeWidth={1.75} />
+          </button>
           <NextLink
             aria-label="Go to profile"
             className="hidden shrink-0 rounded-full transition-opacity hover:opacity-80 md:inline-flex"

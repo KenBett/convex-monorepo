@@ -309,8 +309,28 @@ body {
   }
 }
 
+@keyframes chat-listing-card-found-shake {
+  0%,
+  100% {
+    transform: rotate(0deg) translateX(0);
+  }
+
+  25% {
+    transform: rotate(-0.35deg) translateX(-1px);
+  }
+
+  50% {
+    transform: rotate(0.35deg) translateX(1px);
+  }
+
+  75% {
+    transform: rotate(-0.2deg) translateX(-0.5px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .motion-safe-chat-listing-card-in {
+  .motion-safe-chat-listing-card-in,
+  .motion-safe-chat-listing-card-found {
     animation: none;
   }
 }
@@ -318,6 +338,10 @@ body {
 @media (prefers-reduced-motion: no-preference) {
   .motion-safe-chat-listing-card-in {
     animation: chat-listing-card-in 280ms ease-out both;
+  }
+
+  .motion-safe-chat-listing-card-found {
+    animation: chat-listing-card-found-shake 480ms ease-in-out backwards;
   }
 
   /* Centered mandatory snap + custom JS eases arrow / settle moves. */
@@ -335,6 +359,83 @@ body {
     transition:
       transform 280ms cubic-bezier(0.2, 0.9, 0.3, 1),
       filter 280ms cubic-bezier(0.2, 0.9, 0.3, 1);
+  }
+}
+
+/* Hide scrollbars while keeping scroll/swipe. */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/*
+ * Live-browse / carousel host: fills leftover column height and vertically
+ * centers the carousel so it feels balanced between messages and composer.
+ */
+.live-browse-slot {
+  container-type: size;
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.live-browse-slot > * {
+  max-height: 100%;
+  width: 100%;
+}
+
+.live-browse-slot .chat-listing-carousel-scroller,
+.chat-listing-carousel-scroller {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.live-browse-slot .chat-listing-carousel-scroller::-webkit-scrollbar,
+.chat-listing-carousel-scroller::-webkit-scrollbar {
+  display: none;
+}
+
+/* Scale cards down when the slot is short so they fit without scrolling. */
+@container (max-height: 520px) {
+  .chat-listing-card-frame {
+    zoom: 0.62;
+  }
+
+  .chat-listing-carousel-snap {
+    width: min(15.5rem, 82vw) !important;
+  }
+}
+
+@container (max-height: 400px) {
+  .chat-listing-card-frame {
+    zoom: 0.52;
+  }
+
+  .chat-listing-carousel-snap {
+    width: min(13.5rem, 78vw) !important;
+  }
+}
+
+/* Narrow phones: keep carousel cards inside the column. */
+:root {
+  --chat-listing-card-display-width: 19.68rem;
+  /* Scaled card + scroller py — mirrors TS CHAT_LISTING_CAROUSEL_SLOT_MIN_HEIGHT */
+  --chat-listing-carousel-slot-min-height: calc(26.5rem * 0.82 * 1.06 + 1.5rem);
+}
+
+@media (max-width: 639px) {
+  :root {
+    --chat-listing-card-display-width: min(17rem, 85vw);
+    --chat-listing-carousel-slot-min-height: 0px;
   }
 }
 

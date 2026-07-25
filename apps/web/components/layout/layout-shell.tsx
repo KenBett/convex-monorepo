@@ -6,12 +6,11 @@ import clsx from "clsx";
 import {
   CONTENT_CONTAINER_CLASSES,
   getSidebarLayoutClasses,
-  MOBILE_TAB_BAR_OFFSET_CLASSES,
   NAVBAR_OFFSET_CLASSES,
 } from "@/constants/layout";
 
 import { LayoutSkeleton } from "./layout-skeleton";
-import { MobileTabBar } from "./mobile-tab-bar";
+import { MobileSidebar } from "./mobile-sidebar";
 import { Navbar } from "./navbar";
 import { NavbarActionsProvider } from "./navbar-actions-context";
 import { Sidebar } from "./sidebar";
@@ -33,8 +32,8 @@ function LayoutShellContent({
   return (
     <>
       <Sidebar />
+      <MobileSidebar />
       {hideNavbar ? null : <Navbar />}
-      <MobileTabBar />
       <div
         className={clsx(
           mainMargin,
@@ -45,14 +44,10 @@ function LayoutShellContent({
           className={clsx(
             "flex min-h-dvh flex-col",
             hideNavbar
-              ? clsx(
-                  "p-0 md:h-dvh md:overflow-hidden",
-                  MOBILE_TAB_BAR_OFFSET_CLASSES,
-                )
+              ? "p-0 md:h-dvh md:overflow-hidden"
               : clsx(
                   "pb-6 md:pb-8",
                   NAVBAR_OFFSET_CLASSES,
-                  MOBILE_TAB_BAR_OFFSET_CLASSES,
                   CONTENT_CONTAINER_CLASSES,
                 ),
           )}

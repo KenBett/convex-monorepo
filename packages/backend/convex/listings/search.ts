@@ -221,6 +221,38 @@ export const hydrateSearchCandidates = internalQuery({
 });
 
 /** Indexed browse: active listings for a known crop (no embeddings). */
+export async function loadActiveListingsByCrop(
+  ctx: QueryCtx,
+  crop: string,
+  limit?: number,
+): Promise<ListingSearchResultRow[]> {
+  assertValidCrop(crop);
+
+  const takeLimit = Math.min(
+    Math.max(limit ?? INDEXED_CROP_CANDIDATE_CAP, 1),
+    INDEXED_CROP_CANDIDATE_CAP,
+  );
+
+  const listings = await ctx.db
+    .query("listings")
+    .withIndex("by_crop_and_status", (q) =>
+      q.eq("crop", crop).eq("status", "active"),
+    )
+    .take(takeLimit);
+
+  const rows = await Promise.all(
+    listings.map(async (listing) =>
+      toSearchResultRow(ctx, listing, {
+        score: 1,
+        snippet: `${listing.crop} — ${listing.county}`,
+        title: `${listing.crop} — ${listing.county}`,
+      }),
+    ),
+  );
+
+  return rows.filter((result): result is ListingSearchResultRow => result !== null);
+}
+
 export const listActiveListingsByCrop = internalQuery({
   args: {
     crop: v.string(),
@@ -228,31 +260,7 @@ export const listActiveListingsByCrop = internalQuery({
   },
   returns: v.array(listingSearchResultValidator),
   handler: async (ctx, args) => {
-    assertValidCrop(args.crop);
-
-    const takeLimit = Math.min(
-      Math.max(args.limit ?? INDEXED_CROP_CANDIDATE_CAP, 1),
-      INDEXED_CROP_CANDIDATE_CAP,
-    );
-
-    const listings = await ctx.db
-      .query("listings")
-      .withIndex("by_crop_and_status", (q) =>
-        q.eq("crop", args.crop).eq("status", "active"),
-      )
-      .take(takeLimit);
-
-    const rows = await Promise.all(
-      listings.map(async (listing) =>
-        toSearchResultRow(ctx, listing, {
-          score: 1,
-          snippet: `${listing.crop} — ${listing.county}`,
-          title: `${listing.crop} — ${listing.county}`,
-        }),
-      ),
-    );
-
-    return rows.filter((result): result is ListingSearchResultRow => result !== null);
+    return await loadActiveListingsByCrop(ctx, args.crop, args.limit);
   },
 });
 
@@ -306,11 +314,15 @@ export async function runListingSemanticSearch(
  * Prefer indexed crop lookup when crop is known and the query is thin.
  * Use vector RAG for vague queries, and hybrid (index + vector) when crop is
  * known but the buyer still used rich descriptive language.
+ *
+ * Pass `indexedOnly: true` for live preview — never call OpenAI embeddings.
  */
 export async function runListingBrowseSearch(
   ctx: ActionCtx,
   args: {
     crop?: string;
+    /** Skip vector/RAG entirely (composer live browse). */
+    indexedOnly?: boolean;
     limit?: number;
     query: string;
   },
@@ -320,6 +332,33 @@ export async function runListingBrowseSearch(
   retrievalMode: "hybrid" | "indexed_browse" | "vector";
 }> {
   const query = args.query.trim();
+
+  if (args.indexedOnly) {
+    if (!args.crop) {
+      return {
+        ragCandidateCount: 0,
+        results: [],
+        retrievalMode: "indexed_browse",
+      };
+    }
+
+    assertValidCrop(args.crop);
+
+    const results = await ctx.runQuery(
+      internal.listings.search.listActiveListingsByCrop,
+      {
+        crop: args.crop,
+        limit: INDEXED_CROP_CANDIDATE_CAP,
+      },
+    );
+
+    return {
+      ragCandidateCount: results.length,
+      results,
+      retrievalMode: "indexed_browse",
+    };
+  }
+
   const wantsVectorAugment = shouldAugmentCropBrowseWithVector(args.crop, query);
 
   if (args.crop && !wantsVectorAugment) {
