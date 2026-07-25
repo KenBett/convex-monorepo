@@ -24,6 +24,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  Mic,
+  MicOff,
   Trash2,
 } from "lucide-react";
 import {
@@ -46,7 +48,6 @@ import { BuyerListingCard } from "@/components/buyer/buyer-listing-card";
 import { BuyerListingDetailDialog } from "@/components/buyer/buyer-listing-detail-dialog";
 import { SourcingSendIcon } from "@/components/buyer/sourcing-agent-icon";
 import { VunrLogo } from "@/components/marketing/vunr-logo";
-import { SourcingChatEmptyState } from "@/components/buyer/sourcing-chat-empty-state";
 import { OrderDraftConfirmDialog } from "@/components/buyer/order-draft-confirm-dialog";
 import { OrderCheckoutDialog } from "@/components/buyer/order-checkout-dialog";
 import { useHideTopChrome } from "@/components/layout/navbar-actions-context";
@@ -60,13 +61,17 @@ import {
   getBuyerOrderDraftIntroMessage,
   getBuyerSourcingIntroMessage,
 } from "@/lib/buyer-sourcing-intro";
+import {
+  useSpeechDictation,
+  type SpeechDictationError,
+} from "@/lib/use-speech-dictation";
 
 const BUYER_SOURCING_CHAT_API = "/api/buyer/sourcing";
 
 /** Pause after typing before live browse hits the backend. */
 const LIVE_BROWSE_DEBOUNCE_MS = 150;
 /** Match packages/backend liveBrowseSearch minimum. */
-const LIVE_BROWSE_MIN_QUERY_LENGTH = 3;
+const LIVE_BROWSE_MIN_QUERY_LENGTH = 2;
 const LIVE_BROWSE_CARD_STAGGER_MS = 40;
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
@@ -79,6 +84,68 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
   }, [delayMs, value]);
 
   return debounced;
+}
+
+/**
+ * Live browse fires on the first eligible stem, then freezes while the buyer
+ * keeps typing that same first word ("avo" → "avocados").
+ *
+ * Once a space / second token appears (location, qty, grade, etc.), the query
+ * follows the full input again so "tomatoes in kiambu" can refresh filters.
+ */
+function resolveLiveBrowseQuery(
+  input: string,
+  lockedQuery: string | null,
+): string | null {
+  const trimmed = input.trim();
+
+  if (trimmed.length < LIVE_BROWSE_MIN_QUERY_LENGTH) {
+    return null;
+  }
+
+  const endsWithWhitespace = /\s$/.test(input);
+  const words = trimmed.split(/\s+/).filter(Boolean);
+
+  // Multi-word or committed first word: always track the full phrase so
+  // location / intent tokens refresh results.
+  if (words.length > 1 || endsWithWhitespace) {
+    return trimmed;
+  }
+
+  const word = words[0] ?? "";
+
+  if (word.length < LIVE_BROWSE_MIN_QUERY_LENGTH) {
+    return null;
+  }
+
+  if (lockedQuery === null) {
+    return word;
+  }
+
+  const lockedWords = lockedQuery.trim().split(/\s+/).filter(Boolean);
+  const lockedFirst = lockedWords[0] ?? "";
+
+  // Came back to a single word after multi-word intent — re-lock to it.
+  if (lockedWords.length > 1) {
+    return word;
+  }
+
+  // Same first word being extended — freeze at the original stem.
+  if (word.startsWith(lockedFirst) && word.length > lockedFirst.length) {
+    return lockedQuery;
+  }
+
+  // Shortening within the first word — refresh to the shorter stem.
+  if (lockedFirst.startsWith(word) && lockedFirst.length > word.length) {
+    return word.length >= LIVE_BROWSE_MIN_QUERY_LENGTH ? word : null;
+  }
+
+  // Replaced with a different first word.
+  if (word !== lockedFirst) {
+    return word;
+  }
+
+  return lockedQuery;
 }
 
 /** True below the md breakpoint (matches Tailwind `md:`). */
@@ -113,7 +180,22 @@ const COMPOSER_SURFACE =
   "rounded-[1.125rem] bg-background shadow-sm transition-shadow duration-200 focus-within:shadow-md dark:bg-surface dark:shadow-none dark:focus-within:shadow-none";
 
 const COMPOSER_INPUT =
-  "min-h-14 w-full resize-none bg-transparent px-4 py-3 pr-14 text-sm leading-6 text-foreground outline-none placeholder:text-muted sm:min-h-20 sm:py-3.5";
+  "min-h-14 w-full resize-none bg-transparent px-4 py-3 pr-24 text-sm leading-6 text-foreground outline-none placeholder:text-muted sm:min-h-20 sm:py-3.5 sm:pr-28";
+
+function speechDictationErrorMessage(error: SpeechDictationError): string {
+  switch (error) {
+    case "not-allowed":
+      return "Microphone permission is blocked. Allow access to use voice.";
+    case "not-supported":
+      return "Voice input is not supported in this browser.";
+    case "audio-capture":
+      return "No microphone found. Check your audio device.";
+    case "network":
+      return "Speech recognition lost network. Try again.";
+    default:
+      return "Voice input failed. Try again or type your request.";
+  }
+}
 
 type BuyerChatMessage = UIMessage<
   unknown,
@@ -1329,7 +1411,10 @@ export function BuyerSourcingChat() {
 
   const [input, setInput] = useState("");
   const [isComposerFocused, setIsComposerFocused] = useState(false);
+  const [voiceSessionActive, setVoiceSessionActive] = useState(false);
   const isMobileViewport = useIsMobileViewport();
+  /** Word-boundary locked query — does not change while extending the same word. */
+  const [liveBrowseQuery, setLiveBrowseQuery] = useState<string | null>(null);
   const [displayedLiveListings, setDisplayedLiveListings] = useState<
     BuyerSourcingListingResult[]
   >([]);
@@ -1369,28 +1454,31 @@ export function BuyerSourcingChat() {
   );
   const isAuthReady = authToken !== null;
   const trimmedInput = input.trim();
-  const debouncedInput = useDebouncedValue(input, LIVE_BROWSE_DEBOUNCE_MS);
-  const trimmedDebounced = debouncedInput.trim();
+
+  useEffect(() => {
+    if (isBusy) {
+      return;
+    }
+
+    setLiveBrowseQuery((locked) => resolveLiveBrowseQuery(input, locked));
+  }, [input, isBusy]);
+
+  const debouncedLiveBrowseQuery = useDebouncedValue(
+    liveBrowseQuery,
+    LIVE_BROWSE_DEBOUNCE_MS,
+  );
   const liveBrowseArgs =
     isAuthReady &&
     !isBusy &&
-    trimmedDebounced.length >= LIVE_BROWSE_MIN_QUERY_LENGTH
-      ? { limit: 8, query: trimmedDebounced }
+    debouncedLiveBrowseQuery !== null &&
+    debouncedLiveBrowseQuery.length >= LIVE_BROWSE_MIN_QUERY_LENGTH
+      ? { limit: 8, query: debouncedLiveBrowseQuery }
       : "skip";
   const liveBrowse = useQuery(
     api.listings.buyerLiveBrowse.liveBrowseSearch,
     liveBrowseArgs,
   );
   const userDisplayName = viewer?.name ?? viewer?.email ?? "You";
-  const userFirstName = (() => {
-    const raw = viewer?.name?.trim().split(/\s+/)[0];
-
-    if (!raw || raw === "You" || raw.includes("@")) {
-      return undefined;
-    }
-
-    return raw;
-  })();
   const userInitials = getInitials(
     viewer?.name,
     viewer?.email,
@@ -1398,31 +1486,117 @@ export function BuyerSourcingChat() {
   );
 
   const clearLiveBrowse = useCallback(() => {
+    setLiveBrowseQuery(null);
     setDisplayedLiveListings([]);
     setDisplayedLiveIntent(null);
     setDisplayedLiveQueryKey(null);
   }, []);
 
+  const submitSourcingText = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+
+      if (!trimmed || isBusy || !isAuthReady) {
+        return;
+      }
+
+      stickToBottomRef.current = true;
+      clearLiveBrowse();
+      setInput("");
+      await sendMessage({ text: trimmed });
+    },
+    [clearLiveBrowse, isAuthReady, isBusy, sendMessage],
+  );
+
+  const handleVoiceTranscriptChange = useCallback((text: string) => {
+    setInput(text);
+  }, []);
+
+  const handleVoiceAutoSend = useCallback(
+    (text: string) => {
+      void submitSourcingText(text);
+    },
+    [submitSourcingText],
+  );
+
+  const {
+    supported: voiceSupported,
+    listening: voiceListening,
+    error: voiceError,
+    clearError: clearVoiceError,
+    start: startVoice,
+    stop: stopVoice,
+    pause: pauseVoice,
+    resume: resumeVoice,
+    resetTranscript: resetVoiceTranscript,
+  } = useSpeechDictation({
+    onAutoSend: handleVoiceAutoSend,
+    onTranscriptChange: handleVoiceTranscriptChange,
+  });
+
+  useEffect(() => {
+    if (!voiceSessionActive) {
+      return;
+    }
+
+    if (isBusy) {
+      pauseVoice();
+    } else {
+      resumeVoice();
+    }
+  }, [isBusy, pauseVoice, resumeVoice, voiceSessionActive]);
+
+  useEffect(() => {
+    if (voiceError === "not-allowed" || voiceError === "not-supported") {
+      setVoiceSessionActive(false);
+    }
+  }, [voiceError]);
+
+  const toggleVoiceSession = useCallback(() => {
+    if (!voiceSupported || !isAuthReady) {
+      return;
+    }
+
+    clearVoiceError();
+
+    if (voiceSessionActive) {
+      stopVoice();
+      setVoiceSessionActive(false);
+
+      return;
+    }
+
+    startVoice();
+    setVoiceSessionActive(true);
+  }, [
+    clearVoiceError,
+    isAuthReady,
+    startVoice,
+    stopVoice,
+    voiceSessionActive,
+    voiceSupported,
+  ]);
+
   useEffect(() => {
     if (
       isBusy ||
-      trimmedInput.length < LIVE_BROWSE_MIN_QUERY_LENGTH ||
       liveBrowseArgs === "skip" ||
       liveBrowse === undefined ||
-      trimmedInput !== trimmedDebounced
+      debouncedLiveBrowseQuery === null ||
+      liveBrowseQuery !== debouncedLiveBrowseQuery
     ) {
       return;
     }
 
     setDisplayedLiveListings(liveBrowse.results);
     setDisplayedLiveIntent(liveBrowse.intent);
-    setDisplayedLiveQueryKey(trimmedDebounced);
+    setDisplayedLiveQueryKey(debouncedLiveBrowseQuery);
   }, [
+    debouncedLiveBrowseQuery,
     isBusy,
     liveBrowse,
     liveBrowseArgs,
-    trimmedDebounced,
-    trimmedInput,
+    liveBrowseQuery,
   ]);
 
   useEffect(() => {
@@ -1477,24 +1651,26 @@ export function BuyerSourcingChat() {
       ),
     [displayedLiveListings, liveStatusMap],
   );
-  const inputPending =
-    trimmedInput.length >= LIVE_BROWSE_MIN_QUERY_LENGTH &&
-    trimmedInput !== trimmedDebounced;
   const queryPending = liveBrowseArgs !== "skip" && liveBrowse === undefined;
   const resultsPendingForQuery =
     liveBrowseArgs !== "skip" &&
     liveBrowse !== undefined &&
-    displayedLiveQueryKey !== trimmedDebounced;
+    debouncedLiveBrowseQuery !== null &&
+    displayedLiveQueryKey !== debouncedLiveBrowseQuery;
   const liveBrowsePending =
-    inputPending || queryPending || resultsPendingForQuery;
+    liveBrowseQuery !== debouncedLiveBrowseQuery ||
+    queryPending ||
+    resultsPendingForQuery;
   /** Active live-browse session — keep HashLoader until cards replace it. */
   const hasLiveBrowseQuery =
     !isBusy && trimmedInput.length >= LIVE_BROWSE_MIN_QUERY_LENGTH;
   const showLiveBrowseCards =
+    hasLiveBrowseQuery && visibleLiveListings.length > 0;
+  /** Only flash the loader on the first search — keep cards while refining a word or fetching a new-word update. */
+  const showLiveBrowseLoader =
     hasLiveBrowseQuery &&
-    !liveBrowsePending &&
-    visibleLiveListings.length > 0;
-  const showLiveBrowseLoader = hasLiveBrowseQuery && !showLiveBrowseCards;
+    liveBrowsePending &&
+    visibleLiveListings.length === 0;
   const showLiveBrowse = showLiveBrowseLoader || showLiveBrowseCards;
   const isComposerActive =
     isComposerFocused || trimmedInput.length > 0;
@@ -1580,16 +1756,8 @@ export function BuyerSourcingChat() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const trimmed = input.trim();
-
-    if (!trimmed || isBusy || !isAuthReady) {
-      return;
-    }
-
-    stickToBottomRef.current = true;
-    clearLiveBrowse();
-    setInput("");
-    await sendMessage({ text: trimmed });
+    resetVoiceTranscript();
+    await submitSourcingText(input);
   };
 
   const handleOrder = (listing: BuyerSourcingListingResult) => {
@@ -1651,6 +1819,10 @@ export function BuyerSourcingChat() {
       stop();
     }
 
+    stopVoice();
+    setVoiceSessionActive(false);
+    resetVoiceTranscript();
+    clearVoiceError();
     clearError();
     setMessages([]);
     setInput("");
@@ -1672,7 +1844,17 @@ export function BuyerSourcingChat() {
     if (chatStorageKey) {
       clearBuyerSourcingMessages(chatStorageKey);
     }
-  }, [chatStorageKey, clearError, clearLiveBrowse, isBusy, setMessages, stop]);
+  }, [
+    chatStorageKey,
+    clearError,
+    clearLiveBrowse,
+    clearVoiceError,
+    isBusy,
+    resetVoiceTranscript,
+    setMessages,
+    stop,
+    stopVoice,
+  ]);
 
   return (
     <div
@@ -1690,10 +1872,6 @@ export function BuyerSourcingChat() {
           className="scrollbar-none flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain"
           onScroll={handleChatScroll}
         >
-          {messages.length === 0 && !compactMobileChrome ? (
-            <SourcingChatEmptyState firstName={userFirstName} />
-          ) : null}
-
           {messages.length > 0
             ? messages.map((message, index) => (
                 <ChatMessage
@@ -1729,6 +1907,11 @@ export function BuyerSourcingChat() {
         </div>
 
         {error ? <p className="shrink-0 text-sm text-danger">{error.message}</p> : null}
+        {voiceError ? (
+          <p className="shrink-0 text-sm text-danger">
+            {speechDictationErrorMessage(voiceError)}
+          </p>
+        ) : null}
         {!isAuthReady ? (
           <p className="shrink-0 text-sm text-muted">Signing you in…</p>
         ) : null}
@@ -1773,6 +1956,13 @@ export function BuyerSourcingChat() {
               <textarea
                 aria-label="Sourcing request"
                 className={COMPOSER_INPUT}
+                placeholder={
+                  voiceSessionActive && !isBusy
+                    ? voiceListening
+                      ? "Listening… keep talking (location, grade, quality)"
+                      : "Voice on — speak when ready"
+                    : undefined
+                }
                 rows={2}
                 value={input}
                 onBlur={() => setIsComposerFocused(false)}
@@ -1791,6 +1981,34 @@ export function BuyerSourcingChat() {
                   }
                 }}
               />
+              {voiceSupported ? (
+                <button
+                  aria-label={
+                    voiceSessionActive
+                      ? "Stop voice session"
+                      : "Start voice session"
+                  }
+                  aria-pressed={voiceSessionActive}
+                  className={clsx(
+                    "absolute bottom-2.5 right-14 flex h-11 w-11 items-center justify-center rounded-full transition-colors sm:bottom-3 sm:right-12 sm:h-9 sm:w-9",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30",
+                    "disabled:cursor-not-allowed disabled:opacity-35",
+                    voiceSessionActive
+                      ? "bg-accent/15 text-accent ring-2 ring-accent/40"
+                      : "text-muted hover:bg-surface-secondary hover:text-foreground",
+                    voiceListening && !isBusy && "animate-pulse",
+                  )}
+                  disabled={!isAuthReady || (isBusy && !voiceSessionActive)}
+                  type="button"
+                  onClick={toggleVoiceSession}
+                >
+                  {voiceSessionActive ? (
+                    <MicOff className="h-4 w-4" strokeWidth={1.75} />
+                  ) : (
+                    <Mic className="h-4 w-4" strokeWidth={1.75} />
+                  )}
+                </button>
+              ) : null}
               <button
                 aria-label={isBusy ? "Working on request" : "Send request"}
                 className="absolute bottom-2.5 right-2.5 flex h-11 w-11 items-center justify-center rounded-full bg-accent text-accent-foreground transition-opacity disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 sm:bottom-3 sm:right-3 sm:h-9 sm:w-9"

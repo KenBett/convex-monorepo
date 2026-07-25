@@ -47,11 +47,8 @@ export const listingCertificationValidator = v.union(
   v.literal("organic_certified"),
 );
 
-export const listingHardFilterTagValidator = v.union(
-  v.literal("organic"),
-  v.literal("export_grade"),
-  v.literal("pesticide_free"),
-);
+/** Same catalog as listing tags — any Quality/Standards tag can be a hard search filter. */
+export const listingHardFilterTagValidator = listingTagValidator;
 
 export const profileLocationInputValidator = v.object({
   locationLabel: v.optional(v.string()),
@@ -106,6 +103,24 @@ export function assertValidHardFilterTags(
     }
   }
   return unique as ListingHardFilterTag[];
+}
+
+export function assertValidSearchCertifications(
+  certifications: string[] | undefined,
+): ListingCertification[] | undefined {
+  if (!certifications || certifications.length === 0) {
+    return undefined;
+  }
+  return assertValidListingCertifications(certifications);
+}
+
+export function assertValidSearchPackaging(
+  packaging: string | undefined,
+): ListingPackaging | undefined {
+  if (!packaging) {
+    return undefined;
+  }
+  return assertValidListingPackaging(packaging);
 }
 
 export function formatListingAttributeSentence(input: {

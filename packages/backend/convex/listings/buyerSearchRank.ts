@@ -4,7 +4,10 @@ import { matchesGrade } from "../lib/listings";
 import type { BuyerSearchIntent } from "./buyerChatParse";
 import type { ListingSearchResultRow } from "./search";
 
-/** Crop, county, grade, and hard tags are all strict AND filters — a mismatch excludes the result. */
+/**
+ * Crop, county, grade, packaging, certifications, and Quality/Standards tags are all
+ * strict AND filters — a mismatch excludes the result (shared by live browse + chat).
+ */
 export function applyIntentFilters(
   results: ListingSearchResultRow[],
   intent: BuyerSearchIntent,
@@ -25,6 +28,9 @@ export function applyIntentFilters(
     if (intent.maxPricePerKg && result.pricePerKg > intent.maxPricePerKg) {
       return false;
     }
+    if (intent.packaging && result.packaging !== intent.packaging) {
+      return false;
+    }
     if (intent.tags && intent.tags.length > 0) {
       const listingTags = new Set(result.tags ?? []);
       for (const tag of intent.tags) {
@@ -33,8 +39,28 @@ export function applyIntentFilters(
         }
       }
     }
+    if (intent.certifications && intent.certifications.length > 0) {
+      const listingCerts = new Set(result.certifications ?? []);
+      for (const certification of intent.certifications) {
+        if (!listingCerts.has(certification)) {
+          return false;
+        }
+      }
+    }
     return true;
   });
+}
+
+/** True when the buyer asked for Quality (grade/packaging) or Standards (tags/certs). */
+export function intentHasQualityOrStandardsFilters(
+  intent: BuyerSearchIntent,
+): boolean {
+  return Boolean(
+    intent.grade ||
+      intent.packaging ||
+      (intent.tags && intent.tags.length > 0) ||
+      (intent.certifications && intent.certifications.length > 0),
+  );
 }
 
 const SEARCH_TEXT_STOP_WORDS = new Set([
@@ -151,7 +177,27 @@ function buildMatchReason(
   if (result.variety) {
     bits.push(result.variety);
   }
-  if (result.tags?.includes("organic")) {
+  if (intent.grade && result.grade) {
+    bits.push(`grade ${result.grade}`);
+  }
+  if (intent.packaging && result.packaging) {
+    bits.push(result.packaging.replaceAll("_", " "));
+  }
+  if (intent.tags) {
+    for (const tag of intent.tags) {
+      if (result.tags?.includes(tag)) {
+        bits.push(tag.replaceAll("_", " "));
+      }
+    }
+  }
+  if (intent.certifications) {
+    for (const certification of intent.certifications) {
+      if (result.certifications?.includes(certification)) {
+        bits.push(certification.replaceAll("_", " "));
+      }
+    }
+  }
+  if (result.tags?.includes("organic") && !intent.tags?.includes("organic")) {
     bits.push("organic");
   }
   if (intent.county && result.county === intent.county) {

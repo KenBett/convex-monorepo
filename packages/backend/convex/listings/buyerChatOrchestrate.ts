@@ -1,6 +1,6 @@
 "use node";
 
-import { CROP_TYPES, COUNTIES, LISTING_HARD_FILTER_TAGS } from "@repo/types";
+import { CROP_TYPES, COUNTIES, LISTING_CERTIFICATIONS, LISTING_HARD_FILTER_TAGS, LISTING_PACKAGING } from "@repo/types";
 import { generateText, stepCountIs, tool } from "ai";
 import { type Infer, v } from "convex/values";
 import { z } from "zod";
@@ -188,11 +188,16 @@ const orderLineSchema = z.object({
 });
 
 const searchClauseSchema = z.object({
+  certifications: z
+    .array(z.enum(LISTING_CERTIFICATIONS))
+    .nullable()
+    .optional(),
   county: z.enum(COUNTIES).nullable().optional(),
   crop: z.enum(CROP_TYPES).nullable().optional(),
   grade: z.string().nullable().optional(),
   maxPricePerKg: z.number().positive().nullable().optional(),
   minQuantityKg: z.number().positive().nullable().optional(),
+  packaging: z.enum(LISTING_PACKAGING).nullable().optional(),
   pricePreference: z
     .enum(["cheapest", "most_expensive"])
     .nullable()
@@ -384,11 +389,13 @@ function buildDeterministicBrowseIntent(
 
   return normalizeBuyerSearchIntent(
     {
+      certifications: null,
       crop: null,
       county: null,
       grade: null,
       maxPricePerKg: null,
       minQuantityKg: null,
+      packaging: null,
       pricePreference,
       refinePreviousResults,
       resultLimit:
@@ -550,11 +557,13 @@ function clauseInputToParsedIntent(
   input: z.infer<typeof searchClauseSchema>,
 ): Parameters<typeof normalizeBuyerSearchIntent>[0] {
   return {
+    certifications: input.certifications ?? null,
     crop: input.crop ?? null,
     county: input.county ?? null,
     grade: input.grade ?? null,
     maxPricePerKg: input.maxPricePerKg ?? null,
     minQuantityKg: input.minQuantityKg ?? null,
+    packaging: input.packaging ?? null,
     searchText: input.searchText,
     refinePreviousResults: input.refinePreviousResults ?? false,
     pricePreference: input.pricePreference ?? null,
@@ -799,7 +808,7 @@ export async function executeBuyerChatTurn(
       }),
       searchListings: tool({
         description:
-          "Search active in-stock listings matching the buyer's browse or refine request. Pass one clause per distinct crop/county/grade combination the buyer asked for.",
+          "Search active in-stock listings matching the buyer's browse or refine request. Pass one clause per distinct crop/county/grade/quality/standards combination. Grade, packaging, tags, and certifications are strict filters.",
         inputSchema: z.object({
           clauses: z.array(searchClauseSchema).min(1),
         }),

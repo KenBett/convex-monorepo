@@ -2,7 +2,9 @@ import { z } from "zod";
 
 import {
   LISTING_HARD_FILTER_TAGS,
+  type ListingCertification,
   type ListingHardFilterTag,
+  type ListingPackaging,
 } from "./listing-attributes";
 import { COUNTIES, CROP_TYPES, type ListingStatus } from "./marketplace";
 
@@ -16,6 +18,8 @@ export const buyerSearchIntentSchema = z.object({
 });
 
 export type BuyerSearchIntent = {
+  /** Hard AND filters for certifications (KEPSA, GlobalG.A.P., …). */
+  certifications?: ListingCertification[];
   county?: (typeof COUNTIES)[number];
   crop?: (typeof CROP_TYPES)[number];
   /** Drop cards already shown when expanding ("show me the rest / more"). */
@@ -23,11 +27,13 @@ export type BuyerSearchIntent = {
   grade?: string;
   maxPricePerKg?: number;
   minQuantityKg?: number;
+  /** Hard filter when the buyer asks for a packaging type (crates, bags, …). */
+  packaging?: ListingPackaging;
   pricePreference?: "cheapest" | "most_expensive";
   refinePreviousResults?: boolean;
   resultLimit?: number;
   searchText: string;
-  /** Hard AND filters for high-confidence listing tags (organic, export_grade, …). */
+  /** Hard AND filters for Quality/Standards tags (organic, cold_chain, …). */
   tags?: ListingHardFilterTag[];
 };
 

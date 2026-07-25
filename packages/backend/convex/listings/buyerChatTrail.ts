@@ -22,6 +22,9 @@ export function buildFilterLabels(intent: BuyerSearchIntent): string[] {
   if (intent.grade) {
     labels.push(`grade ${intent.grade}`);
   }
+  if (intent.packaging) {
+    labels.push(intent.packaging.replaceAll("_", " "));
+  }
   if (intent.maxPricePerKg !== undefined) {
     labels.push(`≤ KES ${intent.maxPricePerKg}/kg`);
   }
@@ -31,6 +34,11 @@ export function buildFilterLabels(intent: BuyerSearchIntent): string[] {
   if (intent.tags) {
     for (const tag of intent.tags) {
       labels.push(tag.replaceAll("_", " "));
+    }
+  }
+  if (intent.certifications) {
+    for (const certification of intent.certifications) {
+      labels.push(certification.replaceAll("_", " "));
     }
   }
   if (intent.pricePreference === "cheapest") {

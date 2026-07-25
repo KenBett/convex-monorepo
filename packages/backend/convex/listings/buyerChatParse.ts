@@ -21,12 +21,14 @@ import {
 } from "./buyerSearchIntentNormalize";
 
 export const buyerSearchIntentValidator = v.object({
+  certifications: v.optional(v.array(listingCertificationValidator)),
   county: v.optional(v.string()),
   crop: v.optional(v.string()),
   excludePreviousListings: v.optional(v.boolean()),
   grade: v.optional(v.string()),
   maxPricePerKg: v.optional(v.number()),
   minQuantityKg: v.optional(v.number()),
+  packaging: v.optional(listingPackagingValidator),
   pricePreference: v.optional(
     v.union(v.literal("cheapest"), v.literal("most_expensive")),
   ),

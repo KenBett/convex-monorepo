@@ -1,15 +1,25 @@
 import {
   COUNTIES,
   CROP_TYPES,
+  LISTING_CERTIFICATIONS,
+  LISTING_CERTIFICATION_LABELS,
   LISTING_HARD_FILTER_TAGS,
+  LISTING_PACKAGING,
+  LISTING_PACKAGING_LABELS,
   LISTING_TAG_LABELS,
   type County,
   type CropType,
+  type ListingCertification,
   type ListingHardFilterTag,
+  type ListingPackaging,
 } from "@repo/types";
 
 import { assertValidCounty, assertValidCrop } from "../lib/listings";
-import { assertValidHardFilterTags } from "../lib/listingAttributes";
+import {
+  assertValidHardFilterTags,
+  assertValidSearchCertifications,
+  assertValidSearchPackaging,
+} from "../lib/listingAttributes";
 import {
   toBuyerSearchIntent,
   type ParsedBuyerSearchIntent,
@@ -19,11 +29,14 @@ import type { BuyerSearchIntent } from "./buyerChatParse";
 export type BuyerSearchIntentPreviousContext = {
   crops: string[];
   intent: {
+    certifications?: ListingCertification[];
     county?: string;
     crop?: string;
     grade?: string;
     maxPricePerKg?: number;
     minQuantityKg?: number;
+    packaging?: ListingPackaging;
+    tags?: ListingHardFilterTag[];
   };
   listingCount: number;
 };
@@ -126,6 +139,58 @@ function resolveCropAlias(token: string): CropType | undefined {
   return CROP_ALIASES[token];
 }
 
+/**
+ * English function words that collide with crop prefixes (to→tomatoes, on→onions).
+ * Only treat these as crop prefixes when they are the first token ("to nakuru").
+ */
+const CROP_PREFIX_STOPWORDS = new Set([
+  "an",
+  "as",
+  "at",
+  "be",
+  "in",
+  "of",
+  "on",
+  "or",
+  "to",
+]);
+
+/**
+ * Fast typing shortcuts: "to" → tomatoes, "po" → potatoes, "ma" → maize, "av" → avocado.
+ * Only returns a crop when the prefix uniquely identifies one (preferring canonical names
+ * so "ma" → maize, not matoke/bananas).
+ */
+function prefixMatchCropToken(token: string): CropType | undefined {
+  if (token.length < 2) {
+    return undefined;
+  }
+
+  const canonicalMatches = new Set<CropType>();
+  for (const crop of CROP_TYPES) {
+    if (crop.startsWith(token)) {
+      canonicalMatches.add(crop);
+    }
+  }
+  if (canonicalMatches.size === 1) {
+    return [...canonicalMatches][0];
+  }
+  if (canonicalMatches.size > 1) {
+    return undefined;
+  }
+
+  const aliasMatches = new Set<CropType>();
+  for (const [alias, crop] of Object.entries(CROP_ALIASES)) {
+    if (alias.startsWith(token)) {
+      aliasMatches.add(crop);
+    }
+  }
+  if (aliasMatches.size === 1) {
+    return [...aliasMatches][0];
+  }
+
+  return undefined;
+}
+
 function fuzzyMatchCropToken(token: string): CropType | undefined {
   const exact = resolveCropAlias(token);
   if (exact) {
@@ -185,6 +250,18 @@ export function extractCropFromQuery(query: string): CropType | undefined {
     }
   }
 
+  // Prefix shortcuts while typing: "to" → tomatoes, "po" → potatoes.
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index]!;
+    if (CROP_PREFIX_STOPWORDS.has(token) && index !== 0) {
+      continue;
+    }
+    const prefixCrop = prefixMatchCropToken(token);
+    if (prefixCrop) {
+      return prefixCrop;
+    }
+  }
+
   // Typo tolerance: "potoatoes" → potatoes, "tomatows" → tomatoes.
   for (const token of tokens) {
     const fuzzyCrop = fuzzyMatchCropToken(token);
@@ -214,8 +291,14 @@ export function extractCountyFromQuery(query: string): County | undefined {
   return undefined;
 }
 
-/** Detect a grade phrase like "grade 2" or "Grade A". */
+/** Detect a grade phrase like "grade 2", "Grade A", "Premium", or "Standard". */
 export function extractGradeFromQuery(query: string): string | undefined {
+  const named = query.match(/\b(premium|standard)\b/i);
+  if (named?.[1]) {
+    const value = named[1].toLowerCase();
+    return value.charAt(0).toUpperCase() + value.slice(1);
+  }
+
   const match = query.match(/\bgrade\s*(\d+|[a-z])\b/i);
   if (!match?.[1]) {
     return undefined;
@@ -266,19 +349,44 @@ function applyQueryCountyOverride(
   };
 }
 
-/** Detect hard-filter tags like "organic" or "export grade" in the buyer's message. */
+/**
+ * Detect Quality/Standards tags (organic, cold chain, washed, …) in the buyer's message.
+ * Skips bare "organic" when the buyer asked for "organic certified" (certification instead).
+ */
 export function extractHardFilterTagsFromQuery(
   query: string,
 ): ListingHardFilterTag[] {
   const normalized = query.toLowerCase();
+  const asksOrganicCertified =
+    /\borganic\s+certified\b/i.test(query) ||
+    normalized.includes("organic_certified");
   const found: ListingHardFilterTag[] = [];
 
-  for (const tag of LISTING_HARD_FILTER_TAGS) {
+  // Longer / multi-word labels first so "export grade" wins cleanly.
+  const tagsByLabelLength = [...LISTING_HARD_FILTER_TAGS].sort(
+    (left, right) =>
+      LISTING_TAG_LABELS[right].length - LISTING_TAG_LABELS[left].length,
+  );
+
+  for (const tag of tagsByLabelLength) {
+    if (tag === "organic" && asksOrganicCertified) {
+      continue;
+    }
+
     const label = LISTING_TAG_LABELS[tag].toLowerCase();
     const slug = tag.replaceAll("_", " ");
+    const labelPattern = new RegExp(
+      `\\b${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+")}\\b`,
+      "i",
+    );
+    const slugPattern = new RegExp(
+      `\\b${slug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+")}\\b`,
+      "i",
+    );
+
     if (
-      normalized.includes(label) ||
-      normalized.includes(slug) ||
+      labelPattern.test(query) ||
+      slugPattern.test(query) ||
       normalized.includes(tag)
     ) {
       found.push(tag);
@@ -303,6 +411,117 @@ function applyQueryTagOverride(
   return {
     ...intent,
     tags: assertValidHardFilterTags(merged),
+  };
+}
+
+/** Detect certifications (KEPSA, GlobalG.A.P., Fairtrade, organic certified). */
+export function extractCertificationsFromQuery(
+  query: string,
+): ListingCertification[] {
+  const normalized = query.toLowerCase();
+  const found: ListingCertification[] = [];
+
+  const certsByLabelLength = [...LISTING_CERTIFICATIONS].sort(
+    (left, right) =>
+      LISTING_CERTIFICATION_LABELS[right].length -
+      LISTING_CERTIFICATION_LABELS[left].length,
+  );
+
+  for (const certification of certsByLabelLength) {
+    const label = LISTING_CERTIFICATION_LABELS[certification].toLowerCase();
+    const slug = certification.replaceAll("_", " ");
+    const compactLabel = label.replace(/[.\s]+/g, "");
+    const compactQuery = normalized.replace(/[.\s]+/g, "");
+
+    if (
+      normalized.includes(label) ||
+      normalized.includes(slug) ||
+      normalized.includes(certification) ||
+      (compactLabel.length >= 4 && compactQuery.includes(compactLabel))
+    ) {
+      found.push(certification);
+    }
+  }
+
+  return found;
+}
+
+function applyQueryCertificationOverride(
+  intent: BuyerSearchIntent,
+  query: string,
+): BuyerSearchIntent {
+  const certificationsFromQuery = extractCertificationsFromQuery(query);
+  if (certificationsFromQuery.length === 0) {
+    return intent;
+  }
+
+  const merged = Array.from(
+    new Set([...(intent.certifications ?? []), ...certificationsFromQuery]),
+  );
+  return {
+    ...intent,
+    certifications: assertValidSearchCertifications(merged),
+  };
+}
+
+/** Detect packaging type (crates, gunny bags, bulk, bags). */
+export function extractPackagingFromQuery(
+  query: string,
+): ListingPackaging | undefined {
+  const normalized = query.toLowerCase();
+
+  const packagingsByLabelLength = [...LISTING_PACKAGING].sort(
+    (left, right) =>
+      LISTING_PACKAGING_LABELS[right].length -
+      LISTING_PACKAGING_LABELS[left].length,
+  );
+
+  for (const packaging of packagingsByLabelLength) {
+    if (packaging === "bulk") {
+      // "bulk ready" is a standards tag, not packaging=bulk.
+      const withoutBulkReady = normalized
+        .replace(/\bbulk\s+ready\b/g, " ")
+        .replace(/bulk_ready/g, " ");
+      if (!/\bbulk\b/.test(withoutBulkReady)) {
+        continue;
+      }
+    }
+
+    const label = LISTING_PACKAGING_LABELS[packaging].toLowerCase();
+    const slug = packaging.replaceAll("_", " ");
+    const labelPattern = new RegExp(
+      `\\b${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+")}\\b`,
+      "i",
+    );
+    const slugPattern = new RegExp(
+      `\\b${slug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+")}\\b`,
+      "i",
+    );
+
+    if (labelPattern.test(query) || slugPattern.test(query)) {
+      return packaging;
+    }
+  }
+
+  return undefined;
+}
+
+function applyQueryPackagingOverride(
+  intent: BuyerSearchIntent,
+  query: string,
+): BuyerSearchIntent {
+  if (intent.packaging) {
+    return intent;
+  }
+
+  const packagingFromQuery = extractPackagingFromQuery(query);
+  if (!packagingFromQuery) {
+    return intent;
+  }
+
+  return {
+    ...intent,
+    packaging: packagingFromQuery,
   };
 }
 
@@ -409,6 +628,12 @@ function inheritPreviousIntent(
     if (extractHardFilterTagsFromQuery(query).length === 0) {
       delete nextIntent.tags;
     }
+    if (extractCertificationsFromQuery(query).length === 0) {
+      delete nextIntent.certifications;
+    }
+    if (!extractPackagingFromQuery(query)) {
+      delete nextIntent.packaging;
+    }
     delete nextIntent.excludePreviousListings;
     return nextIntent;
   }
@@ -431,6 +656,29 @@ function inheritPreviousIntent(
   }
   if (!nextIntent.maxPricePerKg && previousContext.intent.maxPricePerKg) {
     nextIntent.maxPricePerKg = previousContext.intent.maxPricePerKg;
+  }
+  if (
+    nextIntent.refinePreviousResults &&
+    !nextIntent.tags &&
+    previousContext.intent.tags &&
+    previousContext.intent.tags.length > 0
+  ) {
+    nextIntent.tags = previousContext.intent.tags;
+  }
+  if (
+    nextIntent.refinePreviousResults &&
+    !nextIntent.certifications &&
+    previousContext.intent.certifications &&
+    previousContext.intent.certifications.length > 0
+  ) {
+    nextIntent.certifications = previousContext.intent.certifications;
+  }
+  if (
+    nextIntent.refinePreviousResults &&
+    !nextIntent.packaging &&
+    previousContext.intent.packaging
+  ) {
+    nextIntent.packaging = previousContext.intent.packaging;
   }
 
   if (
@@ -494,6 +742,23 @@ function applyExpandResultsOverride(
   ) {
     nextIntent.maxPricePerKg = previousContext.intent.maxPricePerKg;
   }
+  if (
+    previousContext?.intent.tags &&
+    previousContext.intent.tags.length > 0 &&
+    !nextIntent.tags
+  ) {
+    nextIntent.tags = previousContext.intent.tags;
+  }
+  if (
+    previousContext?.intent.certifications &&
+    previousContext.intent.certifications.length > 0 &&
+    !nextIntent.certifications
+  ) {
+    nextIntent.certifications = previousContext.intent.certifications;
+  }
+  if (previousContext?.intent.packaging && !nextIntent.packaging) {
+    nextIntent.packaging = previousContext.intent.packaging;
+  }
 
   return nextIntent;
 }
@@ -509,6 +774,8 @@ export function normalizeBuyerSearchIntent(
   intent = applyQueryCountyOverride(intent, query);
   intent = applyQueryGradeOverride(intent, query);
   intent = applyQueryTagOverride(intent, query);
+  intent = applyQueryCertificationOverride(intent, query);
+  intent = applyQueryPackagingOverride(intent, query);
   intent = inheritPreviousIntent(intent, query, previousContext);
   intent = applyExpandResultsOverride(intent, query, previousContext);
   intent = normalizeSearchText(intent, query);
@@ -522,6 +789,14 @@ export function normalizeBuyerSearchIntent(
   if (intent.tags) {
     intent.tags = assertValidHardFilterTags(intent.tags);
   }
+  if (intent.certifications) {
+    intent.certifications = assertValidSearchCertifications(
+      intent.certifications,
+    );
+  }
+  if (intent.packaging) {
+    intent.packaging = assertValidSearchPackaging(intent.packaging);
+  }
 
   return intent;
 }
@@ -533,11 +808,13 @@ export function fallbackBuyerSearchIntent(
 ): BuyerSearchIntent {
   return normalizeBuyerSearchIntent(
     {
+      certifications: null,
       crop: null,
       county: null,
       grade: null,
       maxPricePerKg: null,
       minQuantityKg: null,
+      packaging: null,
       searchText: query,
       refinePreviousResults: false,
       pricePreference: null,
@@ -553,16 +830,18 @@ export const SEARCH_INTENT_TOOL_RULES = `When calling searchListings, populate s
 - Map user language to these crops only: ${CROP_TYPES.join(", ")}. Examples: corn → maize.
 - If the buyer mentions a crop in the latest message, always set crop explicitly — never reuse a crop from earlier turns.
 - If no crop is in the latest message, inherit from previous search context only when refining or expanding those same results.
-- Context threads: KEEP previous listing context for questions/orders about cards already shown ("how much is that?", "order it", "the cheaper one"). START FRESH when the buyer switches crop (maize → onions) — refinePreviousResults: false and do not reuse the old county/grade/price unless they repeat them.
-- When the buyer asks for more of the same produce ("show me the rest", "any more", "other options"), set refinePreviousResults: false so inventory is searched again (already-shown cards are excluded server-side). Keep the prior crop/county.
+- Context threads: KEEP previous listing context for questions/orders about cards already shown ("how much is that?", "order it", "the cheaper one"). START FRESH when the buyer switches crop (maize → onions) — refinePreviousResults: false and do not reuse the old county/grade/price/tags/certs/packaging unless they repeat them.
+- When the buyer asks for more of the same produce ("show me the rest", "any more", "other options"), set refinePreviousResults: false so inventory is searched again (already-shown cards are excluded server-side). Keep the prior crop/county/quality/standards filters.
 - Counties must be one of: ${COUNTIES.join(", ")} when mentioned.
-- Grade is a strict filter: extract phrases like "grade 2", "Grade A", "premium grade" into grade (store just the grade value, e.g. "2" or "A"); when the buyer says "only" grade N, that grade is required — never return other grades for that crop.
-- tags: only when the buyer clearly asks for ${LISTING_HARD_FILTER_TAGS.join(", ")} (e.g. organic, export grade, pesticide-free). These are strict AND filters.
-- Put remaining descriptive terms in searchText (quantity hints, quality, urgency).
+- Grade is a strict Quality filter: extract phrases like "grade 2", "Grade A", "Premium", "Standard" into grade (store the grade value, e.g. "2", "A", or "Premium"); when the buyer says "only" grade N, that grade is required — never return other grades for that crop.
+- packaging: when the buyer asks for ${LISTING_PACKAGING.join(", ")} (crates, gunny bags, bulk, bags). Strict filter.
+- tags: Quality/Standards tags when clearly asked — ${LISTING_HARD_FILTER_TAGS.join(", ")} (e.g. organic, export grade, cold chain, washed, pesticide-free). These are strict AND filters.
+- certifications: Standards certifications when clearly asked — ${LISTING_CERTIFICATIONS.join(", ")} (KEPSA, GlobalG.A.P., Fairtrade, organic certified). Strict AND filters. Prefer certifications over tags for "organic certified".
+- Put remaining descriptive terms in searchText (urgency, soft preferences not covered above).
 - searchText must never be empty.
 - minQuantityKg and maxPricePerKg when clearly stated; otherwise omit.
 - refinePreviousResults: true ONLY when re-ranking or narrowing cards already shown ("cheaper one", "the first one", "only grade 2 from these"). Never true for "show me the rest/more/others".
 - pricePreference: "cheapest" or "most_expensive" when refining by price.
 - resultLimit: 1 when the buyer asks for a single option — not when they ask for more/rest.
 - For brand-new searches with explicit crop or location, refinePreviousResults: false.
-- crop AND county AND grade AND tags are all strict, exact filters when set — a search for one crop/county/grade/tag combination must never return listings that fail any set filter.`;
+- crop AND county AND grade AND packaging AND tags AND certifications are all strict, exact filters when set — a search must never return listings that fail any set Quality or Standards filter.`;

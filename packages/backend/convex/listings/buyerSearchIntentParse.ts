@@ -1,20 +1,26 @@
 import {
   COUNTIES,
   CROP_TYPES,
+  LISTING_CERTIFICATIONS,
   LISTING_HARD_FILTER_TAGS,
+  LISTING_PACKAGING,
   type BuyerSearchIntent,
+  type ListingCertification,
   type ListingHardFilterTag,
+  type ListingPackaging,
 } from "@repo/types";
 import { jsonSchema } from "ai";
 
 export type BuyerSearchPricePreference = "cheapest" | "most_expensive";
 
 export type ParsedBuyerSearchIntent = {
+  certifications: ListingCertification[] | null;
   county: (typeof COUNTIES)[number] | null;
   crop: (typeof CROP_TYPES)[number] | null;
   grade: string | null;
   maxPricePerKg: number | null;
   minQuantityKg: number | null;
+  packaging: ListingPackaging | null;
   pricePreference: BuyerSearchPricePreference | null;
   refinePreviousResults: boolean;
   resultLimit: number | null;
@@ -63,6 +69,17 @@ export const buyerSearchIntentParseSchema = jsonSchema<ParsedBuyerSearchIntent>(
         enum: [...LISTING_HARD_FILTER_TAGS],
       },
     },
+    certifications: {
+      type: ["array", "null"],
+      items: {
+        type: "string",
+        enum: [...LISTING_CERTIFICATIONS],
+      },
+    },
+    packaging: {
+      type: ["string", "null"],
+      enum: [...LISTING_PACKAGING, null],
+    },
   },
   required: [
     "crop",
@@ -75,6 +92,8 @@ export const buyerSearchIntentParseSchema = jsonSchema<ParsedBuyerSearchIntent>(
     "pricePreference",
     "resultLimit",
     "tags",
+    "certifications",
+    "packaging",
   ],
   additionalProperties: false,
 });
@@ -100,5 +119,9 @@ export function toBuyerSearchIntent(
   if (parsed.pricePreference != null) intent.pricePreference = parsed.pricePreference;
   if (parsed.resultLimit != null) intent.resultLimit = parsed.resultLimit;
   if (parsed.tags != null && parsed.tags.length > 0) intent.tags = parsed.tags;
+  if (parsed.certifications != null && parsed.certifications.length > 0) {
+    intent.certifications = parsed.certifications;
+  }
+  if (parsed.packaging != null) intent.packaging = parsed.packaging;
   return intent;
 }

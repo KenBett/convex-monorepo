@@ -17,6 +17,7 @@ import {
 } from "./buyerChatTrail";
 import {
   applyIntentFilters,
+  intentHasQualityOrStandardsFilters,
   limitResults,
   rankByRelevance,
   sortResultsByPricePreference,
@@ -145,13 +146,17 @@ export async function executeBuyerSearchFromIntent(
   }
 
   const query = intent.searchText.trim();
+  // Quality/Standards hard filters need the full crop index — vector top-K alone
+  // can miss tagged/certified listings that live browse would keep.
+  const preferIndexedForQuality =
+    intentHasQualityOrStandardsFilters(intent) && Boolean(intent.crop);
   const {
     ragCandidateCount,
     results: hydratedResults,
     retrievalMode,
   } = await runListingBrowseSearch(ctx, {
     crop: intent.crop,
-    indexedOnly: options?.indexedOnly,
+    indexedOnly: options?.indexedOnly || preferIndexedForQuality,
     limit: intent.excludePreviousListings ? 12 : 8,
     query: query.length > 0 ? query : "produce",
   });

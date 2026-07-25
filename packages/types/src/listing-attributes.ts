@@ -30,14 +30,13 @@ export const LISTING_GRADES = [
 
 export type ListingGrade = (typeof LISTING_GRADES)[number];
 
-/** Tags that become hard AND filters when present in buyer search intent. */
-export const LISTING_HARD_FILTER_TAGS = [
-  "organic",
-  "export_grade",
-  "pesticide_free",
-] as const;
+/**
+ * Tags that become hard AND filters when present in buyer search intent.
+ * Covers Quality/Standards chip tags so chat + live browse enforce the same constraints.
+ */
+export const LISTING_HARD_FILTER_TAGS = LISTING_TAGS;
 
-export type ListingHardFilterTag = (typeof LISTING_HARD_FILTER_TAGS)[number];
+export type ListingHardFilterTag = ListingTag;
 
 export const LISTING_PACKAGING = [
   "bulk",

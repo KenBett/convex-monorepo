@@ -20,7 +20,7 @@ import {
 } from "./search";
 
 /** Minimum trimmed length before live browse hits indexed search. */
-const LIVE_BROWSE_MIN_QUERY_LENGTH = 3;
+const LIVE_BROWSE_MIN_QUERY_LENGTH = 2;
 const LIVE_BROWSE_DEFAULT_LIMIT = 8;
 /** Cap hydrate work for composer preview (full chat may load more). */
 const LIVE_BROWSE_CANDIDATE_CAP = 16;
