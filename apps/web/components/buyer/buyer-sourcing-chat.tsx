@@ -24,7 +24,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
-  MessageSquarePlus,
+  Trash2,
 } from "lucide-react";
 import {
   FormEvent,
@@ -48,7 +48,6 @@ import { VunrLogo } from "@/components/marketing/vunr-logo";
 import { SourcingChatEmptyState } from "@/components/buyer/sourcing-chat-empty-state";
 import { OrderDraftConfirmDialog } from "@/components/buyer/order-draft-confirm-dialog";
 import { OrderCheckoutDialog } from "@/components/buyer/order-checkout-dialog";
-import { useNavbarPageActions } from "@/components/layout/navbar-actions-context";
 import {
   clearBuyerSourcingMessages,
   loadBuyerSourcingMessages,
@@ -1636,29 +1635,6 @@ export function BuyerSourcingChat() {
     }
   }, [chatStorageKey, clearError, clearLiveBrowse, isBusy, setMessages, stop]);
 
-  const newChatNavbarAction = useMemo(() => {
-    if (messages.length === 0) {
-      return null;
-    }
-
-    return (
-      <Button
-        aria-label="Start a new chat"
-        className="bg-background text-foreground shadow-sm hover:bg-surface-secondary dark:bg-surface dark:shadow-none dark:hover:bg-surface-secondary"
-        isDisabled={!isAuthReady}
-        size="sm"
-        type="button"
-        variant="ghost"
-        onPress={handleNewChat}
-      >
-        <MessageSquarePlus className="h-4 w-4" strokeWidth={1.75} />
-        <span className="hidden sm:inline">New chat</span>
-      </Button>
-    );
-  }, [handleNewChat, isAuthReady, messages.length]);
-
-  useNavbarPageActions(newChatNavbarAction);
-
   return (
     <div className="mx-auto flex h-[calc(100svh-3rem-1.5rem-env(safe-area-inset-top,0px))] w-full max-w-4xl flex-col overflow-hidden md:h-[calc(100dvh-3.5rem-2rem)]">
       <div className="flex min-h-0 flex-1 flex-col gap-2 sm:gap-3">
@@ -1724,49 +1700,68 @@ export function BuyerSourcingChat() {
           <LiveBrowseIdleEmptyState compact={messages.length > 0} />
         ) : null}
 
-        <form className="flex shrink-0 flex-col gap-3" onSubmit={handleSubmit}>
-          <div className={`relative ${COMPOSER_SURFACE}`}>
-            <textarea
-              aria-label="Sourcing request"
-              className={COMPOSER_INPUT}
-              rows={2}
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (
-                  event.key === "Enter" &&
-                  !event.shiftKey &&
-                  !isBusy &&
-                  isAuthReady &&
-                  input.trim().length > 0
-                ) {
-                  event.preventDefault();
-                  event.currentTarget.form?.requestSubmit();
-                }
-              }}
-            />
-            <button
-              aria-label={isBusy ? "Working on request" : "Send request"}
-              className="absolute bottom-2.5 right-2.5 flex h-11 w-11 items-center justify-center rounded-full bg-accent text-accent-foreground transition-opacity disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 sm:bottom-3 sm:right-3 sm:h-9 sm:w-9"
-              disabled={isBusy || !isAuthReady || input.trim().length === 0}
-              type="submit"
-            >
-              <SourcingSendIcon size={16} />
-            </button>
-          </div>
-          {isBusy ? (
-            <div className="flex items-center justify-end gap-3 px-1">
-              <Button
-                size="sm"
-                type="button"
-                variant="secondary"
-                onPress={() => stop()}
+        <div className="relative shrink-0">
+          <button
+            aria-label="Clear chat"
+            className={clsx(
+              "absolute -top-3 right-3 z-20 flex h-11 w-11 -translate-y-full items-center justify-center rounded-full",
+              "bg-background text-foreground shadow-sm",
+              "transition-transform hover:scale-105 hover:bg-surface-secondary",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30",
+              "disabled:cursor-not-allowed disabled:opacity-40",
+              "dark:bg-surface dark:shadow-none dark:hover:bg-surface-secondary",
+            )}
+            disabled={!isAuthReady}
+            type="button"
+            onClick={handleNewChat}
+          >
+            <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+          </button>
+
+          <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
+            <div className={`relative ${COMPOSER_SURFACE}`}>
+              <textarea
+                aria-label="Sourcing request"
+                className={COMPOSER_INPUT}
+                rows={2}
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (
+                    event.key === "Enter" &&
+                    !event.shiftKey &&
+                    !isBusy &&
+                    isAuthReady &&
+                    input.trim().length > 0
+                  ) {
+                    event.preventDefault();
+                    event.currentTarget.form?.requestSubmit();
+                  }
+                }}
+              />
+              <button
+                aria-label={isBusy ? "Working on request" : "Send request"}
+                className="absolute bottom-2.5 right-2.5 flex h-11 w-11 items-center justify-center rounded-full bg-accent text-accent-foreground transition-opacity disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 sm:bottom-3 sm:right-3 sm:h-9 sm:w-9"
+                disabled={isBusy || !isAuthReady || input.trim().length === 0}
+                type="submit"
               >
-                Stop
-              </Button>
+                <SourcingSendIcon size={16} />
+              </button>
             </div>
-          ) : null}
-        </form>
+            {isBusy ? (
+              <div className="flex items-center justify-end gap-3 px-1">
+                <Button
+                  size="sm"
+                  type="button"
+                  variant="secondary"
+                  onPress={() => stop()}
+                >
+                  Stop
+                </Button>
+              </div>
+            ) : null}
+          </form>
+        </div>
       </div>
 
       <OrderDraftConfirmDialog
